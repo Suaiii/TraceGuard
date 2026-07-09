@@ -79,9 +79,9 @@ class TamperDetector:
         # 初始化子分析器
         self.patch_analyzer = PatchAnalyzer(
             detector=detector,
-            scales=config.get('scales', [224, 160, 112]),
-            stride_ratio=config.get('stride_ratio', 0.25),
-            batch_size=config.get('batch_size', 16),
+            scales=config.get('scales', [224, 160]),
+            stride_ratio=config.get('stride_ratio', 0.5),
+            batch_size=config.get('batch_size', 32),
         )
         self.feature_analyzer = FeatureStatsAnalyzer(
             method=config.get('feature_method', 'variance'),

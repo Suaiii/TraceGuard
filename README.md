@@ -16,16 +16,16 @@
 pip install torch torchvision pillow numpy scipy fastapi uvicorn pydantic pyyaml matplotlib
 ```
 
-模型权重放 `checkpoints/best.pth`（521MB）。
-测试样本：`tests/fixtures/`（8 张展示用例）和 `tests/BigGAN/`（1000 张全量测试集）。
+模型权重： `checkpoints/best.pth`（521MB）。
+测试样本：`tests/fixtures/`（自选展示用例，可从BigGAN中挑选部分）和 `tests/BigGAN/`（1000 张全量测试集）。
 
 ### 1.2 一键测试
 
 ```bash
-# 展示用例（8 张精选样本，生成热力图/掩膜/HTML报告）
+# 展示用例（精选样本，生成热力图/掩膜/HTML报告），输出在/case_study中
 python run_test.py --input-dir tests/fixtures --output case_study
 
-# 全量批量（1000 张，仅检测指标，不生成图片，极速）
+# 全量批量（1000 张，仅检测指标，不生成图片，极速），输出在/batch_results中
 python batch_analyze.py --input-dir tests/BigGAN --output batch_results --csv batch_results/results.csv
 
 # 单张分析
