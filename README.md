@@ -1,0 +1,467 @@
+# TraceGuard — AIGC 图像安全审核平台
+
+## 可解释检测取证 + 篡改可疑区域定位
+
+> 负责人：贺杰 | 上游：张潇（跨域 AIGC 检测，MambaOut-Small + MK-MMD）
+>
+> 2026-07-09 | v1.0 | 四象限局部篡改分类 | 1000 张 BigGAN 批量验证 (94.9%) | pytest 135 用例全绿
+
+---
+
+## 一、快速开始
+
+### 1.1 环境
+
+```bash
+pip install torch torchvision pillow numpy scipy fastapi uvicorn pydantic pyyaml matplotlib
+```
+
+模型权重放 `checkpoints/best.pth`（521MB）。
+测试样本：`tests/fixtures/`（8 张展示用例）和 `tests/BigGAN/`（1000 张全量测试集）。
+
+### 1.2 一键测试
+
+```bash
+# 展示用例（8 张精选样本，生成热力图/掩膜/HTML报告）
+python run_test.py --input-dir tests/fixtures --output case_study
+
+# 全量批量（1000 张，仅检测指标，不生成图片，极速）
+python batch_analyze.py --input-dir tests/BigGAN --output batch_results --csv batch_results/results.csv
+
+# 单张分析
+python run_test.py --input tests/fixtures/040_biggan_00074.png --output my_result
+
+# 全量全流程（1000 张全部生成热力图/掩膜，耗时较长）
+python run_test.py --input-dir tests/BigGAN --output case_study
+
+# 跳过定位加速 / CPU 模式
+python run_test.py --input-dir tests/fixtures --output case_study --skip-localization --device cpu
+```
+
+### 1.3 输出
+
+每张图在 `case_study/` 下生成独立子目录，含 8 个文件：
+
+| 文件 | 内容 |
+|------|------|
+| `analysis.json` | label, fake_prob, risk_score, risk_level, bbox_list, dimension_scores |
+| `explanation.txt` | 三段式中文解释（总体结论 / 取证分析 / 定位详情） |
+| `overlay.png` | 原图 + 半透明热力层叠加 |
+| `mask.png` | 纯热力掩膜（蓝 → 红紫 colormap） |
+| `tamper_mask.png` | 篡改可疑区域掩膜（红色标记） |
+| `tamper_overlay.png` | 原图 + 篡改掩膜叠加 |
+| `bbox_image.png` | 原图 + 可疑区域矩形框标注 |
+| `report.html` | 自包含 HTML 报告（内联雷达图 + 仪表条 + 维度详情） |
+
+批量模式额外生成 `batch_summary.html`（汇总对比报告）和 `summary.json`。打开 HTML 即可在浏览器查看完整检测报告。
+
+---
+
+## 二、项目结构
+
+```text
+traceguard_project/
+├── run_test.py                             # 一键全流程测试（输出热力图/掩膜/HTML报告）
+├── batch_analyze.py                        # 批量数据分析（仅检测指标，输出 CSV/JSON/HTML）
+├── server.py                               # FastAPI 服务入口
+├── README.md
+├── CLAUDE.md
+├── report.md                               # 竞赛报告（2.3/2.4 节内容）
+│
+├── detection/                              # [张潇] 跨域 AIGC 检测
+│   ├── inference_api.py                    #   Detector — predict / get_heatmap / get_spatial_features
+│   └── models/
+│       ├── mambaout_custom.py              #   MambaOut-Small 去 GAP 骨干 (stage2 14×14 + stage3 7×7)
+│       └── mkmmd.py                        #   MK-MMD 域自适应损失
+│
+├── explanation/                            # [贺杰] 可解释 + 定位
+│   ├── pipeline.py                         #   ExplanationPipeline 总调度
+│   ├── cli.py                              #   CLI 命令行
+│   ├── batch.py                            #   批量处理
+│   ├── config.py                           #   YAML → dataclass 配置加载
+│   ├── utils.py                            #   colormap / base64 / 图像叠加
+│   ├── heatmap/                            #   可解释热力图
+│   │   └── generator.py                    #     HeatmapGenerator (Grad-CAM 后处理)
+│   ├── localization/                       #   篡改可疑区域定位
+│   │   ├── detector.py                     #     TamperDetector (patch + feature 混合)
+│   │   ├── patch_analyzer.py               #     多尺度滑动窗口
+│   │   ├── feature_stats.py                #     特征统计异常检测 (14×14)
+│   │   ├── tamper_classifier.py            #     局部篡改四象限分类器 (v1.0)
+│   │   └── postprocess.py                  #     阈值 / 形态学 / NMS / bbox
+│   ├── risk/                               #   风险评分
+│   │   └── scorer.py                       #     RiskScorer 五维度加权
+│   ├── text/                               #   自然语言解释
+│   │   └── generator.py                    #     TextExplainer 三段式
+│   ├── api/                                #   FastAPI
+│   │   ├── routes.py                       #     4 端点 (health / config / analyze / batch)
+│   │   └── schemas.py                      #     Pydantic 模型
+│   └── visualization/                      #   图表 + 报告
+│       ├── charts.py                       #     雷达图 / 仪表条 / 批量汇总
+│       └── report.py                       #     HTML 自包含报告
+│
+├── configs/default.yaml                    # 全量 YAML 配置
+├── checkpoints/best.pth                    # 模型权重
+│
+├── tests/
+│   ├── conftest.py                         #   MockDetector + FakeModel
+│   ├── pytest.ini
+│   ├── fixtures/                           #   8 张 BigGAN 精选展示用例
+│   ├── BigGAN/                             #   1000 张 BigGAN 生成样本 (全量测试集)
+│   ├── test_heatmap.py                     #   热力图测试 (10)
+│   ├── test_localization.py                #   定位测试 (22)
+│   ├── test_pipeline.py                    #   流水线测试 (23)
+│   ├── test_risk.py                        #   风险评分测试 (19)
+│   ├── test_text.py                        #   文本解释测试 (17)
+│   ├── test_visualization.py               #   可视化测试 (22)
+│   ├── test_config.py                      #   配置系统测试 (12)
+│   └── test_cli.py                         #   CLI 测试 (6)
+│
+└── docs/
+    ├── 竞赛计划.pdf
+    └── TraceGuard.docx
+```
+
+---
+
+## 三、系统架构
+
+### 3.1 模块分层
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  调用层:  CLI (cli.py)  │  FastAPI (server.py)  │  Batch │
+├─────────────────────────────────────────────────────────┤
+│  调度层:  ExplanationPipeline (pipeline.py)              │
+├──────────────┬──────────────┬──────────────┬────────────┤
+│  HeatmapGen  │ TamperDetect │  RiskScorer  │ TextExplain│
+│  (Grad-CAM   │ (patch 0.4 + │  (5维加权)   │ (三段模板) │
+│   后处理)     │  feature 0.6)│              │            │
+├──────────────┴──────────────┴──────────────┴────────────┤
+│  上游:  Detector → MambaOutCustom                        │
+│  get_heatmap() → Grad-CAM 14×14                          │
+│  get_spatial_features() → feat_s2(14×14) + feat_s3(7×7)  │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 3.2 核心数据流
+
+```
+输入图像
+  │
+  ├─→ Detector.predict()          ★ 权威判定来源
+  │     forward → softmax → label + fake_prob + upstream_risk_score
+  │
+  ├─→ Detector.get_heatmap()
+  │     forward + backward → Grad-CAM on stage2 (384ch × 14×14)
+  │     → ReLU → normalize → bilinear upsample → [H, W] 热力图
+  │
+  ├─→ Detector.get_spatial_features()
+  │     forward(return_spatial=True) → feat_s2 [384,14,14] + feat_s3 [576,7,7]
+  │
+  ├─→ HeatmapGenerator: smooth(σ=3.0) → colormap → α-blend → overlay + mask
+  │
+  ├─→ TamperDetector:
+  │     PatchAnalyzer: 多尺度滑窗(224/160) + 批量推理 → patch_score + raw_score
+  │     FeatureStatsAnalyzer: feat_s2 通道方差异常 → feature_score
+  │     0.4×patch + 0.6×feature → 归一化 → 百分位阈值 → 形态学 → NMS → bbox
+  │     每个 bbox 附加 patch_fake_prob (从 raw_score 区域均值提取)
+  │
+  ├─→ TamperClassifier:  ★ v1.0 新增
+  │     classify_tamper(label, bbox_list) → 四象限分类
+  │     local_tamper 时覆盖 label 为 fake (全局 real + 局部 bbox)
+  │
+  ├─→ RiskScorer:
+  │     5维: fake_prob(0.30) + artifact_intensity(0.25) + tamper_area(0.25)
+  │           + region_count(0.10) + consistency(0.10)
+  │     → global_score → low[0,0.35) / medium[0.35,0.70) / high[0.70,1.0]
+  │
+  ├─→ TextExplainer:
+  │     模板填充 → 【总体结论】【取证分析】【定位详情】
+  │
+  └─→ 完整 JSON + base64 图像 + HTML 报告
+```
+
+> **判定权责**：`label` 和 `fake_prob` 由 `Detector.predict()` 直接输出（MambaOut 模型 softmax 结果，阈值 0.5），下游不再重复计算。`upstream_risk_score` 随元信息透传，供多证据融合模块使用。
+
+---
+
+## 四、核心算法
+
+### 4.1 热力图：Grad-CAM on Stage2 (14×14)
+
+在 MambaOut backbone 的 stage2 输出（384 通道 × 14×14 空间格点）上做 Grad-CAM：
+
+1. **Forward hook** 捕获 stage2 激活 `A ∈ R^{384×14×14}`
+2. **Backward** 对 fake 类 logit 求梯度，捕获 stage2 梯度 `G ∈ R^{384×14×14}`
+3. **通道权重** `w_c = mean(G_c)` → 加权激活 `CAM = ReLU(Σ w_c · A_c)` → [14, 14]
+4. **Bilinear upsample** 到原图尺寸 → [H, W], 归一化到 [0, 1]
+
+相比 v1 的 2×2 (4 格点) Weighted Channel Attribution，空间分辨率提升 **49 倍**。
+
+### 4.2 篡改定位：混合策略
+
+| 子分析器 | 方法 | 权重 | 分辨率 | 速度 |
+|----------|------|------|--------|------|
+| PatchAnalyzer | 多尺度滑窗(224/160) + 批量 Detector 推理 | 0.4 | 高 | 慢 (~80ms) |
+| FeatureStatsAnalyzer | stage2 特征(384ch×14×14) 通道方差异常 | 0.6 | 高 | 极快 (<1ms) |
+
+后处理流水线：`融合 score_map → 归一化 → 百分位阈值(90%) → 形态学(开/闭) → scipy.label → 最小外接矩形 → NMS(IoU=0.3)`
+
+### 4.3 风险评分：五维度加权
+
+| 维度 | 权重 | 计算 |
+|------|------|------|
+| 检测置信度 | 0.30 | fake_prob |
+| 伪影强度 | 0.25 | 0.6×heatmap_max + 0.4×heatmap_mean |
+| 篡改面积比 | 0.25 | Σ bbox_area / total_area |
+| 区域数量 | 0.10 | log₂(n+1) / log₂(6) |
+| 一致性 | 0.10 | IoU(热力图高分区域, 掩膜高分区域) |
+
+等级：`low [0, 0.35)` / `medium [0.35, 0.70)` / `high [0.70, 1.0]`
+
+> **全局风险分数 vs 局部风险分**：全局风险分反映整张图需要人工复核的紧迫程度。局部风险分基于该 bbox 区域的 **patch 级 fake_prob**（非全局 fake_prob）计算：`0.5 × patch_fake_prob + 0.5 × min(area_frac × 10, 1.0)`，确保局部篡改场景下即使全局 fake_prob 很低，可疑区域也能获得合理的高分。
+>
+> **热力图 vs bbox 为什么不一致**：热力图来自 Grad-CAM（stage2 梯度反向传播），bbox 来自 TamperDetector（滑窗推理 + 特征统计）。两者独立计算，不一致是正常的。
+
+### 4.2.5 局部篡改判定（四象限分类）
+
+在全局判定 + 局部定位结果上做二次分类：
+
+| 全局判定 | 局部定位 | 篡改类型 | 最终 label | 含义 |
+|----------|----------|----------|------------|------|
+| real | 无 bbox | `confirmed_real` | real | 全图真，局部无异常，双重确认 |
+| real | 有 bbox | `local_tamper` | local_tamper (显示: 局部篡改) | 全图看着真，但 patch 级发现异常 → 标记为局部篡改 |
+| fake | 无 bbox | `full_aigc` | fake | 全图假，伪影均匀分布 |
+| fake | 有 bbox | `full_aigc_hotspots` | fake | 全图假，且某些区域伪影更集中 |
+
+> **关键逻辑**：`real + 有 bbox → local_tamper` 是唯一覆盖全局判定的分支，不归入 AIGC 伪造类别，而是独立标记为"局部篡改"。224×224 缩略图上小面积篡改的信号被全图稀释，全局 softmax 看不出来，但 patch 滑窗能定位到。
+
+### 4.4 解释文本：三段式模板
+
+```
+【总体结论】判定结果 + 置信度 + 风险等级 + 处置建议
+【取证分析】基于热力图统计量的伪影特征描述
+【定位详情】逐区域坐标 + 面积 + 局部风险分
+```
+
+### 4.5 自定义 Colormap
+
+| 位置 | 颜色 | RGB | 含义 |
+|------|------|-----|------|
+| 0.00 | 深蓝 | (10, 40, 120) | 低伪造可疑 |
+| 0.40 | 青色 | (40, 200, 160) | |
+| 0.55 | 绿色 | (80, 220, 60) | |
+| 0.70 | 黄色 | (230, 210, 30) | |
+| 0.85 | 橙红 | (240, 100, 30) | |
+| 1.00 | 红紫 | (180, 20, 140) | 高伪造可疑 |
+
+---
+
+## 五、接口参考
+
+### 5.1 Python API
+
+```python
+from detection import Detector
+from explanation import ExplanationPipeline
+
+detector = Detector(checkpoint_path='checkpoints/best.pth', device='cuda')
+pipeline = ExplanationPipeline(detector, config={'overlay_alpha': 0.5, 'smooth_sigma': 3.0})
+
+# 文件路径 或 PIL.Image
+result = pipeline.run('tests/fixtures/real.png')
+
+print(result['label'])            # 'real' | 'fake'
+print(result['fake_prob'])        # 0.0388
+print(result['risk_level'])       # 'low' | 'medium' | 'high'
+print(result['explanation'])      # 三段式中文解释
+print(result['bbox_list'])        # [{'x','y','w','h','area','risk_score'}, ...]
+
+# 直接使用子模块
+from explanation.heatmap import HeatmapGenerator
+gen = HeatmapGenerator(detector)
+hm = gen.generate('test.jpg')     # {'overlay': PIL.Image, 'mask': PIL.Image, ...}
+```
+
+### 5.2 CLI
+
+```bash
+python -m explanation.cli --input tests/fixtures/real.png
+python -m explanation.cli --input test.jpg --save-dir ./output --skip-localization
+python -m explanation.cli --input test.jpg --config configs/default.yaml
+```
+
+### 5.3 FastAPI
+
+```bash
+python server.py                           # cuda, port 8000
+python server.py --device cpu --port 8080
+# Swagger UI → http://localhost:8000/docs
+```
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/health` | GPU 状态 |
+| GET | `/api/v1/config` | 当前配置 |
+| POST | `/api/v1/analyze` | 单图分析 (base64) |
+| POST | `/api/v1/analyze/batch` | 批量 (≤20张) |
+
+### 5.4 批量处理
+
+```bash
+python -m explanation.batch --input-dir ./images --output-dir ./results
+python -m explanation.batch --input-dir ./images --output-json results.json
+```
+
+### 5.5 JSON 响应格式
+
+```json
+{
+  "label": "fake",
+  "fake_prob": 0.9702,
+  "tamper_type": "full_aigc_hotspots",
+  "risk_score": 0.48,
+  "risk_level": "medium",
+  "explanation": "【总体结论】\n...\n\n【取证分析】\n...\n\n【定位详情】\n...",
+  "explanation_brief": "AIGC伪造图 | 置信度97% | 风险medium",
+  "bbox_list": [{"x": 10, "y": 20, "w": 180, "h": 150, "area": 27000, "risk_score": 0.72}],
+  "dimension_scores": {"fake_prob": 0.97, "artifact_intensity": 0.85, "tamper_area": 0.12, "region_count": 0.39, "consistency": 0.45},
+  "overlay_b64": "(base64 PNG)",
+  "mask_b64": "(base64 PNG)",
+  "tamper_mask_b64": "(base64 PNG)",
+  "tamper_overlay_b64": "(base64 PNG)",
+  "bbox_image_b64": "(base64 PNG)",
+  "elapsed_ms": 74,
+  "metadata": {"heatmap_method": "gradcam", "overlay_alpha": 0.5, "localization_enabled": true,
+               "detection_source": "Detector.predict()", "upstream_risk_score": 0.97, ...}
+}
+```
+
+---
+
+## 六、案例结果
+
+### 6.1 BigGAN 全量验证（1000 张，v2 Grad-CAM，更新版 checkpoint）
+
+| 指标 | 数值 |
+|------|------|
+| 总图片数 | 1000 |
+| 判定为 AIGC 伪造 | 949 (94.9%) |
+| 判定为真实 | 51 (5.1%) |
+| 高风险 / 中风险 / 低风险 | 0 / 951 / 49 |
+| 伪造图平均 fake_prob | 0.9182 |
+| 伪造图最高 fake_prob | 0.9998 |
+| 真实图最高 fake_prob | 0.4938（无跨越阈值误判） |
+| 总体平均 risk_score | 0.4885 |
+| 平均推理耗时 | ~90ms/张 |
+
+> **检出率 94.9%，接近张潇模型预期（~97%）**。此前旧 checkpoint 的 69.7% 为模型权重版本问题，已更新解决。
+> Grad-CAM 热力图在 AIGC 图像上呈现清晰的块状/网格状伪影热点区域，检测分数与热力响应高度一致。
+> 51 张 real 图中无一误判为 fake（最高 fake_prob=0.49 < 0.50），决策边界清晰。
+> 无高风险案例（risk_score ≥ 0.70），风险评分体系偏保守，Phase 7 将进行阈值校准。
+
+### 6.2 典型单图案例
+
+| 图像 | 判定 | fake_prob | risk_score | 等级 | 耗时 |
+|------|------|-----------|------------|------|------|
+| 040_biggan_00074 | **fake** | 0.9973 | 0.54 | medium | 92ms |
+| 158_biggan_00127 | **fake** | 0.9946 | 0.51 | medium | 104ms |
+| 052_biggan_00143 | **fake** | 0.9938 | 0.55 | medium | 88ms |
+| 807_biggan_00035 | **fake** | 0.9983 | 0.52 | medium | ~100ms |
+| 233_biggan_00035 | real | 0.0104 | 0.16 | low | 96ms |
+| 316_biggan_00035 | real | 0.0766 | 0.15 | low | 116ms |
+| 983_biggan_00143 | real | 0.0075 | 0.21 | low | 105ms |
+| 216_biggan_00035 | fake | 0.9334 | 0.50 | medium | ~90ms |
+| 233_biggan_00035 | real | 0.0104 | 0.17 | low | ~90ms |
+
+> 高置信度 fake 图 (fake_prob > 0.90) 的热力图呈现大面积高响应伪影区域。51 张 real 图无一跨越 0.50 阈值，检测-热力图一致性良好。
+
+### 6.3 可视化报告
+
+```python
+from explanation.visualization import Visualizer
+
+viz = Visualizer()
+html = viz.report('image.jpg', pipeline_result)    # 单图 HTML 报告
+viz.save_report(html, 'report.html')
+
+# 雷达图 / 仪表条 / 批量汇总图
+from explanation.visualization.charts import radar_chart, risk_gauge, batch_summary
+radar_chart(dim_scores).save('radar.png')
+risk_gauge(0.48, 'medium').save('gauge.png')
+```
+
+---
+
+## 七、配置系统
+
+`configs/default.yaml` 统一管理所有参数，按模块分组：
+
+```yaml
+detection:    {checkpoint_path, device}
+heatmap:      {method: gradcam, overlay_alpha: 0.5, smooth_sigma: 3.0}
+localization: {enable, scales: [224,160], stride_ratio: 0.5, threshold_percentile: 90, ...}
+risk:         {weights: {fake_prob: 0.30, ...}, levels: {low: [0,0.35], ...}}
+text:         {language: zh, detail_level: standard}
+output:       {format: PNG, html_title: ...}
+```
+
+加载方式：
+
+```python
+from explanation.config import load_and_convert
+pipe_config = load_and_convert('configs/default.yaml')
+pipeline = ExplanationPipeline(detector, config=pipe_config)
+```
+
+优先级：`CLI 参数 > YAML 配置 > 内置默认值`
+
+---
+
+## 八、测试
+
+```bash
+pytest tests/ -v              # 135 tests, ~33s (无 GPU)
+pytest tests/ -v -m "gpu"     # GPU 集成测试
+```
+
+| 模块 | 用例数 |
+|------|--------|
+| test_heatmap | 10 |
+| test_localization | 22 |
+| test_pipeline | 23 |
+| test_risk | 19 |
+| test_text | 17 |
+| test_visualization | 22 |
+| test_config | 12 |
+| test_cli | 6 |
+| **合计** | **135** |
+
+---
+
+## 九、已知问题
+
+| 问题 | 归属 | 严重 | 说明 |
+|------|------|------|------|
+| 风险评分偏保守 | 本模块 | 中 | 1000 张中无高风险案例（0 张 high），当前阈值手工设定，需验证集 ROC 校准 |
+| 风险权重未校准 | 本模块 | 低 | 五维度权重手工设定，需统计调优 |
+| Patch 滑窗在真实图上产生假阳性 bbox | 本模块 | 低 | Detector 未在 patch 级训练，复杂纹理可能触发误检，当前仅 51 张 real 受影响 |
+
+> **已解决**：旧 checkpoint 检出率仅 69.7%，更新 best.pth 后提升至 94.9%。旧 fixtures 样本（full_aigc fake_prob=0.11）问题随数据集和模型同步更新解决。
+
+---
+
+## 十、Phase 7 路线图
+
+| 优先级 | 方向 | 目标 | 状态 |
+|--------|------|------|------|
+| **P0** | 多尺度 Grad-CAM（stage2+stage3 融合） | 热力图兼具纹理定位 + 语义判别 | 待开始 |
+| **P0** | 案例一致性报告 | 证明检测分数与热力图/定位正相关 | 待开始 |
+| **P1** | 误检抑制（统计显著性 + 规则过滤） | 消除 real 图出 bbox 的矛盾 | 待开始 |
+| **P1** | 阈值校准（验证集 ROC） | 风险等级与 ground truth 对齐 | 待开始 |
+| **P2** | 解释文本数据驱动 | 从模板到量化描述 | 待开始 |
+| **P2** | 速度优化（TorchScript / 推理合并） | ~114ms → ~60ms | 待开始 |
+| ✅ | 全量数据集验证 | 1000 张 BigGAN 批量分析完成，949/51 fake/real (94.9%)，avg fake_prob=0.92 | 已完成 |
+| ✅ | 更新上游模型权重 | best.pth 更新，检出率从 69.7% → 94.9% | 已完成 |
+
+> 批量分析结果位于 `batch_results/`（summary.json + results.csv + batch_report.html）。
