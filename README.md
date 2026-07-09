@@ -119,9 +119,7 @@ traceguard_project/
 │
 └── docs/
     ├── project_plan.md
-    ├── submission_progress.md
-    ├── 竞赛计划.pdf
-    └── TraceGuard.docx
+    └── submission_progress.md
 ```
 
 ---
