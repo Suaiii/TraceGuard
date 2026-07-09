@@ -65,8 +65,6 @@ traceguard_project/
 ├── batch_analyze.py                        # 批量数据分析（仅检测指标，输出 CSV/JSON/HTML）
 ├── server.py                               # FastAPI 服务入口
 ├── README.md
-├── CLAUDE.md
-├── report.md                               # 竞赛报告（2.3/2.4 节内容）
 │
 ├── detection/                              # [张潇] 跨域 AIGC 检测
 │   ├── inference_api.py                    #   Detector — predict / get_heatmap / get_spatial_features
@@ -116,7 +114,12 @@ traceguard_project/
 │   ├── test_config.py                      #   配置系统测试 (12)
 │   └── test_cli.py                         #   CLI 测试 (6)
 │
+├── reports/
+│   └── TraceGuard.pdf
+│
 └── docs/
+    ├── project_plan.md
+    ├── submission_progress.md
     ├── 竞赛计划.pdf
     └── TraceGuard.docx
 ```
