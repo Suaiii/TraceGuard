@@ -1,12 +1,133 @@
-# Large local assets: keep reproducibility metadata, not the binaries.
+# ============================================================
+# TraceGuard — .gitignore
+# ============================================================
+
+# --- Python bytecode & cache ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# --- Virtual environments ---
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+*_venv/
+
+# --- Environment & secrets ---
+.env
+.env.*
+*.env
+!.env.example
+
+# --- Distribution / packaging ---
+build/
+dist/
+*.egg
+*.egg-info/
+*.whl
+develop-eggs/
+sdist/
+MANIFEST
+parts/
+
+# --- pip / pipenv / poetry ---
+pip-log.txt
+pip-delete-this-directory.txt
+Pipfile.lock
+poetry.lock
+
+# --- IDE & editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+\#*\#
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.sublime-project
+*.sublime-workspace
+
+# --- Jupyter Notebook ---
+.ipynb_checkpoints/
+*.ipynb_checkpoints*
+
+# --- Model checkpoints & weights ---
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.h5
+*.hdf5
+*.pb
+*.safetensors
+*.bin        # HuggingFace model bins (large)
+!checkpoints/.gitkeep
+
+# --- Test data (large binary/image samples) ---
+tests/BigGAN/
+# Keep directory structure but not the large images:
+# If you need to keep small test samples, add:
+# !tests/BigGAN/.gitkeep
+
+# --- Generated reports & outputs ---
+reports/
+*.pdf
+!docs/**/*.pdf
+!README.pdf
+
+# --- pytest ---
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.tox/
+nosetests.xml
+
+# --- Mypy ---
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# --- Ruff / Flake8 / Pylint ---
+.ruff_cache/
+
+# --- Claude Code internal ---
+.claude/
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Runtime outputs ---
+output/
+outputs/
+results/
+*.tmp
+tmp/
+
+# --- Docker ---
+.dockerignore
+
+# --- Misc ---
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# --- Local competition workspace assets ---
+# Keep reproducibility metadata in Git, not large local source assets.
 dataset/
 best.pth
 
-# Regenerable working files.
-tmp/
-
 # Office lock files and rendered review artifacts.
 ~$*
-*.png
-*.jpg
-*.jpeg
