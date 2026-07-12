@@ -1,0 +1,12 @@
+# Large local assets: keep reproducibility metadata, not the binaries.
+dataset/
+best.pth
+
+# Regenerable working files.
+tmp/
+
+# Office lock files and rendered review artifacts.
+~$*
+*.png
+*.jpg
+*.jpeg
