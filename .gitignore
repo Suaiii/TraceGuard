@@ -123,3 +123,11 @@ tmp/
 *.tar.gz
 *.rar
 *.7z
+
+# --- Local competition workspace assets ---
+# Keep reproducibility metadata in Git, not large local source assets.
+dataset/
+best.pth
+
+# Office lock files and rendered review artifacts.
+~$*
