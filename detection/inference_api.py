@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from torchvision import transforms
 import numpy as np
 from PIL import Image
+from pathlib import Path
 
 from .models.mambaout_custom import MambaOutCustom
 
@@ -20,7 +21,7 @@ class Detector:
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
         self.model = MambaOutCustom(num_classes=2, pretrained=False)
-        ckpt = torch.load(checkpoint_path, map_location='cpu', weights_only=True)
+        ckpt = self._load_checkpoint(checkpoint_path)
         self.model.load_state_dict(
             ckpt['model_state_dict'] if 'model_state_dict' in ckpt else ckpt,
             strict=False
@@ -131,6 +132,20 @@ class Detector:
         else:
             raise TypeError('Need PIL.Image or file path')
         return img
+
+    @staticmethod
+    def _load_checkpoint(checkpoint_path):
+        try:
+            return torch.load(checkpoint_path, map_location='cpu', weights_only=True)
+        except Exception as exc:
+            path = Path(checkpoint_path)
+            if not path.exists() or path.is_dir():
+                raise
+            print(
+                '[Detector] weights_only=True failed for local checkpoint; '
+                f'falling back to full torch.load ({type(exc).__name__})'
+            )
+            return torch.load(checkpoint_path, map_location='cpu')
 
 
 if __name__ == '__main__':

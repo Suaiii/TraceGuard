@@ -112,6 +112,9 @@ logs/
 output/
 outputs/
 results/
+case_study/
+.playwright-cli/
+web/static/sample-placeholder.txt
 *.tmp
 tmp/
 

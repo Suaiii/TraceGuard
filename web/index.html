@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TraceGuard &#22270;&#20687;&#23457;&#35745;&#24037;&#20316;&#21488;</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">TraceGuard</p>
+          <h1>&#22270;&#20687; AIGC &#20266;&#36896;&#23457;&#35745;&#24037;&#20316;&#21488;</h1>
+        </div>
+        <div class="status" id="serviceStatus">
+          <span class="status-dot"></span>
+          <span>&#36830;&#25509;&#20013;</span>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <section class="upload-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Input</p>
+              <h2>&#24453;&#26680;&#39564;&#22270;&#20687;</h2>
+            </div>
+            <button class="icon-button" id="sampleButton" type="button" title="&#20351;&#29992;&#26412;&#22320;&#26679;&#20363;">&#8599;</button>
+          </div>
+
+          <label class="dropzone" id="dropzone">
+            <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" />
+            <span class="upload-mark">&#8593;</span>
+            <span class="drop-title">&#25302;&#20837;&#22270;&#29255;&#25110;&#28857;&#20987;&#19978;&#20256;</span>
+            <span class="drop-meta">PNG / JPG / WEBP, &#21333;&#22270;&#23457;&#35745;</span>
+          </label>
+
+          <figure class="preview-frame">
+            <img id="previewImage" alt="input preview" />
+            <figcaption id="previewCaption">&#23578;&#26410;&#36873;&#25321;&#22270;&#20687;</figcaption>
+          </figure>
+
+          <div class="option-row">
+            <label class="toggle">
+              <input id="localizationToggle" type="checkbox" checked />
+              <span>&#21487;&#30097;&#21306;&#22495;&#23450;&#20301;</span>
+            </label>
+            <label class="range-label">
+              <span>&#28909;&#21147;&#21472;&#21152;&#24378;&#24230;</span>
+              <input id="alphaRange" type="range" min="0.2" max="0.8" value="0.5" step="0.05" />
+            </label>
+          </div>
+
+          <button class="primary-action" id="analyzeButton" type="button" disabled>
+            &#24320;&#22987;&#23457;&#35745;
+          </button>
+        </section>
+
+        <section class="result-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Decision</p>
+              <h2>&#23457;&#35745;&#32467;&#35770;</h2>
+            </div>
+            <span class="latency" id="latencyText">-- ms</span>
+          </div>
+
+          <div class="verdict" id="verdictBlock">
+            <span class="verdict-label" id="labelText">&#31561;&#24453;&#36755;&#20837;</span>
+            <strong id="probText">--%</strong>
+          </div>
+
+          <div class="meter-group">
+            <div class="meter-head">
+              <span>&#20266;&#36896;&#27010;&#29575;</span>
+              <b id="fakeProbText">--</b>
+            </div>
+            <div class="meter"><span id="fakeProbBar"></span></div>
+          </div>
+
+          <div class="meter-group">
+            <div class="meter-head">
+              <span>&#32508;&#21512;&#39118;&#38505;</span>
+              <b id="riskText">--</b>
+            </div>
+            <div class="meter risk"><span id="riskBar"></span></div>
+          </div>
+
+          <div class="evidence-grid">
+            <article>
+              <span id="bboxCount">0</span>
+              <p>&#21487;&#30097;&#21306;&#22495;</p>
+            </article>
+            <article>
+              <span id="riskLevel">--</span>
+              <p>&#39118;&#38505;&#31561;&#32423;</p>
+            </article>
+            <article>
+              <span id="methodText">--</span>
+              <p>&#35299;&#37322;&#26041;&#27861;</p>
+            </article>
+          </div>
+
+          <div class="explanation">
+            <h3>&#35299;&#37322;&#25688;&#35201;</h3>
+            <p id="briefText">&#19978;&#20256;&#19968;&#24352;&#22270;&#29255;&#21518;&#65292;&#31995;&#32479;&#20250;&#32473;&#20986;&#20840;&#23616;&#30495;&#20266;&#21028;&#26029;&#12289;&#23616;&#37096;&#35777;&#25454;&#21644;&#21487;&#22797;&#26680;&#35299;&#37322;&#12290;</p>
+          </div>
+        </section>
+
+        <section class="evidence-panel">
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-view="overlay" type="button">&#28909;&#21147;&#21472;&#21152;</button>
+            <button class="tab" data-view="mask" type="button">&#28909;&#21147;&#25513;&#33180;</button>
+            <button class="tab" data-view="bbox" type="button">&#21306;&#22495;&#26631;&#27880;</button>
+            <button class="tab" data-view="tamper" type="button">&#31713;&#25913;&#25513;&#33180;</button>
+          </div>
+
+          <div class="evidence-view">
+            <img id="evidenceImage" alt="evidence image" />
+            <div class="empty-state" id="emptyEvidence">&#23457;&#35745;&#21518;&#26174;&#31034;&#35777;&#25454;&#22270;</div>
+          </div>
+
+          <div class="detail-box">
+            <h3>&#35814;&#32454;&#35299;&#37322;</h3>
+            <pre id="detailText">&#31561;&#24453;&#20998;&#26512;&#32467;&#26524;&#12290;</pre>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

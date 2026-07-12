@@ -62,7 +62,7 @@ if __name__ == '__main__':
     print(f"{'='*60}\n")
 
     uvicorn.run(
-        "server:app",
+        app,
         host=args.host,
         port=args.port,
         reload=args.reload,

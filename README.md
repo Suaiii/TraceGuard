@@ -1,10 +1,18 @@
-# TraceGuard — AIGC 图像安全审核平台
+# TraceGuard - AIGC 图像安全审核与取证平台
 
-## 可解释检测取证 + 篡改可疑区域定位
+## 跨域检测、可解释取证与篡改可疑区域定位
 
-> 负责人：贺杰 | 上游：张潇（跨域 AIGC 检测，MambaOut-Small + MK-MMD）
+> 竞赛队长：**朱羿帅**（系统集成、产品化、作品报告与答辩）
 >
-> 2026-07-09 | v1.0 | 四象限局部篡改分类 | 1000 张 BigGAN 批量验证 (94.9%) | pytest 135 用例全绿
+> 团队成员：张潇（跨域 AIGC 检测，MambaOut-Small + MK-MMD）｜贺杰（可解释检测与取证）
+>
+> 2026-07-12 | Web + FastAPI 单进程闭环 | 四象限局部篡改分类 | 1000 张 BigGAN 批量验证（94.9%）
+
+TraceGuard 面向真实网络传播环境中的 AIGC 图像审核需求，将全局真伪判断、可解释热力图、局部可疑区域定位、风险融合和报告输出组织为一条可复核链路。仓库同时提供浏览器工作台、HTTP API、命令行和批量分析入口。
+
+```text
+上传图片 -> 跨域真伪检测 -> 热力图与局部定位 -> 风险融合 -> 中文解释与证据展示
+```
 
 ---
 
@@ -13,13 +21,35 @@
 ### 1.1 环境
 
 ```bash
-pip install torch torchvision pillow numpy scipy fastapi uvicorn pydantic pyyaml matplotlib
+pip install torch torchvision pillow numpy scipy fastapi uvicorn pydantic pyyaml matplotlib timm
 ```
 
-模型权重： `checkpoints/best.pth`（521MB）。
-测试样本：`tests/fixtures/`（自选展示用例，可从BigGAN中挑选部分）和 `tests/BigGAN/`（1000 张全量测试集）。
+建议使用 Python 3.10，并根据本机 CUDA 环境安装匹配版本的 PyTorch。模型权重放置在 `checkpoints/best.pth`（约 521 MB，不进入 Git）；可用测试样本位于 `tests/fixtures/`，全量 BigGAN 测试集按需放置到 `tests/BigGAN/`。
 
-### 1.2 一键测试
+### 1.2 启动 Web 工作台与 API
+
+前端由 FastAPI 直接托管，不需要单独安装 Node.js 或启动第二个开发服务器：
+
+```bash
+# 默认使用 CUDA，启动在 8000 端口
+python server.py --checkpoint checkpoints/best.pth
+
+# CPU 模式
+python server.py --device cpu --checkpoint checkpoints/best.pth
+
+# 自定义端口
+python server.py --device cpu --port 8080
+```
+
+启动后访问：
+
+| 入口 | 默认地址 | 用途 |
+|---|---|---|
+| Web 工作台 | `http://127.0.0.1:8000/` | 上传图片并查看检测、风险与可解释证据 |
+| Swagger UI | `http://127.0.0.1:8000/docs` | 调试 HTTP API |
+| 健康检查 | `http://127.0.0.1:8000/api/v1/health` | 核对模型、设备与服务状态 |
+
+### 1.3 CLI 与批量测试
 
 ```bash
 # 展示用例（精选样本，生成热力图/掩膜/HTML报告），输出在/case_study中
@@ -38,7 +68,7 @@ python run_test.py --input-dir tests/BigGAN --output case_study
 python run_test.py --input-dir tests/fixtures --output case_study --skip-localization --device cpu
 ```
 
-### 1.3 输出
+### 1.4 输出
 
 每张图在 `case_study/` 下生成独立子目录，含 8 个文件：
 
@@ -65,6 +95,12 @@ traceguard_project/
 ├── batch_analyze.py                        # 批量数据分析（仅检测指标，输出 CSV/JSON/HTML）
 ├── server.py                               # FastAPI 服务入口
 ├── README.md
+│
+├── web/                                    # 浏览器工作台（由 FastAPI 同源托管）
+│   ├── index.html                          # 上传、结果和证据视图
+│   └── static/
+│       ├── app.css                         # 工作台视觉样式
+│       └── app.js                          # 健康检查、上传分析和结果渲染
 │
 ├── detection/                              # [张潇] 跨域 AIGC 检测
 │   ├── inference_api.py                    #   Detector — predict / get_heatmap / get_spatial_features
@@ -295,13 +331,13 @@ python -m explanation.cli --input test.jpg --config configs/default.yaml
 ### 5.3 FastAPI
 
 ```bash
-python server.py                           # cuda, port 8000
-python server.py --device cpu --port 8080
-# Swagger UI → http://localhost:8000/docs
+python server.py                           # CUDA，Web 与 API 同时启动在 8000 端口
+python server.py --device cpu --port 8080  # CPU 与自定义端口
 ```
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| GET | `/` | TraceGuard Web 工作台 |
 | GET | `/api/v1/health` | GPU 状态 |
 | GET | `/api/v1/config` | 当前配置 |
 | POST | `/api/v1/analyze` | 单图分析 (base64) |
@@ -429,11 +465,11 @@ pytest tests/ -v -m "gpu"     # GPU 集成测试
 | 模块 | 用例数 |
 |------|--------|
 | test_heatmap | 10 |
-| test_localization | 22 |
-| test_pipeline | 23 |
-| test_risk | 19 |
-| test_text | 17 |
-| test_visualization | 22 |
+| test_localization | 21 |
+| test_pipeline | 21 |
+| test_risk | 20 |
+| test_text | 16 |
+| test_visualization | 29 |
 | test_config | 12 |
 | test_cli | 6 |
 | **合计** | **135** |
