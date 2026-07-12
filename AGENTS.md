@@ -37,16 +37,16 @@
 
 ## 3. Git 真实边界
 
-1. 当前目录下的 `.git/` 不是有效 Git 仓库；实际 Git 顶层为 `E:\aNB`，且当前尚无提交历史。
+1. 当前目录是 `Suaiii/TraceGuard` 的 Git 工作树；远端默认分支为 `main`。
 2. 所有 Git 命令必须显式限定到本工作区路径，例如：
 
 ```powershell
-git -C E:\aNB status -- TECH/AI竞赛
-git -C E:\aNB add -- TECH/AI竞赛/AGENTS.md TECH/AI竞赛/竞赛计划.md
+git -C E:\aNB\TECH\AI竞赛 status --short --branch
+git -C E:\aNB\TECH\AI竞赛 add -- AGENTS.md docs/inventory/source-assets.md
 ```
 
-3. 禁止在 `E:\aNB` 根目录执行无路径限制的 `git add .`、`git commit -a` 或清理命令；它会误纳入相邻项目。
-4. 提交前必须查看 `git -C E:\aNB diff --cached --stat` 与完整 staged 文件列表，确认不存在数据集、模型、压缩包、密钥、临时产物或相邻项目文件。
+3. 禁止在工作树根目录执行无范围确认的 `git add .`、`git commit -a` 或清理命令；它会误纳入本地竞赛材料、数据或模型。
+4. 提交前必须查看 `git diff --cached --stat` 与完整 staged 文件列表，确认不存在数据集、模型、压缩包、密钥、临时产物或不在当前 Issue 范围内的文件。
 5. 在有效远端、默认分支和协作规则未确认前，不得推送、改写历史、强推或删除分支。
 
 ---
