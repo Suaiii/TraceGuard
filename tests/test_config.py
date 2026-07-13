@@ -20,6 +20,11 @@ class TestConfigLoading:
         assert cfg.detection.device == 'cuda'
         assert cfg.heatmap.overlay_alpha == 0.5
 
+    def test_default_checkpoint_uses_auto_discovery(self):
+        from explanation.config import load_config
+
+        assert load_config().detection.checkpoint_path == 'auto'
+
     def test_load_yaml_config(self):
         """YAML 文件加载"""
         cfg = load_config('configs/default.yaml')
@@ -35,7 +40,7 @@ class TestConfigLoading:
     def test_config_defaults_classmethod(self):
         """类方法 defaults() 返回默认配置"""
         cfg = TraceGuardConfig.defaults()
-        assert cfg.detection.checkpoint_path == 'checkpoints/best.pth'
+        assert cfg.detection.checkpoint_path == 'auto'
 
 
 class TestPipelineConfigConversion:

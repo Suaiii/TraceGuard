@@ -137,7 +137,7 @@ web/index.html + web/static/*
 | `explanation/visualization/` | 图表、自包含 HTML 和批量报告 |
 | `explanation/api/` | FastAPI 路由和 Pydantic 合同 |
 | `web/` | 与 API 同源托管的浏览器工作台 |
-| `tests/` | 135 项当前回归测试及精选样例 |
+| `tests/` | 当前回归测试及精选样例；测试数量以实际收集结果为准 |
 | `reports/` | 已同步的报告快照；不作为实验真相源 |
 
 新增模块前，先证明现有模块无法准确承载该职责。不得为同一概念创建平行检测器、第二套风险分数或第二份响应合同。
@@ -251,7 +251,7 @@ needs-more-spec
 ### 9.2 检测与解释后端
 
 - 保持 `Detector` 为全局判定入口。
-- 权重默认位于 `checkpoints/best.pth`，不得提交到 Git。
+- 权重不进入 Git；`server.py` 默认依次查找 `checkpoints/best.pth` 和根目录 `best.pth`，显式路径不存在时不得静默回退。
 - 修改热力图或定位算法时，必须检查输出尺寸、归一化范围、bbox 坐标和空区域行为。
 - 修改风险权重或阈值时，必须提供验证集来源、指标定义、旧值对比和局限，不能只凭个例调参。
 
@@ -275,20 +275,22 @@ needs-more-spec
 
 ### 10.1 回归测试
 
-当前基线为 135 项测试。修改代码后至少运行受影响模块；合并前运行全量：
+当前代码可收集 140 项测试。修改代码后至少运行受影响模块；合并前运行全量：
 
 ```powershell
 python -m pytest tests -q
 ```
 
-不得仅凭 README 中“135 项通过”宣称当前测试通过。
+不得仅凭 README 中的测试数量宣称当前测试通过。默认 `E:\anaconda\python.exe` 当前没有安装 pytest；干净环境应先安装 `requirements-dev.txt`，或使用已经具备 pytest 的明确 Python 环境。
+
+`tests/test_pipeline.py::TestPipelineMock::test_low_fake_pipeline` 存在依赖随机特征产生 bbox 的非确定性问题，已记录为 GitHub Issue #7；该问题修复前，测试失败必须区分随机基线问题与当前改动回归，不能隐瞒或简单重试后宣称稳定。
 
 ### 10.2 本地系统验收
 
 需要证明 Web/API 闭环时：
 
 ```powershell
-python server.py --device cpu --checkpoint checkpoints/best.pth
+python server.py --device cpu
 ```
 
 然后检查：
@@ -444,7 +446,7 @@ Review 以 findings 开头，按严重程度排序：
 - patch + feature 局部定位；
 - 五维风险融合与中文解释；
 - Web、FastAPI、CLI 和批量处理入口；
-- 135 项测试；
+- 140 项可收集测试；
 - 报告框架和已有 PDF 快照。
 
 当前不能直接宣称已完成的部分：
@@ -455,6 +457,8 @@ Review 以 findings 开头，按严重程度排序：
 - 可解释模块的定量评价；
 - 平台压力、并发和长期稳定性测试；
 - 全部正式引用、最终架构图和最终提交报告。
+
+`reports/TraceGuard.pdf` 仅是历史报告快照，当前主工作区还处于删除状态，不能视为最终报告或当前可交付物。
 
 推荐优先 Issue 顺序：
 

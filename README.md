@@ -21,24 +21,29 @@ TraceGuard 面向真实网络传播环境中的 AIGC 图像审核需求，将全
 ### 1.1 环境
 
 ```bash
-pip install torch torchvision pillow numpy scipy fastapi uvicorn pydantic pyyaml matplotlib timm
+python -m pip install -r requirements.txt
+
+# 需要运行测试时
+python -m pip install -r requirements-dev.txt
 ```
 
-建议使用 Python 3.10，并根据本机 CUDA 环境安装匹配版本的 PyTorch。模型权重放置在 `checkpoints/best.pth`（约 521 MB，不进入 Git）；可用测试样本位于 `tests/fixtures/`，全量 BigGAN 测试集按需放置到 `tests/BigGAN/`。
+建议使用 Python 3.10，并根据本机 CUDA 环境安装匹配版本的 PyTorch。模型权重不进入 Git；启动程序会依次查找 `checkpoints/best.pth` 和根目录 `best.pth`。可用小型测试样本位于 `tests/fixtures/`。
+
+`tests/BigGAN/` 是外部大型测试集目录，仓库和当前主工作区均未包含它。需要运行 1000 张批量验证时，应先按 [`docs/inventory/datasets-and-models.md`](docs/inventory/datasets-and-models.md) 补齐来源、校验值和测试划分。
 
 ### 1.2 启动 Web 工作台与 API
 
 前端由 FastAPI 直接托管，不需要单独安装 Node.js 或启动第二个开发服务器：
 
 ```bash
-# 默认使用 CUDA，启动在 8000 端口
-python server.py --checkpoint checkpoints/best.pth
+# 默认使用 CUDA，自动发现本地权重，启动在 8000 端口
+python server.py
 
 # CPU 模式
-python server.py --device cpu --checkpoint checkpoints/best.pth
+python server.py --device cpu
 
-# 自定义端口
-python server.py --device cpu --port 8080
+# 显式指定权重与端口（路径不存在时直接报错）
+python server.py --device cpu --port 8080 --checkpoint D:\models\traceguard-best.pth
 ```
 
 启动后访问：
@@ -52,10 +57,10 @@ python server.py --device cpu --port 8080
 ### 1.3 CLI 与批量测试
 
 ```bash
-# 展示用例（精选样本，生成热力图/掩膜/HTML报告），输出在/case_study中
+# 展示用例（精选样本，生成热力图/掩膜/HTML报告）
 python run_test.py --input-dir tests/fixtures --output case_study
 
-# 全量批量（1000 张，仅检测指标，不生成图片，极速），输出在/batch_results中
+# 可选：准备 tests/BigGAN 后运行 1000 张批量分析
 python batch_analyze.py --input-dir tests/BigGAN --output batch_results --csv batch_results/results.csv
 
 # 单张分析
@@ -70,7 +75,7 @@ python run_test.py --input-dir tests/fixtures --output case_study --skip-localiz
 
 ### 1.4 输出
 
-每张图在 `case_study/` 下生成独立子目录，含 8 个文件：
+运行单图/展示用例命令后，每张图会在 `case_study/` 下生成独立子目录，含 8 个文件：
 
 | 文件 | 内容 |
 |------|------|
@@ -83,7 +88,7 @@ python run_test.py --input-dir tests/fixtures --output case_study --skip-localiz
 | `bbox_image.png` | 原图 + 可疑区域矩形框标注 |
 | `report.html` | 自包含 HTML 报告（内联雷达图 + 仪表条 + 维度详情） |
 
-批量模式额外生成 `batch_summary.html`（汇总对比报告）和 `summary.json`。打开 HTML 即可在浏览器查看完整检测报告。
+批量模式会生成 `batch_summary.html`（汇总对比报告）和 `summary.json`。这些目录均为本地生成产物，不随仓库提供；当前主工作区尚未生成 `case_study/` 或 `batch_results/`。
 
 ---
 
@@ -134,7 +139,7 @@ traceguard_project/
 │       └── report.py                       #     HTML 自包含报告
 │
 ├── configs/default.yaml                    # 全量 YAML 配置
-├── checkpoints/best.pth                    # 模型权重
+├── checkpoints/best.pth 或 best.pth        # 本地模型权重（不进入 Git）
 │
 ├── tests/
 │   ├── conftest.py                         #   MockDetector + FakeModel
@@ -302,7 +307,9 @@ traceguard_project/
 from detection import Detector
 from explanation import ExplanationPipeline
 
-detector = Detector(checkpoint_path='checkpoints/best.pth', device='cuda')
+from server import resolve_checkpoint_path
+
+detector = Detector(checkpoint_path=str(resolve_checkpoint_path()), device='cuda')
 pipeline = ExplanationPipeline(detector, config={'overlay_alpha': 0.5, 'smooth_sigma': 3.0})
 
 # 文件路径 或 PIL.Image
@@ -331,7 +338,7 @@ python -m explanation.cli --input test.jpg --config configs/default.yaml
 ### 5.3 FastAPI
 
 ```bash
-python server.py                           # CUDA，Web 与 API 同时启动在 8000 端口
+python server.py                           # CUDA，自动发现权重，Web 与 API 启动在 8000 端口
 python server.py --device cpu --port 8080  # CPU 与自定义端口
 ```
 
@@ -377,6 +384,8 @@ python -m explanation.batch --input-dir ./images --output-json results.json
 ---
 
 ## 六、案例结果
+
+> 本节保存的是已有实验记录，不是当前目录中的现场输出。当前缺少 `tests/BigGAN/`、`case_study/` 和 `batch_results/`，因此必须先恢复相同数据、权重和命令，再复核以下数字。
 
 ### 6.1 BigGAN 全量验证（1000 张，v2 Grad-CAM，更新版 checkpoint）
 
@@ -458,8 +467,8 @@ pipeline = ExplanationPipeline(detector, config=pipe_config)
 ## 八、测试
 
 ```bash
-pytest tests/ -v              # 135 tests, ~33s (无 GPU)
-pytest tests/ -v -m "gpu"     # GPU 集成测试
+python -m pytest tests/ -v              # 无 GPU 回归测试
+python -m pytest tests/ -v -m "gpu"     # GPU 集成测试
 ```
 
 | 模块 | 用例数 |
@@ -470,9 +479,10 @@ pytest tests/ -v -m "gpu"     # GPU 集成测试
 | test_risk | 20 |
 | test_text | 16 |
 | test_visualization | 29 |
-| test_config | 12 |
+| test_config | 13 |
 | test_cli | 6 |
-| **合计** | **135** |
+| test_server | 4 |
+| **合计** | **140** |
 
 ---
 
@@ -501,4 +511,4 @@ pytest tests/ -v -m "gpu"     # GPU 集成测试
 | ✅ | 全量数据集验证 | 1000 张 BigGAN 批量分析完成，949/51 fake/real (94.9%)，avg fake_prob=0.92 | 已完成 |
 | ✅ | 更新上游模型权重 | best.pth 更新，检出率从 69.7% → 94.9% | 已完成 |
 
-> 批量分析结果位于 `batch_results/`（summary.json + results.csv + batch_report.html）。
+> 重新运行批量命令后，结果将写入 `batch_results/`。该目录当前不存在，也不进入 Git；历史数字的证据状态见 `docs/inventory/deliverables.md`。
