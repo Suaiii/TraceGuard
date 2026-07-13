@@ -83,6 +83,7 @@ reports/*
 *.pdf
 !docs/**/*.pdf
 !README.pdf
+team_brief_2026-07-13.md
 
 # --- pytest ---
 .pytest_cache/
