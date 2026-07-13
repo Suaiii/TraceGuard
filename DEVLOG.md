@@ -31,11 +31,15 @@
 | BigGAN Accuracy | 97.35% | `eval_results.csv` | 1000 real + 1000 fake |
 | BigGAN Fake Recall | 94.90% | `eval_results.csv` | README 中“BigGAN 检出率 94.9%”的正式口径 |
 | Real Recall | 99.80% | `eval_results.csv` | 当前 8 组测试使用同一源域 real 子集 |
+| GenImage Facebook Fake Recall | 21.675% | `experiments/socialmedia/verified_results/paired_summary_all.csv` | 8000 个 fake-only 成对样本，不是完整二分类 Accuracy |
+| GenImage WeChat Fake Recall | 48.1875% | `experiments/socialmedia/verified_results/paired_summary_all.csv` | 相对 Original 59.55%，保持率 80.919% |
+| GenImage Weibo Fake Recall | 47.5125% | `experiments/socialmedia/verified_results/paired_summary_all.csv` | 相对 Original 59.55%，保持率 79.786% |
+| 三平台分类 Accuracy | 92.50%–92.64% | `experiments/socialmedia/verified_results/classification_summary.csv` | 每平台 500 real + 4500 fake，类别不平衡且无 Original 对应版本 |
 | 跨域提升 17%+ | 待补直接证据 | `REPRODUCIBILITY.md` 指向尚未入库的 `实验数据表.md` | 在消融原始表入库前不得作为已复核结论 |
 
 ### 当前主要缺口
 
-- GenImage 的 Original/Facebook/WeChat/Weibo 8000 组成对清单已建立，但尚未运行模型推理、指标计算与性能保持率分析。
+- GenImage 的 Original/Facebook/WeChat/Weibo 8000 组成对推理与性能保持率分析已完成，下一步是生成报告级图表和典型案例。
 - AIGCDetectBenchmark、AIGIBench、Chameleon 和 `test_eachfake_500_real500` 的传播后数据已就绪，但对应原始版本尚未定位，暂时不能计算成对性能保持率。
 - 尚未完成 JPEG、缩放、裁剪和截图转存的系统鲁棒性实验。
 - 尚未完成风险权重与 low/medium/high 阈值的验证集校准。
@@ -71,6 +75,14 @@
 - 7 月 19 日冻结技术内容，7 月 20 日仅仅处理封版阻塞问题。
 
 ## 变更记录
+
+### 2026-07-13 - 社交媒体传播鲁棒性正式实验完成
+
+- 使用 SHA-256 为 `29F85...0474` 的 `best.pth`，在 RTX 4060、PyTorch 2.5.1+cu121 环境运行。
+- GenImage 成对实验完成 32000 个唯一预测键，0 失败；Original 的八生成器 Fake Recall 与 `eval_results.csv` 逐项一致。
+- 三个平台分类实验完成 15000 个唯一预测键，0 失败；每个平台包含 500 real 与 4500 fake。
+- 小型汇总、指标边界和来源哈希已冻结到 `experiments/socialmedia/verified_results/`；逐样本原始预测继续保持 ignored。
+- 结果显示不同数据构成下平台影响差异显著，报告必须并列解释，不得仅仅引用较高 Accuracy 回避 GenImage 的传播退化。
 
 ### 2026-07-13 - 社交媒体数据完成本地准入核验
 

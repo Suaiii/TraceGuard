@@ -1,0 +1,43 @@
+{
+  "frozen_at": "2026-07-13",
+  "runtime": {
+    "python": "3.10.20",
+    "torch": "2.5.1+cu121",
+    "torchvision": "0.20.1+cu121",
+    "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "batch_size": 32
+  },
+  "checkpoint": {
+    "path": "best.pth",
+    "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474"
+  },
+  "paired_genimage": {
+    "status": "complete",
+    "prediction_rows": 32000,
+    "failures": 0,
+    "raw_predictions_sha256": "21DED2D3A35B2D94AD3A2C21FBC80DD3BBE20090864F83A5EE3B30B2FFB97BD3",
+    "archives": {
+      "original": "3ED4C6335043C1F52E67D7DA9B7E02E10D60E7764506EBE3658408D12D2E5782",
+      "facebook": "95FCF16447C0CB5D69308CFA92EC59D1F687AD8FFABABC7FED48EFE8DF11F7C0",
+      "wechat": "D28FA0AE52C11B59C91190AA302F325D4B509D739330893212938076ED81FDD8",
+      "weibo": "1A713EF6850D230BF485071250F4FE289C9D952175C67F400C511BE6C462F09D"
+    }
+  },
+  "platform_benchmark": {
+    "status": "complete",
+    "prediction_rows": 15000,
+    "failures": 0,
+    "raw_predictions_sha256": "C4666A79729AEE9625C8686B53ECCD1ACA4BB9C0F5EEBB9D68E68C85C3804AC2",
+    "archives": {
+      "facebook": "C8C83CA1B92684B5A4160A5567715AD28C9A4D2EFDF357F0F2690F2A15C4393F",
+      "wechat": "6CB9BF72B287346C73556D5DBE010415C722983AF67A971C11384FEBF8919D3A",
+      "weibo": "225A8D4D40F384417727F744EC04399C4132F5C43AC8C116D522B546700A81C3"
+    }
+  },
+  "cross_checks": {
+    "paired_keys_unique": true,
+    "platform_keys_unique": true,
+    "probabilities_finite_and_in_range": true,
+    "original_generator_fake_recall_matches_eval_results_csv": true
+  }
+}

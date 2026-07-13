@@ -1,6 +1,6 @@
 # 社交媒体传播鲁棒性实验合同
 
-状态：`ready-for-implementation`  
+状态：`completed`
 冻结日期：2026-07-13  
 负责人：朱羿帅（实验基础设施、系统集成、证据归档与报告合稿）
 
@@ -92,6 +92,18 @@ predicted_label,real_prob,fake_prob,checkpoint_sha256,elapsed_ms,status,error
 5. 输出记录权重 SHA-256、数据包路径与哈希、Python/PyTorch/CUDA 版本、命令、设备和时间。
 6. 任一缺失、重复、读取失败或推理失败都会使运行状态保持 `incomplete`。
 7. 报告数字可回溯到逐样本 CSV 和运行元数据。
+
+## Verified Results
+
+- GenImage 成对实验完成 32000 个预测键，0 失败；8000 个 `sample_id` 均包含 Original、Facebook、WeChat、Weibo 四个版本。
+- Original、Facebook、WeChat、Weibo 的总体 Fake Recall 分别为 59.55%、21.675%、48.1875%、47.5125%。
+- 相对 Original，Facebook、WeChat、Weibo 的 Fake Recall 保持率分别为 36.398%、80.919%、79.786%。
+- 相对 Original，三个平台的平均 `fake_prob` 成对变化分别为 -0.3162、-0.0957、-0.0990。
+- 三个平台分类集各有 500 real 与 4500 fake。Facebook、WeChat、Weibo 的 Accuracy 分别为 92.64%、92.50%、92.60%，Macro F1 分别为 84.28%、84.01%、84.24%，ROC AUC 分别为 99.29%、99.29%、99.30%。
+- GenImage Original 的八生成器 Fake Recall 与 `eval_results.csv` 逐项一致。
+- 已验证汇总与来源哈希见 `experiments/socialmedia/verified_results/`。
+
+上述两个实验的数据构成不同。平台分类结果不能替代 GenImage 成对传播结果，也不能用于声称 Facebook 对所有数据都没有显著影响。
 
 ## Validation Commands
 
