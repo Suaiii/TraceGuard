@@ -10,7 +10,7 @@
 | Windows 可执行入口 | `start_traceguard.bat` | 启动程序 | 调用当前 Python 环境并透传 `server.py` 参数 | tracked | 支持双击启动；依赖缺失或权重缺失时明确报错 |
 | TraceGuard Markdown 报告 | `reports/TraceGuard.md` | 报告工作源 | 仓库协作维护 | tracked | 已含系统图、传播实验、案例、平台验收和正式引用；算法负责人证据未齐，不是最终报告 |
 | TraceGuard PDF | `reports/TraceGuard.pdf` | 历史报告快照 | 2026-07-09 同步的历史快照 | removed | 已由 Markdown 工作源替代，不再保留在仓库 |
-| Word 报告工作稿 | `output/doc/TraceGuard_作品报告_工作稿.docx`、`.pdf` | 官方模板报告 | `scripts/build_report_docx.py` 从 Markdown 工作源生成 | ignored/local | 23 页，含 10 个官方模板节、14 张图，目录/页码/题注/可访问性与逐页渲染均已核查；等待队友证据和封面字段后封版 |
+| Word 报告工作稿 | `output/doc/TraceGuard_作品报告_工作稿.docx`、`.pdf` | 官方模板报告 | `scripts/build_report_docx.py` 从 Markdown 工作源生成 | ignored/local | 25 页，含 10 个官方模板节、14 张图，目录/页码/题注/可访问性与新增证据页逐页渲染均已核查；等待更多来源证据和封面字段后封版 |
 | 原创性声明待签章稿 | `output/doc/TraceGuard_原创性声明_待签章.docx`、`.pdf` | 官方模板声明 | `scripts/build_originality_statement.py` 预填作品名 | ignored/local | 单页渲染通过；签名和日期保持空白，等待全员手写签名与教务公章 |
 | 答辩与演示运行手册 | `docs/defense/defense_runbook.md` | 答辩素材 | 当前系统、报告和验收证据整理 | tracked | 十分钟结构、三分钟演示、故障回退和问答边界已固定；三页指标内容等待队友原始材料 |
 | AIGC 定位边界评价 | `results/localization/aigc_15/localization_summary.json` | 实验汇总 | `experiments/synthetic_dataset.py` + `evaluate_localization.py` | ignored/local | 10 tampered + 5 clean；Avg IoU 0.0148、Pixel F1 0.0286、clean FP 100%；仅支持局限性说明 |
