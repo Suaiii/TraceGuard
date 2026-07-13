@@ -8,18 +8,16 @@
 - 当前阶段：2026-07-11 至 2026-07-20，实验、鲁棒性测试和 baseline 对比。
 - 下一阶段：2026-07-21 至 2026-07-28，报告和答辩材料整理。
 
-## 历史报告快照
+## 当前报告工作源
 
-- 快照文件：[reports/TraceGuard.pdf](../reports/TraceGuard.pdf)
-- 同步前来源：`E:\Downloads\TraceGuard.pdf`
-- 生成时间：2026-07-09 13:10 Asia/Shanghai
-- PDF 页数：9 页
-- 当前主工作区状态：`reports/TraceGuard.pdf` 已被本地删除，Git 中仅保留历史快照记录。
-- 交付判断：该 PDF 不是最终报告，不能用于证明当前报告已经完成。
+- 当前文件：[reports/TraceGuard.md](../reports/TraceGuard.md)
+- 来源：主工作区本地 Markdown 草稿，2026-07-13 纳入 Git 协作。
+- 历史 `reports/TraceGuard.pdf` 已移除，不再作为正文真相源。
+- 交付判断：Markdown 仍含待补表格、图片和参考文献，不是最终报告。
 
 ## 当前报告覆盖范围
 
-历史 PDF 快照已经包含主要报告骨架：
+当前 Markdown 草稿已经包含主要报告骨架：
 
 - 封面和题目信号：TraceGuard。
 - 目录。

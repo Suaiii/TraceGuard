@@ -10,6 +10,8 @@
 
 TraceGuard 面向真实网络传播环境中的 AIGC 图像审核需求，将全局真伪判断、可解释热力图、局部可疑区域定位、风险融合和报告输出组织为一条可复核链路。仓库同时提供浏览器工作台、HTTP API、命令行和批量分析入口。
 
+当前可协作报告源：[reports/TraceGuard.md](reports/TraceGuard.md)。该文件仍是工作草稿，待补实验结果、图表和正式参考文献，不代表最终提交版本。
+
 ```text
 上传图片 -> 跨域真伪检测 -> 热力图与局部定位 -> 风险融合 -> 中文解释与证据展示
 ```
@@ -156,7 +158,7 @@ traceguard_project/
 │   └── test_cli.py                         #   CLI 测试 (6)
 │
 ├── reports/
-│   └── TraceGuard.pdf
+│   └── TraceGuard.md                       # 当前报告工作草稿
 │
 └── docs/
     ├── project_plan.md
