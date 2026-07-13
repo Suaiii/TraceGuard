@@ -76,6 +76,12 @@
 
 ## 变更记录
 
+### 2026-07-13 - 单机短时并发烟测完成
+
+- 从未封版工作包启动 CUDA 服务，以固定样例向单图接口发送 12 个请求，并发度为 3；12/12 返回 200 且响应合同完整。
+- 总耗时 3.588 秒，吞吐 3.345 请求/秒，中位延迟 0.520 秒，P95 2.075 秒；汇总、环境和哈希进入 `experiments/platform/verified_results/`。
+- 该结果仅仅是短时单机烟测，不支持长期稳定性、饱和容量、多用户多输入或生产 SLA 主张。
+
 ### 2026-07-13 - 官方报告工作稿与签章材料完成
 
 - `reports/TraceGuard.md` 已同步到官方作品报告模板，生成 23 页 Word/PDF 工作稿；10 个模板节、目录与动态页码、14 张图片、表格和公式均完成结构审计与逐页视觉核查。
@@ -97,7 +103,7 @@
 - `label` 与 `fake_prob` 继续仅由 `Detector.predict()` 产生，局部定位不再将全局 `real` 改写为 `local_tamper`。
 - API、Web、CLI、HTML 报告新增或同步 `tamper_type` 独立字段；证据冲突时保留两类输出并提示人工复核。
 - `tests/test_pipeline.py::TestPipelineMock::test_low_fake_pipeline` 改用确定性定位结果，消除随机特征是否产生 bbox 导致的非确定性。
-- 该修复、报告/提交工具与 Windows 启动入口已通过 170 项全量测试；真实 GPU API 返回 `label=real`、`tamper_type=local_tamper`，桌面和 390x844 窄屏浏览器上传闭环均通过，控制台 0 错误。
+- 该修复、报告/提交工具、运行烟测工具与 Windows 启动入口已通过 172 项全量测试；真实 GPU API 返回 `label=real`、`tamper_type=local_tamper`，桌面和 390x844 窄屏浏览器上传闭环均通过，控制台 0 错误。
 
 ### 2026-07-13 - 社交媒体典型案例固定
 

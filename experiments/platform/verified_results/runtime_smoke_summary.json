@@ -1,0 +1,40 @@
+{
+  "run_date": "2026-07-13",
+  "git_commit": "ca754cb495e055ee689f3e26c5745e50a12a498d",
+  "environment": {
+    "python": "3.10.20",
+    "pytorch": "2.5.1+cu121",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "gpu_memory_mib": 8188,
+    "driver": "580.97",
+    "checkpoint_sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474"
+  },
+  "request": {
+    "endpoint": "http://127.0.0.1:8012/api/v1/analyze",
+    "image": "tests/fixtures/006_biggan_00020.png",
+    "image_sha256": "3A2C5B42A4E655303958FF854D1CA653338D9328B4A70390760653E33690EF93",
+    "requests": 12,
+    "concurrency": 3,
+    "timeout_seconds": 60.0
+  },
+  "result": {
+    "successes": 12,
+    "failures": 0,
+    "success_rate": 1.0,
+    "wall_seconds": 3.5879438999982085,
+    "throughput_requests_per_second": 3.3445338986504196,
+    "latency_seconds": {
+      "min": 0.4448602000193205,
+      "median": 0.5200761999876704,
+      "p95": 2.0754851999809034,
+      "max": 2.0754851999809034
+    },
+    "response_contract": {
+      "http_status": 200,
+      "label": "real",
+      "tamper_type": "local_tamper",
+      "risk_level": "low"
+    }
+  },
+  "interpretation_limit": "Single-host short-duration smoke test with one repeated image; not a capacity, saturation, soak, multi-user diversity, or long-term stability test."
+}
