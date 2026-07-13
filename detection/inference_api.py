@@ -65,6 +65,31 @@ class Detector:
             'risk_score': float(p[1]),
         }
 
+    def predict_batch(self, image_or_paths, batch_size=32):
+        """批量执行与 ``predict`` 相同的全局判定。"""
+        if batch_size <= 0:
+            raise ValueError('batch_size must be positive')
+
+        inputs = list(image_or_paths)
+        results = []
+        for start in range(0, len(inputs), batch_size):
+            batch_inputs = inputs[start:start + batch_size]
+            tensors = [self.transform(self._load(item)) for item in batch_inputs]
+            batch = torch.stack(tensors).to(self.device)
+            with torch.no_grad():
+                probabilities = F.softmax(self.model(batch), dim=1)
+
+            for probability in probabilities:
+                real_prob = float(probability[0])
+                fake_prob = float(probability[1])
+                results.append({
+                    'label': 'fake' if fake_prob > real_prob else 'real',
+                    'real_prob': real_prob,
+                    'fake_prob': fake_prob,
+                    'risk_score': fake_prob,
+                })
+        return results
+
     # ---- Grad-CAM 热力图 (贺杰用) ----
     def get_heatmap(self, image_or_path):
         """14x14 Grad-CAM，上采样到原图尺寸返回"""
