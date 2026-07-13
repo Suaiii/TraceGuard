@@ -10,7 +10,7 @@
 
 TraceGuard 面向真实网络传播环境中的 AIGC 图像审核需求，将全局真伪判断、可解释热力图、局部可疑区域定位、风险融合和报告输出组织为一条可复核链路。仓库同时提供浏览器工作台、HTTP API、命令行和批量分析入口。
 
-当前可协作报告源：[reports/TraceGuard.md](reports/TraceGuard.md)。该文件仍是工作草稿，待补实验结果、图表和正式参考文献，不代表最终提交版本。
+当前可协作报告源：[reports/TraceGuard.md](reports/TraceGuard.md)。该文件已同步到官方 Word 模板并完成 23 页视觉核查，但仍等待消融、定位评价和风险校准原始证据，因此不是最终提交版本。
 
 ```text
 上传图片 -> 跨域真伪检测 -> 热力图与局部定位 -> 风险融合 -> 中文解释与证据展示
@@ -40,6 +40,13 @@ python -m pip install -r requirements-dev.txt
 ```bash
 # 默认使用 CUDA，自动发现本地权重，启动在 8000 端口
 python server.py
+
+# Windows 双击/命令行启动入口，参数原样传给 server.py
+start_traceguard.bat
+
+# Python 不在 PATH 时可显式指定解释器
+set TRACEGUARD_PYTHON=D:\path\to\python.exe
+start_traceguard.bat --device cpu
 
 # CPU 模式
 python server.py --device cpu
@@ -479,12 +486,19 @@ python -m pytest tests/ -v -m "gpu"     # GPU 集成测试
 | test_localization | 21 |
 | test_pipeline | 21 |
 | test_risk | 20 |
-| test_text | 16 |
-| test_visualization | 29 |
+| test_text | 17 |
+| test_visualization | 30 |
 | test_config | 13 |
 | test_cli | 6 |
-| test_server | 4 |
-| **合计** | **140** |
+| test_server | 5 |
+| test_detection_batch | 3 |
+| test_socialmedia_evaluate | 14 |
+| test_socialmedia_figures | 3 |
+| test_system_figures | 2 |
+| test_report_docx | 2 |
+| test_originality_statement | 1 |
+| test_windows_launcher | 1 |
+| **合计** | **169** |
 
 ---
 
