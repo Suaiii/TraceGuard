@@ -61,3 +61,4 @@ def test_generate_case_figure_exports_four_formats(tmp_path):
     assert "Stable" in svg
     assert "Degraded" in svg
     assert "Conflict" in svg
+    assert all(line == line.rstrip() for line in svg.splitlines())

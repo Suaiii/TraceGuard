@@ -40,6 +40,12 @@ def _save(fig, output_base):
     ):
         path = output_base.with_suffix(f".{extension}")
         fig.savefig(path, bbox_inches="tight", facecolor="white", **kwargs)
+        if extension == "svg":
+            svg = path.read_text(encoding="utf-8")
+            path.write_text(
+                "\n".join(line.rstrip() for line in svg.splitlines()) + "\n",
+                encoding="utf-8",
+            )
         paths.append(path)
     plt.close(fig)
     return paths
