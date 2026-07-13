@@ -1,0 +1,17 @@
+filename,ground_truth,fake_prob,risk_score,risk_level,bbox_count,tamper_type
+eachfake_00036_Real_canon_0_real.jpg,real,0.21530473232269287,0.3902,medium,4,local_tamper
+eachfake_00275_Real_warship_0_real.jpg,real,0.1503504514694214,0.3568,medium,10,local_tamper
+eachfake_02138_Real_warship_0_real.jpg,real,0.1613183468580246,0.3876,medium,4,local_tamper
+eachfake_04997_Real_helicopter_0_real.jpg,real,0.19867850840091705,0.3682,medium,23,local_tamper
+eachfake_0632_Real_db_Big_Ben_0_real.jpg,real,0.042179759591817856,0.3624,medium,12,local_tamper
+eachfake_0683_Real_db_Leaning_Tower_of_Pisa_0_real.jpg,real,0.23375149071216583,0.3812,medium,11,local_tamper
+eachfake_0872_Real_db_Mountain_Fuji_0_real.jpg,real,0.42455142736434937,0.4221,medium,4,local_tamper
+eachfake_1714_Real_db_Eiffel_Tower_0_real.jpg,real,0.13605405390262604,0.3567,medium,8,local_tamper
+eachfake_0137_BigGAN_db_test_1_fake.jpg,fake,0.46508511900901794,0.3558,medium,2,local_tamper
+eachfake_0208_CycleGAN_js_test_1_fake.jpg,fake,0.3356231153011322,0.3503,medium,2,local_tamper
+eachfake_0323_Midjourney_db_test_1_fake.jpg,fake,0.40450379252433777,0.4518,medium,14,local_tamper
+eachfake_0456_Glide_js_test_1_fake.jpg,fake,0.3835923373699188,0.4489,medium,4,local_tamper
+eachfake_0506_Midjourney_db_test_1_fake.jpg,fake,0.2288152426481247,0.3947,medium,7,local_tamper
+eachfake_0619_Midjourney_js_test_1_fake.jpg,fake,0.3752525746822357,0.4232,medium,10,local_tamper
+eachfake_0722_Glide_js_test_1_fake.jpg,fake,0.4706360399723053,0.4774,medium,8,local_tamper
+eachfake_0755_Flux_db_test_1_fake.jpg,fake,0.4699438810348511,0.4254,medium,5,local_tamper

@@ -1,0 +1,12 @@
+category,sample_id,variant_condition,original_fake_prob,variant_fake_prob,fake_prob_delta,original_bbox,variant_bbox,original_risk,variant_risk,conflict_reasons,category_detail
+success,genimage:sd14:028_sdv4_00127,wechat,0.9960343241691589,0.9960452914237976,-0.0,10,9,medium,medium,,success
+success,genimage:sd14:028_sdv4_00127,weibo,0.9960343241691589,0.9963219165802002,-0.0003,10,10,medium,medium,,success
+success,genimage:sd14:028_sdv4_00127,facebook,0.9960343241691589,0.9945386052131653,0.0015,10,12,medium,medium,,success
+degradation,genimage:biggan:316_biggan_00143,facebook,0.9671165943145752,0.017975937575101852,0.9491,2,0,medium,low,,degradation
+degradation,genimage:biggan:316_biggan_00143,weibo,0.9671165943145752,0.10301186889410019,0.8641,2,2,medium,low,real_label_with_bbox,conflict_degraded
+degradation,genimage:biggan:316_biggan_00143,wechat,0.9671165943145752,0.12691164016723633,0.8402,2,2,medium,low,real_label_with_bbox,conflict_degraded
+conflict,genimage:biggan:316_biggan_00143,weibo,0.9671165943145752,0.10301186889410019,0.8641,2,2,medium,low,real_label_with_bbox,conflict_degraded
+conflict,genimage:biggan:316_biggan_00143,wechat,0.9671165943145752,0.12691164016723633,0.8402,2,2,medium,low,real_label_with_bbox,conflict_degraded
+conflict,genimage:biggan:006_biggan_00020,facebook,0.23354782164096832,0.03587629273533821,0.1977,1,1,low,low,real_label_with_bbox,conflict
+conflict,genimage:biggan:006_biggan_00020,wechat,0.23354782164096832,0.04055383801460266,0.193,1,1,low,low,real_label_with_bbox,conflict
+conflict,genimage:biggan:006_biggan_00020,weibo,0.23354782164096832,0.042705412954092026,0.1908,1,1,low,low,real_label_with_bbox,conflict

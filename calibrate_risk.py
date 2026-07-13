@@ -222,65 +222,103 @@ def compare_strategies(df):
 # 阈值校准
 # =========================================================================
 
-def calibrate_thresholds(df):
+def _binary_metrics(df, threshold):
+    valid = df.dropna(subset=['risk_score']).copy()
+    is_fake = valid['ground_truth'].isin(['fake', 'tampered'])
+    predicted = valid['risk_score'] >= threshold
+    tp = int((predicted & is_fake).sum())
+    fp = int((predicted & ~is_fake).sum())
+    fn = int((~predicted & is_fake).sum())
+    tn = int((~predicted & ~is_fake).sum())
+    precision = tp / (tp + fp) if tp + fp else 0.0
+    recall = tp / (tp + fn) if tp + fn else 0.0
+    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
+    f05 = 1.25 * precision * recall / (0.25 * precision + recall) if precision + recall else 0.0
+    return {
+        'threshold': round(float(threshold), 4),
+        'precision': round(precision, 4),
+        'recall': round(recall, 4),
+        'f1': round(f1, 4),
+        'f0_5': round(f05, 4),
+        'tp': tp, 'fp': fp, 'fn': fn, 'tn': tn,
+    }
+
+
+def stratified_calibration_split(df, fraction=0.6, seed=42):
+    """Split each ground-truth class into calibration and untouched holdout rows."""
+    if not 0.0 < fraction < 1.0:
+        raise ValueError('calibration fraction must be between 0 and 1')
+    calibration_parts = []
+    holdout_parts = []
+    for offset, (_, group) in enumerate(df.groupby('ground_truth', sort=True)):
+        if len(group) < 2:
+            raise ValueError('each ground-truth class needs at least two samples')
+        calibration_count = min(len(group) - 1, max(1, int(round(len(group) * fraction))))
+        calibration = group.sample(n=calibration_count, random_state=seed + offset)
+        calibration_parts.append(calibration)
+        holdout_parts.append(group.drop(calibration.index))
+    return (
+        pd.concat(calibration_parts).reset_index(drop=True),
+        pd.concat(holdout_parts).reset_index(drop=True),
+    )
+
+
+def calibrate_thresholds(df, high_precision_target=0.95):
     """
     基于实际数据分布校准 low/medium/high 阈值。
 
     三套方案:
       1. current      — 当前硬编码值 [0, 0.35), [0.35, 0.70), [0.70, 1.0]
       2. equal_freq   — 等频三等分 (tercile)
-      3. gt_optimized — 以 GT 为准, 扫阈值最大化 F1
+      3. calibrated   — low/medium 边界最大化 F1；medium/high 边界优先达到高精度目标
     """
     valid = df.dropna(subset=['risk_score']).copy()
-    valid['is_fake'] = valid['ground_truth'].isin(['fake', 'tampered'])
+    if valid.empty or valid['ground_truth'].nunique() < 2:
+        raise ValueError('risk calibration requires valid real and fake samples')
 
     # ---- 等频分桶 ----
     tercile_1 = float(valid['risk_score'].quantile(1 / 3))
     tercile_2 = float(valid['risk_score'].quantile(2 / 3))
 
-    # ---- GT 优化 ----
-    # 寻找高风险阈值 (区分 medium → high), 最大化 F1
-    best_f1, best_high = 0.0, 0.70
-    for t in np.arange(0.30, 0.95, 0.02):
-        pred = valid['risk_score'] >= t
-        tp = int((pred & valid['is_fake']).sum())
-        fp = int((pred & ~valid['is_fake']).sum())
-        fn = int((~pred & valid['is_fake']).sum())
-        p = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        r = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0.0
-        if f1 > best_f1:
-            best_f1, best_high = f1, t
+    candidates = sorted(set(float(value) for value in valid['risk_score']))
+    review_metrics = max(
+        (_binary_metrics(valid, threshold) for threshold in candidates),
+        key=lambda metrics: (metrics['f1'], metrics['recall'], metrics['threshold']),
+    )
+    review_threshold = review_metrics['threshold']
 
-    # 寻找中风险阈值 (区分 low → medium), 最大化 F1
-    best_f1_med, best_medium = 0.0, 0.35
-    for t in np.arange(0.10, 0.60, 0.02):
-        pred = valid['risk_score'] >= t
-        tp = int((pred & valid['is_fake']).sum())
-        fp = int((pred & ~valid['is_fake']).sum())
-        fn = int((~pred & valid['is_fake']).sum())
-        p = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        r = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        f1 = 2 * p * r / (p + r) if (p + r) > 0 else 0.0
-        if f1 > best_f1_med:
-            best_f1_med, best_medium = f1, t
+    high_candidates = [
+        _binary_metrics(valid, threshold)
+        for threshold in candidates
+        if threshold > review_threshold
+    ]
+    target_candidates = [
+        metrics for metrics in high_candidates
+        if metrics['precision'] >= high_precision_target and metrics['tp'] > 0
+    ]
+    if target_candidates:
+        high_metrics = max(
+            target_candidates,
+            key=lambda metrics: (metrics['recall'], -metrics['threshold']),
+        )
+        high_method = 'precision_target'
+    elif high_candidates:
+        high_metrics = max(
+            high_candidates,
+            key=lambda metrics: (metrics['f0_5'], metrics['precision'], -metrics['threshold']),
+        )
+        high_method = 'best_f0_5_fallback'
+    else:
+        fallback = min(1.0, review_threshold + 0.01)
+        high_metrics = _binary_metrics(valid, fallback)
+        high_method = 'empty_high_fallback'
+    high_threshold = max(high_metrics['threshold'], min(1.0, review_threshold + 0.0001))
 
     # ---- risk_score 的 PR 曲线数据 (供后续绘图) ----
     pr_points = []
     thresholds = np.arange(0.05, 1.0, 0.05)
     for t in thresholds:
-        pred = valid['risk_score'] >= t
-        tp = int((pred & valid['is_fake']).sum())
-        fp = int((pred & ~valid['is_fake']).sum())
-        fn = int((~pred & valid['is_fake']).sum())
-        p = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-        r = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-        pr_points.append({
-            'threshold': round(float(t), 2),
-            'precision': round(p, 4),
-            'recall': round(r, 4),
-            'tp': tp, 'fp': fp, 'fn': fn,
-        })
+        pr_points.append(_binary_metrics(valid, t))
 
     return {
         'current': {
@@ -291,14 +329,25 @@ def calibrate_thresholds(df):
             'medium': [round(tercile_1, 3), round(tercile_2, 3)],
             'high': [round(tercile_2, 3), 1.0],
         },
-        'gt_optimized': {
-            'low': [0.0, round(best_medium, 3)],
-            'medium': [round(best_medium, 3), round(best_high, 3)],
-            'high': [round(best_high, 3), 1.0],
-            'medium_boundary_f1': round(best_f1_med, 4),
-            'high_boundary_f1': round(best_f1, 4),
+        'calibrated': {
+            'low': [0.0, review_threshold],
+            'medium': [review_threshold, high_threshold],
+            'high': [high_threshold, 1.0],
+            'review_boundary_metrics': review_metrics,
+            'high_boundary_metrics': high_metrics,
+            'high_boundary_method': high_method,
+            'high_precision_target': high_precision_target,
         },
         'pr_curve_data': pr_points,
+    }
+
+
+def evaluate_calibrated_levels(df, levels):
+    """Evaluate frozen review/high boundaries on rows not used for calibration."""
+    return {
+        'sample_count': int(len(df)),
+        'review': _binary_metrics(df, levels['medium'][0]),
+        'high': _binary_metrics(df, levels['high'][0]),
     }
 
 
@@ -320,6 +369,14 @@ def main():
                         help='输出目录')
     parser.add_argument('--max-samples', type=int, default=0,
                         help='限制样本数 (0 = 全量, 用于快速验证)')
+    parser.add_argument('--calibration-fraction', type=float, default=0.6,
+                        help='分层校准集比例；其余样本仅用于留出评估')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='分层划分随机种子')
+    parser.add_argument('--high-precision-target', type=float, default=0.95,
+                        help='高风险边界的目标 precision')
+    parser.add_argument('--dataset-name', default='custom balanced image set',
+                        help='写入汇总的样本来源描述')
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -433,32 +490,52 @@ def main():
     print('阈值校准')
     print(f'{"=" * 60}')
 
-    calibration = calibrate_thresholds(df)
-    schemes = ['current', 'equal_frequency', 'gt_optimized']
+    calibration_df, holdout_df = stratified_calibration_split(
+        df.dropna(subset=['risk_score']),
+        fraction=args.calibration_fraction,
+        seed=args.seed,
+    )
+    calibration = calibrate_thresholds(
+        calibration_df,
+        high_precision_target=args.high_precision_target,
+    )
+    holdout_evaluation = evaluate_calibrated_levels(
+        holdout_df,
+        calibration['calibrated'],
+    )
+    schemes = ['current', 'equal_frequency', 'calibrated']
     for scheme in schemes:
         c = calibration[scheme]
         print(f'\n{scheme}:')
         print(f'  low:    [{c["low"][0]:.3f}, {c["low"][1]:.3f})')
         print(f'  medium: [{c["medium"][0]:.3f}, {c["medium"][1]:.3f})')
         print(f'  high:   [{c["high"][0]:.3f}, {c["high"][1]:.3f}]')
-        if scheme == 'gt_optimized':
-            print(f'  (medium boundary F1={c["medium_boundary_f1"]:.4f}, '
-                  f'high boundary F1={c["high_boundary_f1"]:.4f})')
+        if scheme == 'calibrated':
+            print(f'  review boundary calibration F1={c["review_boundary_metrics"]["f1"]:.4f}')
+            print(f'  high boundary method={c["high_boundary_method"]}, '
+                  f'precision={c["high_boundary_metrics"]["precision"]:.4f}')
+    print(f'\n留出集评估 ({len(holdout_df)} samples): {holdout_evaluation}')
 
     # ---- 保存汇总 ---------------------------------------------------------
     conflict_cases = comparison.pop('conflict_cases', [])
     summary = {
-        'dataset': f'{len(au_files)} real (Au) + {len(tp_files)} tampered (Tp) = {total} images',
+        'dataset': f'{args.dataset_name}: {len(au_files)} real + {len(tp_files)} fake = {total} images',
         'distribution': stats,
         'risk_level_distribution': {str(k): v for k, v in level_dist.items()},
         'strategy_comparison': comparison,
         'threshold_calibration': calibration,
+        'calibration_split': {
+            'seed': args.seed,
+            'calibration_fraction': args.calibration_fraction,
+            'calibration_samples': len(calibration_df),
+            'holdout_samples': len(holdout_df),
+        },
+        'holdout_evaluation': holdout_evaluation,
         'notes': [
-            '数据来自 CASIA v1 (传统拼接/copy-move 篡改), 非 AIGC 伪造',
-            'fake_prob 来自跨域 AIGC 检测器 (MambaOut-Small), 未经传统篡改数据微调',
-            '因此 fake_prob 分布可能整体偏低, risk_score 同理',
-            '风险阈值和策略对比结论应标注数据域差异, 不可直接推广到 AIGC 场景',
-            '最终阈值确定需结合张潇跨域实验数据复核',
+            f'数据来源: {args.dataset_name}',
+            'fake_prob 来自跨域 AIGC 检测器 (MambaOut-Small)',
+            '风险阈值和策略对比结论仅适用于本次来源、划分和固定权重',
+            '阈值仅在分层校准集上选择, 报告指标来自未参与选阈值的留出集',
             '当前 RiskScorer 的阈值在 scorer.py 中硬编码, YAML risk.levels 不生效 (已知问题)',
         ],
     }

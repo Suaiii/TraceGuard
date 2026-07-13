@@ -1,0 +1,23 @@
+{
+  "dataset": "Facebook-derived GenImage synthetic tamper set: 10 tampered + 5 clean (synthetic, seed=42)",
+  "default_percentile": 90,
+  "tampered_metrics": {
+    "avg_iou": 0.0148,
+    "avg_dice": 0.0286,
+    "avg_pixel_f1": 0.0286,
+    "avg_precision": 0.0171,
+    "avg_recall": 0.136,
+    "detection_rate": 1.0
+  },
+  "clean_metrics": {
+    "fp_rate": 1.0,
+    "avg_bbox_count": 9.8
+  },
+  "best_percentile_by_dice": 85,
+  "best_percentile_by_f1": 85,
+  "notes": [
+    "数据来源: Facebook-derived GenImage synthetic tamper set; 由 real/fake 图像剪裁 patch 硬粘贴生成",
+    "GT 掩膜精确到像素, 但硬粘贴的拼接边界可能产生额外伪影",
+    "此结果仅反映当前合成条件下的定位能力, 不代表 AIGC 局部篡改场景"
+  ]
+}

@@ -215,6 +215,8 @@ def main():
                         help='输出目录')
     parser.add_argument('--threshold-percentile', type=int, default=90,
                         help='默认百分位阈值 (与 configs/default.yaml 保持一致)')
+    parser.add_argument('--dataset-name', default='synthetic image set',
+                        help='写入汇总的样本来源描述')
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -364,7 +366,7 @@ def main():
     )
 
     summary = {
-        'dataset': f'{len(tampered_items)} tampered + {len(clean_items)} clean '
+        'dataset': f'{args.dataset_name}: {len(tampered_items)} tampered + {len(clean_items)} clean '
                    f'(synthetic, seed=42)',
         'default_percentile': args.threshold_percentile,
         'tampered_metrics': {
@@ -382,10 +384,9 @@ def main():
         'best_percentile_by_dice': best_by_dice['percentile'] if best_by_dice else None,
         'best_percentile_by_f1': best_by_f1['percentile'] if best_by_f1 else None,
         'notes': [
-            '合成测试集: 从 CASIA v1 Tp 图像剪裁 patch 硬粘贴到 Au 底图上',
+            f'数据来源: {args.dataset_name}; 由 real/fake 图像剪裁 patch 硬粘贴生成',
             'GT 掩膜精确到像素, 但硬粘贴的拼接边界可能产生额外伪影',
             '此结果仅反映当前合成条件下的定位能力, 不代表 AIGC 局部篡改场景',
-            'CASIA 为传统拼接/copy-move 篡改, 非 AIGC 伪造; 模型未在该域微调',
         ],
     }
     summary_path = output_dir / 'localization_summary.json'

@@ -42,11 +42,13 @@
 - GenImage 的 Original/Facebook/WeChat/Weibo 8000 组成对推理、性能保持率分析、两张汇总图和三类典型案例均已完成。
 - AIGCDetectBenchmark、AIGIBench、Chameleon 和 `test_eachfake_500_real500` 的传播后数据已就绪，但对应原始版本尚未定位，暂时不能计算成对性能保持率。
 - 尚未完成 JPEG、缩放、裁剪和截图转存的系统鲁棒性实验。
-- 尚未完成风险权重与 low/medium/high 阈值的验证集校准。
-- 尚未完成可解释与局部定位模块的定量评价。
+- 尚未完成更多独立来源上的风险权重与 low/medium/high 阈值复核；Facebook 派生平衡集的 60/40 留出校准已完成。
+- 尚未完成更多来源的可解释与局部定位定量评价；Facebook 派生 AIGC 边界评价已完成。
 - `REPRODUCIBILITY.md` 中的 `train.py`、`eval.py`、`实验数据表.md` 和数据目录当前未全部进入本仓库，完整复现链仍需核对。
-- 报告已完成当前证据范围内的图表、引用、实验分析和官方 Word 工作稿；最终封版仍等待算法负责人原始证据与封面字段。
+- 报告已完成当前证据范围内的图表、引用、实验分析和官方 Word 工作稿；最终封版仍等待更多算法原始证据与封面字段。
 - 原创性声明已按官方模板预填作品名并完成视觉核查；签名、盖章和学校提交负责人仍需确认。
+- 已完成 Facebook 派生 AIGC 平衡集的 60/40 分层留出风险校准，以及 10 tampered + 5 clean 的像素级定位边界评价；结果仅支持当前来源的候选阈值和局限性说明。
+- 已集成贺杰的定位/风险评价基础设施，修正 CLI 重型导入、案例 manifest BOM 和案例冲突方向判定；全量测试更新为 179 项。
 
 ## 下一步任务
 
@@ -90,7 +92,7 @@
 - DOCX 可访问性审计结果为 0 个高/中/低问题，模板原件保持不变；生成器和对应测试已纳入仓库。
 - 原创性声明已使用官方模板预填作品名并完成单页渲染，手写签名、日期和教务公章保持为空。
 - 已生成包含 Git 跟踪源码、Windows 启动入口、四份报告/声明材料和正式权重的未封版工作包；权重 SHA-256 与库存一致，从包内启动 CUDA 服务后健康接口返回 200、`model_loaded=true`。
-- 当前报告仅仅等待张潇的消融/扰动原始材料、贺杰的定位评价/风险校准材料，以及团队邮箱、提交日期和线下签章上传信息。
+- 当前报告仅仅等待张潇的消融/扰动原始材料、更多来源复核材料，以及团队邮箱、提交日期和线下签章上传信息。
 
 ### 2026-07-13 - 社交媒体传播鲁棒性正式实验完成
 
@@ -105,7 +107,7 @@
 - `label` 与 `fake_prob` 继续仅由 `Detector.predict()` 产生，局部定位不再将全局 `real` 改写为 `local_tamper`。
 - API、Web、CLI、HTML 报告新增或同步 `tamper_type` 独立字段；证据冲突时保留两类输出并提示人工复核。
 - `tests/test_pipeline.py::TestPipelineMock::test_low_fake_pipeline` 改用确定性定位结果，消除随机特征是否产生 bbox 导致的非确定性。
-- 该修复、报告/提交工具、运行烟测工具与 Windows 启动入口已通过 172 项全量测试；真实 GPU API 返回 `label=real`、`tamper_type=local_tamper`，桌面和 390x844 窄屏浏览器上传闭环均通过，控制台 0 错误。
+- 该修复、报告/提交工具、运行烟测工具、定位/风险评价工具与 Windows 启动入口已通过 179 项全量测试；真实 GPU API 返回 `label=real`、`tamper_type=local_tamper`，桌面和 390x844 窄屏浏览器上传闭环均通过，控制台 0 错误。
 
 ### 2026-07-13 - 社交媒体典型案例固定
 
@@ -141,15 +143,11 @@
 ### 2026-07-13 — 贺杰：定位定量评价与风险阈值校准基础设施
 
 - 分支：`codex/localization-eval-risk-calibration`
-- 新增 `experiments/synthetic_dataset.py`：从 CASIA v1 生成 50 张合成篡改图（40 tampered + 10 clean），每张附像素级 GT 掩膜。
+- 新增 `experiments/synthetic_dataset.py`：从给定 real/fake 图像目录生成带像素级 GT 掩膜的合成篡改图。
 - 新增 `evaluate_localization.py`：TamperDetector 逐样本 IoU / Dice / Pixel F1 / Image Recall 评价 + 百分位阈值扫描。
-- 新增 `calibrate_risk.py`：对 CASIA v1 全量 1721 张运行 ExplanationPipeline, 对比 fake_prob-only vs 五维风险融合策略, 校准 low/medium/high 阈值边界。
-- 初步结果：
-  - **定位**（合成测试集, CASIA 域）：Detection Rate 100%, FP Rate 100%（clean 图也产 bbox）, Avg IoU 0.107, Dice 0.177, 最佳百分位阈值=80。
-  - **风险**（CASIA 全量）：fake_prob 无法区分 CASIA real/fake（real mean=0.068, fake mean=0.067）；risk_score 同样（real mean=0.310, fake mean=0.311）；策略 B（risk_level≥medium）比策略 A（fake_prob>0.5）多捕获 98 个样本（其中 48% 为真篡改），但整体 F1 仅 0.096；risk_score 全域未触及 0.70（high）。
-  - **根本原因**：MambaOut-Small 训练域为 AIGC 图像, 未在 CASIA 传统拼接/copy-move 上微调, 跨域分布偏移导致检测器对 CASIA 几乎无区分力。
-  - **价值**：评价框架和脚本已就绪, 张潇提供 AIGC 测试样本后可直接重新跑。
-- 新增 `classify_cases.py`：传播链案例自动分类（成功/衰减/冲突三分类 + 精选 + 按条件汇总）。等待张潇提供 manifest CSV 后即可运行。
+- 新增 `calibrate_risk.py`：支持分层校准/留出评估、策略对比和有序风险边界选择。
+- 当前正式 AIGC 结果：Facebook 派生平衡集 100 real + 100 fake，60/40 留出；review F1=0.9877，high F1=1.0。定位边界评价为 10 tampered + 5 clean，Avg IoU=0.0148、Pixel F1=0.0286、clean FP=100%。
+- 新增 `classify_cases.py`：传播链案例自动分类；已用 3 个固定 `sample_id` 跑出 3 success、1 degradation、2 conflict_degraded、3 conflict。
 - 已知待处理：`scorer.py` 中 risk_levels 硬编码, YAML `risk.levels` 不生效；`FeatureStatsAnalyzer` 方差方法对自然图像纹理也产高异常分。
 
 ### 2026-07-13 - 报告与工作区基线整理

@@ -1,0 +1,396 @@
+{
+  "dataset": "Facebook-derived GenImage balanced subset: 100 real + 100 fake = 200 images",
+  "distribution": {
+    "fake_prob": {
+      "real": {
+        "mean": 0.0697,
+        "std": 0.1165,
+        "min": 0.0051,
+        "max": 0.9441,
+        "median": 0.0403,
+        "q25": 0.0282,
+        "q75": 0.0605
+      },
+      "fake": {
+        "mean": 0.8261,
+        "std": 0.1745,
+        "min": 0.2225,
+        "max": 0.9774,
+        "median": 0.9,
+        "q25": 0.7949,
+        "q75": 0.9353
+      }
+    },
+    "risk_score": {
+      "real": {
+        "mean": 0.3068,
+        "std": 0.0536,
+        "min": 0.1915,
+        "max": 0.6172,
+        "median": 0.3028,
+        "q25": 0.2877,
+        "q75": 0.3214
+      },
+      "fake": {
+        "mean": 0.554,
+        "std": 0.0631,
+        "min": 0.3387,
+        "max": 0.6348,
+        "median": 0.5748,
+        "q25": 0.5269,
+        "q75": 0.5961
+      }
+    }
+  },
+  "risk_level_distribution": {
+    "medium": 109,
+    "low": 91
+  },
+  "strategy_comparison": {
+    "agreement_rate": 0.92,
+    "total_samples": 200,
+    "strategy_A": {
+      "precision": 0.9785,
+      "recall": 0.91,
+      "f1": 0.943,
+      "tp": 91,
+      "fp": 2,
+      "fn": 9,
+      "tn": 98
+    },
+    "strategy_B": {
+      "precision": 0.9083,
+      "recall": 0.99,
+      "f1": 0.9474,
+      "tp": 99,
+      "fp": 10,
+      "fn": 1,
+      "tn": 90
+    },
+    "a_only_count": 0,
+    "b_only_count": 16,
+    "b_only_summary": {
+      "mean_fake_prob": 0.2935,
+      "mean_risk_score": 0.397,
+      "mean_bbox_count": 8.0,
+      "true_fake_ratio": 0.5
+    }
+  },
+  "threshold_calibration": {
+    "current": {
+      "low": [
+        0.0,
+        0.35
+      ],
+      "medium": [
+        0.35,
+        0.7
+      ],
+      "high": [
+        0.7,
+        1.0
+      ]
+    },
+    "equal_frequency": {
+      "low": [
+        0.0,
+        0.306
+      ],
+      "medium": [
+        0.306,
+        0.55
+      ],
+      "high": [
+        0.55,
+        1.0
+      ]
+    },
+    "calibrated": {
+      "low": [
+        0.0,
+        0.3947
+      ],
+      "medium": [
+        0.3947,
+        0.4232
+      ],
+      "high": [
+        0.4232,
+        1.0
+      ],
+      "review_boundary_metrics": {
+        "threshold": 0.3947,
+        "precision": 0.9661,
+        "recall": 0.95,
+        "f1": 0.958,
+        "f0_5": 0.9628,
+        "tp": 57,
+        "fp": 2,
+        "fn": 3,
+        "tn": 58
+      },
+      "high_boundary_metrics": {
+        "threshold": 0.4232,
+        "precision": 0.9655,
+        "recall": 0.9333,
+        "f1": 0.9492,
+        "f0_5": 0.9589,
+        "tp": 56,
+        "fp": 2,
+        "fn": 4,
+        "tn": 58
+      },
+      "high_boundary_method": "precision_target",
+      "high_precision_target": 0.95
+    },
+    "pr_curve_data": [
+      {
+        "threshold": 0.05,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6667,
+        "f0_5": 0.5556,
+        "tp": 60,
+        "fp": 60,
+        "fn": 0,
+        "tn": 0
+      },
+      {
+        "threshold": 0.1,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6667,
+        "f0_5": 0.5556,
+        "tp": 60,
+        "fp": 60,
+        "fn": 0,
+        "tn": 0
+      },
+      {
+        "threshold": 0.15,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6667,
+        "f0_5": 0.5556,
+        "tp": 60,
+        "fp": 60,
+        "fn": 0,
+        "tn": 0
+      },
+      {
+        "threshold": 0.2,
+        "precision": 0.5042,
+        "recall": 1.0,
+        "f1": 0.6704,
+        "f0_5": 0.5597,
+        "tp": 60,
+        "fp": 59,
+        "fn": 0,
+        "tn": 1
+      },
+      {
+        "threshold": 0.25,
+        "precision": 0.5263,
+        "recall": 1.0,
+        "f1": 0.6897,
+        "f0_5": 0.5814,
+        "tp": 60,
+        "fp": 54,
+        "fn": 0,
+        "tn": 6
+      },
+      {
+        "threshold": 0.3,
+        "precision": 0.6667,
+        "recall": 1.0,
+        "f1": 0.8,
+        "f0_5": 0.7143,
+        "tp": 60,
+        "fp": 30,
+        "fn": 0,
+        "tn": 30
+      },
+      {
+        "threshold": 0.35,
+        "precision": 0.9077,
+        "recall": 0.9833,
+        "f1": 0.944,
+        "f0_5": 0.9219,
+        "tp": 59,
+        "fp": 6,
+        "fn": 1,
+        "tn": 54
+      },
+      {
+        "threshold": 0.4,
+        "precision": 0.9655,
+        "recall": 0.9333,
+        "f1": 0.9492,
+        "f0_5": 0.9589,
+        "tp": 56,
+        "fp": 2,
+        "fn": 4,
+        "tn": 58
+      },
+      {
+        "threshold": 0.45,
+        "precision": 0.9623,
+        "recall": 0.85,
+        "f1": 0.9027,
+        "f0_5": 0.9375,
+        "tp": 51,
+        "fp": 2,
+        "fn": 9,
+        "tn": 58
+      },
+      {
+        "threshold": 0.5,
+        "precision": 0.9583,
+        "recall": 0.7667,
+        "f1": 0.8519,
+        "f0_5": 0.9127,
+        "tp": 46,
+        "fp": 2,
+        "fn": 14,
+        "tn": 58
+      },
+      {
+        "threshold": 0.55,
+        "precision": 0.975,
+        "recall": 0.65,
+        "f1": 0.78,
+        "f0_5": 0.8864,
+        "tp": 39,
+        "fp": 1,
+        "fn": 21,
+        "tn": 59
+      },
+      {
+        "threshold": 0.6,
+        "precision": 0.8889,
+        "recall": 0.1333,
+        "f1": 0.2319,
+        "f0_5": 0.4167,
+        "tp": 8,
+        "fp": 1,
+        "fn": 52,
+        "tn": 59
+      },
+      {
+        "threshold": 0.65,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f0_5": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 60,
+        "tn": 60
+      },
+      {
+        "threshold": 0.7,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f0_5": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 60,
+        "tn": 60
+      },
+      {
+        "threshold": 0.75,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f0_5": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 60,
+        "tn": 60
+      },
+      {
+        "threshold": 0.8,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f0_5": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 60,
+        "tn": 60
+      },
+      {
+        "threshold": 0.85,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f0_5": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 60,
+        "tn": 60
+      },
+      {
+        "threshold": 0.9,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f0_5": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 60,
+        "tn": 60
+      },
+      {
+        "threshold": 0.95,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "f0_5": 0.0,
+        "tp": 0,
+        "fp": 0,
+        "fn": 60,
+        "tn": 60
+      }
+    ]
+  },
+  "calibration_split": {
+    "seed": 42,
+    "calibration_fraction": 0.6,
+    "calibration_samples": 120,
+    "holdout_samples": 80
+  },
+  "holdout_evaluation": {
+    "sample_count": 80,
+    "review": {
+      "threshold": 0.3947,
+      "precision": 0.9756,
+      "recall": 1.0,
+      "f1": 0.9877,
+      "f0_5": 0.9804,
+      "tp": 40,
+      "fp": 1,
+      "fn": 0,
+      "tn": 39
+    },
+    "high": {
+      "threshold": 0.4232,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "f0_5": 1.0,
+      "tp": 40,
+      "fp": 0,
+      "fn": 0,
+      "tn": 40
+    }
+  },
+  "notes": [
+    "数据来源: Facebook-derived GenImage balanced subset",
+    "fake_prob 来自跨域 AIGC 检测器 (MambaOut-Small)",
+    "风险阈值和策略对比结论仅适用于本次来源、划分和固定权重",
+    "阈值仅在分层校准集上选择, 报告指标来自未参与选阈值的留出集",
+    "当前 RiskScorer 的阈值在 scorer.py 中硬编码, YAML risk.levels 不生效 (已知问题)"
+  ]
+}

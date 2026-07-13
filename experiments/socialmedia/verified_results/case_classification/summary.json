@@ -1,0 +1,110 @@
+{
+  "total_samples": 3,
+  "total_comparisons": 9,
+  "conditions": [
+    "facebook",
+    "original",
+    "wechat",
+    "weibo"
+  ],
+  "category_counts": {
+    "conflict": 3,
+    "degradation": 1,
+    "conflict_degraded": 2,
+    "success": 3
+  },
+  "selected_cases": {
+    "success": [
+      {
+        "sample_id": "genimage:sd14:028_sdv4_00127",
+        "variant_condition": "wechat",
+        "fake_prob_delta": -0.0,
+        "category": "success"
+      },
+      {
+        "sample_id": "genimage:sd14:028_sdv4_00127",
+        "variant_condition": "weibo",
+        "fake_prob_delta": -0.0003,
+        "category": "success"
+      },
+      {
+        "sample_id": "genimage:sd14:028_sdv4_00127",
+        "variant_condition": "facebook",
+        "fake_prob_delta": 0.0015,
+        "category": "success"
+      }
+    ],
+    "degradation": [
+      {
+        "sample_id": "genimage:biggan:316_biggan_00143",
+        "variant_condition": "facebook",
+        "fake_prob_delta": 0.9491,
+        "category": "degradation"
+      },
+      {
+        "sample_id": "genimage:biggan:316_biggan_00143",
+        "variant_condition": "weibo",
+        "fake_prob_delta": 0.8641,
+        "category": "conflict_degraded"
+      },
+      {
+        "sample_id": "genimage:biggan:316_biggan_00143",
+        "variant_condition": "wechat",
+        "fake_prob_delta": 0.8402,
+        "category": "conflict_degraded"
+      }
+    ],
+    "conflict": [
+      {
+        "sample_id": "genimage:biggan:316_biggan_00143",
+        "variant_condition": "weibo",
+        "fake_prob_delta": 0.8641,
+        "category": "conflict_degraded"
+      },
+      {
+        "sample_id": "genimage:biggan:316_biggan_00143",
+        "variant_condition": "wechat",
+        "fake_prob_delta": 0.8402,
+        "category": "conflict_degraded"
+      },
+      {
+        "sample_id": "genimage:biggan:006_biggan_00020",
+        "variant_condition": "facebook",
+        "fake_prob_delta": 0.1977,
+        "category": "conflict"
+      },
+      {
+        "sample_id": "genimage:biggan:006_biggan_00020",
+        "variant_condition": "wechat",
+        "fake_prob_delta": 0.193,
+        "category": "conflict"
+      },
+      {
+        "sample_id": "genimage:biggan:006_biggan_00020",
+        "variant_condition": "weibo",
+        "fake_prob_delta": 0.1908,
+        "category": "conflict"
+      }
+    ]
+  },
+  "classification_config": {
+    "success": {
+      "max_fake_prob_drop": 0.15,
+      "min_heatmap_ssim": 0.6,
+      "max_bbox_change_ratio": 0.5,
+      "require_label_correct": true,
+      "max_risk_level_jump": 0
+    },
+    "degradation": {
+      "min_fake_prob_drop": 0.2,
+      "max_heatmap_ssim": 0.4,
+      "min_bbox_drop_ratio": 0.5
+    },
+    "conflict": {}
+  },
+  "notes": [
+    "分类基于传播前后 ExplanationPipeline 全量输出对比",
+    "阈值可在脚本顶部的 CLASSIFICATION_CONFIG 中调整",
+    "精选案例为自动排序结果, 最终入报告的案例需人工复核挑选"
+  ]
+}

@@ -13,6 +13,9 @@
 | Word 报告工作稿 | `output/doc/TraceGuard_作品报告_工作稿.docx`、`.pdf` | 官方模板报告 | `scripts/build_report_docx.py` 从 Markdown 工作源生成 | ignored/local | 23 页，含 10 个官方模板节、14 张图，目录/页码/题注/可访问性与逐页渲染均已核查；等待队友证据和封面字段后封版 |
 | 原创性声明待签章稿 | `output/doc/TraceGuard_原创性声明_待签章.docx`、`.pdf` | 官方模板声明 | `scripts/build_originality_statement.py` 预填作品名 | ignored/local | 单页渲染通过；签名和日期保持空白，等待全员手写签名与教务公章 |
 | 答辩与演示运行手册 | `docs/defense/defense_runbook.md` | 答辩素材 | 当前系统、报告和验收证据整理 | tracked | 十分钟结构、三分钟演示、故障回退和问答边界已固定；三页指标内容等待队友原始材料 |
+| AIGC 定位边界评价 | `results/localization/aigc_15/localization_summary.json` | 实验汇总 | `experiments/synthetic_dataset.py` + `evaluate_localization.py` | ignored/local | 10 tampered + 5 clean；Avg IoU 0.0148、Pixel F1 0.0286、clean FP 100%；仅支持局限性说明 |
+| Facebook 风险留出校准 | `results/risk/facebook_balanced_200/risk_calibration_summary.json` | 实验汇总 | `extract_balanced_subset.py` + `calibrate_risk.py` | ignored/local | 200 张平衡集、60/40 分层；留出 review F1 0.9877、high F1 1.0；不直接改生产阈值 |
+| 传播案例分类 | `results/case_classification/socialmedia_3_cases/` | 实验汇总 | `classify_cases.py` | ignored/local | 3 个 sample_id、9 个传播对：3 success、1 degradation、2 conflict_degraded、3 conflict |
 | 提交包装配脚本与工作包 | `scripts/build_submission_package.ps1`、`output/submission/TraceGuard_submission_working_20260713_212208/` | 提交工具/本地工作包 | 从 Git 跟踪源码、本地报告和正式权重生成 | tracked + ignored/local | 已装配最新源码、172 项测试口径的四份材料、正式权重和 SHA-256 清单；同一装配流程的包内 CUDA 服务健康接口已验证返回 200、`model_loaded=true`，明确标记为未封版 |
 | 社交媒体案例输出 | `output/cases/socialmedia/` | 运行产物 | `run_test.py` 生成 | ignored | 12 个传播版本已完成完整流水线分析；小型汇总和报告级图已进入 Git |
 | 批量分析输出 | `batch_results/` | 运行产物 | `batch_analyze.py` 生成 | ignored | 当前不存在，且缺少 `tests/BigGAN/` 输入 |

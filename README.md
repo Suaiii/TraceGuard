@@ -500,4 +500,7 @@ python -m pytest tests/ -v -m "gpu"     # GPU 集成测试
 | test_windows_launcher | 1 |
 | test_submission_package_script | 1 |
 | test_platform_runtime_smoke | 2 |
-| **合计** | **172** |
+| test_risk_calibration | 3 |
+| test_case_classification | 3 |
+| test_extract_balanced_subset | 1 |
+| **合计** | **179** |

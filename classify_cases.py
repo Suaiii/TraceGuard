@@ -157,10 +157,10 @@ def classify_sample(original_result, variant_result, variant_condition, config=N
         conflict_reasons.append('tamper_type_flip')
 
     # fake_prob 与 risk_level 方向不一致 (fake_prob 下降但 risk_level 上升, 或反之)
-    if fake_prob_delta < -0.1 and risk_jump < 0:
+    if fake_prob_delta > 0.1 and risk_jump < 0:
         has_conflict = True
         conflict_reasons.append('prob_down_risk_up')
-    if fake_prob_delta > 0.1 and risk_jump > 0:
+    if fake_prob_delta < -0.1 and risk_jump > 0:
         has_conflict = True
         conflict_reasons.append('prob_up_risk_down')
 
@@ -375,8 +375,14 @@ def summarize(results, output_dir):
                 'category_detail': item['category'],
             })
 
+    selected_fields = [
+        'category', 'sample_id', 'variant_condition',
+        'original_fake_prob', 'variant_fake_prob', 'fake_prob_delta',
+        'original_bbox', 'variant_bbox', 'original_risk', 'variant_risk',
+        'conflict_reasons', 'category_detail',
+    ]
     with open(selected_csv, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=selected_rows[0].keys())
+        writer = csv.DictWriter(f, fieldnames=selected_fields)
         writer.writeheader()
         writer.writerows(selected_rows)
     print(f'\n精选案例 → {selected_csv}')
@@ -434,9 +440,13 @@ def main():
         print(f'\n其中 condition 为: original, wechat, weibo, jpeg, resize, screenshot')
         sys.exit(1)
 
-    with open(manifest_path, 'r', encoding='utf-8') as f:
+    with open(manifest_path, 'r', encoding='utf-8-sig') as f:
         reader = csv.DictReader(f)
         manifest = list(reader)
+
+    if not manifest:
+        print('[ERROR] Manifest 为空')
+        sys.exit(1)
 
     required_cols = {'sample_id', 'condition', 'image_path', 'ground_truth'}
     if not required_cols.issubset(set(manifest[0].keys())):

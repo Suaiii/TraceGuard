@@ -33,5 +33,7 @@
 - 内层归档的图片统计和 checkpoint 排除记录保存在本地 `dataset/socialmedia/manifests/archive_inventory.csv`。正式实验必须排除 `.ipynb_checkpoints` 下的重复图片。
 - GenImage 原图与 Facebook、WeChat、Weibo 传播后版本各有 8000 张有效图片，文件主名均唯一且实现 8000/8000 完整配对；配对清单保存在本地 `dataset/socialmedia/manifests/genimage_socialmedia_pairs.csv`。
 - 当前仅仅 GenImage 找到了同一 `sample_id` 的 Original/Facebook/WeChat/Weibo 完整配对。AIGCDetectBenchmark、AIGIBench、Chameleon 和 `test_eachfake_500_real500` 尚未找到对应原始版本，不得据此计算传播前后性能保持率。
+- Facebook 派生平衡校准集由 `results/socialmedia/platform_benchmark/raw_predictions.csv` 按随机种子 42 抽取 100 real + 100 fake，fake 按 9 个生成器分层分配；派生文件和逐文件哈希保存在被忽略的 `dataset/derived/facebook_calibration_200/`。
+- AIGC 定位边界评价由该派生集生成 10 个带已知粘贴区域的 tampered 样本和 5 个 clean 对照；结果摘要进入 `experiments/localization/verified_results/`，仅支持定位局限性说明。
 - GenImage 的官方来源和非商业许可已核对，但本地子集与社交媒体派生归档的具体下载链路仍需补齐；在此之前不得把平台派生包描述为可公开再分发资产。
 - 解压、重命名、抽样或重划分后必须新增派生记录，不能覆盖本表原始文件记录。

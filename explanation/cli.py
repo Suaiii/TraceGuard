@@ -25,11 +25,6 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from detection.inference_api import Detector
-from explanation.pipeline import ExplanationPipeline
-from explanation.config import load_and_convert
-
-
 def main():
     parser = argparse.ArgumentParser(
         description='TraceGuard 可解释分析 CLI (热力图 + 篡改定位)',
@@ -76,6 +71,11 @@ def main():
     if not os.path.exists(args.input):
         print(f'[ERROR] 输入文件不存在: {args.input}', file=sys.stderr)
         sys.exit(1)
+
+    # Keep --help and invalid-input paths free of the heavyweight torchvision/model import.
+    from detection.inference_api import Detector
+    from explanation.pipeline import ExplanationPipeline
+    from explanation.config import load_and_convert
 
     # 初始化
     print(f'[CLI] 加载模型: {args.checkpoint}', file=sys.stderr)
