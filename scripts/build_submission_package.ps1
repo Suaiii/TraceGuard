@@ -8,18 +8,16 @@ param(
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $reportDir = Join-Path $projectRoot "output/doc"
-$requiredArtifacts = @(
-    "TraceGuard_作品报告_工作稿.docx",
-    "TraceGuard_作品报告_工作稿.pdf",
-    "TraceGuard_原创性声明_待签章.docx",
-    "TraceGuard_原创性声明_待签章.pdf"
-)
-
-foreach ($name in $requiredArtifacts) {
-    $path = Join-Path $reportDir $name
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "Required submission artifact not found: $path"
-    }
+$docxArtifacts = @(Get-ChildItem -LiteralPath $reportDir -Filter "TraceGuard_*.docx" -File | Sort-Object Length -Descending)
+$pdfArtifacts = @(Get-ChildItem -LiteralPath $reportDir -Filter "TraceGuard_*.pdf" -File | Sort-Object Length -Descending)
+if ($docxArtifacts.Count -lt 2 -or $pdfArtifacts.Count -lt 2) {
+    throw "Expected one report and one originality statement in both DOCX and PDF formats under $reportDir"
+}
+$artifactSources = [ordered]@{
+    "TraceGuard_report_working.docx" = $docxArtifacts[0].FullName
+    "TraceGuard_report_working.pdf" = $pdfArtifacts[0].FullName
+    "TraceGuard_originality_pending_signature.docx" = $docxArtifacts[-1].FullName
+    "TraceGuard_originality_pending_signature.pdf" = $pdfArtifacts[-1].FullName
 }
 
 $outputBase = if ([System.IO.Path]::IsPathRooted($OutputRoot)) {
@@ -51,8 +49,8 @@ foreach ($relativePath in $trackedFiles) {
     Copy-Item -LiteralPath $source -Destination $destination
 }
 
-foreach ($name in $requiredArtifacts) {
-    Copy-Item -LiteralPath (Join-Path $reportDir $name) -Destination $materialsDir
+foreach ($entry in $artifactSources.GetEnumerator()) {
+    Copy-Item -LiteralPath $entry.Value -Destination (Join-Path $materialsDir $entry.Key)
 }
 
 $manifestLines = @(
@@ -84,7 +82,7 @@ if ($IncludeCheckpoint) {
 
 $manifestLines += ""
 $manifestLines += "Materials:"
-foreach ($name in $requiredArtifacts) {
+foreach ($name in $artifactSources.Keys) {
     $artifact = Join-Path $materialsDir $name
     $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $artifact).Hash
     $manifestLines += "- materials/$name | SHA-256 $hash"

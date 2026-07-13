@@ -13,7 +13,7 @@
 | Word 报告工作稿 | `output/doc/TraceGuard_作品报告_工作稿.docx`、`.pdf` | 官方模板报告 | `scripts/build_report_docx.py` 从 Markdown 工作源生成 | ignored/local | 23 页，含 10 个官方模板节、14 张图，目录/页码/题注/可访问性与逐页渲染均已核查；等待队友证据和封面字段后封版 |
 | 原创性声明待签章稿 | `output/doc/TraceGuard_原创性声明_待签章.docx`、`.pdf` | 官方模板声明 | `scripts/build_originality_statement.py` 预填作品名 | ignored/local | 单页渲染通过；签名和日期保持空白，等待全员手写签名与教务公章 |
 | 答辩与演示运行手册 | `docs/defense/defense_runbook.md` | 答辩素材 | 当前系统、报告和验收证据整理 | tracked | 十分钟结构、三分钟演示、故障回退和问答边界已固定；三页指标内容等待队友原始材料 |
-| 提交包装配脚本 | `scripts/build_submission_package.ps1` | 提交工具 | 从 Git 跟踪源码、本地报告和可选权重生成工作包 | tracked | 默认标记为未封版；支持包含权重及 SHA-256 清单，待所有阻塞解除后生成最终 ZIP |
+| 提交包装配脚本与工作包 | `scripts/build_submission_package.ps1`、`output/submission/TraceGuard_submission_working_20260713_210646/` | 提交工具/本地工作包 | 从 Git 跟踪源码、本地报告和正式权重生成 | tracked + ignored/local | 已装配程序、四份材料、正式权重和 SHA-256 清单；包内启动器返回 0，明确标记为未封版 |
 | 社交媒体案例输出 | `output/cases/socialmedia/` | 运行产物 | `run_test.py` 生成 | ignored | 12 个传播版本已完成完整流水线分析；小型汇总和报告级图已进入 Git |
 | 批量分析输出 | `batch_results/` | 运行产物 | `batch_analyze.py` 生成 | ignored | 当前不存在，且缺少 `tests/BigGAN/` 输入 |
 
