@@ -84,8 +84,8 @@ class TextExplainer:
                 f"且未发现局部篡改痕迹，双重确认可信。"
             ),
             'local_tamper': (
-                f"该图像全局检测伪造概率仅为{fake_prob:.1%}，"
-                f"但局部滑动窗口检测发现可疑篡改区域，综合判定为局部篡改图像。"
+                f"该图像的全局标签仍为真实（伪造概率{fake_prob:.1%}），"
+                f"但局部滑动窗口检测发现可疑异常区域，需要人工复核。"
             ),
             'full_aigc': (
                 f"该图像被判定为AIGC全图生成（检测置信度为{fake_prob:.1%}），"
@@ -99,8 +99,6 @@ class TextExplainer:
 
         if tamper_type and tamper_type in tamper_descriptions:
             verdict = tamper_descriptions[tamper_type]
-        elif label == 'local_tamper':
-            verdict = f"该图像被判定为局部篡改图像，全局检测伪造概率为{fake_prob:.1%}，但定位模块发现可疑区域。"
         elif label == 'fake' and fake_prob > 0.5:
             verdict = f"该图像被判定为AIGC伪造图像，检测置信度为{fake_prob:.1%}。"
         elif label == 'real' and fake_prob <= 0.5:
@@ -108,11 +106,17 @@ class TextExplainer:
         else:
             verdict = f"该图像检测结果不明确，AIGC伪造概率为{fake_prob:.1%}，建议人工复核。"
 
-        risk_desc = {
-            'low': f"综合风险等级为低风险（{risk_score:.2f}），无需人工介入。",
-            'medium': f"综合风险等级为中风险（{risk_score:.2f}），建议人工抽查确认。",
-            'high': f"综合风险等级为高风险（{risk_score:.2f}），强烈建议人工复核处理。",
-        }.get(risk_level, f"综合风险分为{risk_score:.2f}。")
+        if tamper_type == 'local_tamper':
+            risk_desc = (
+                f"综合风险等级为{risk_level}（{risk_score:.2f}），"
+                "但局部证据与全局判断存在冲突，建议人工复核。"
+            )
+        else:
+            risk_desc = {
+                'low': f"综合风险等级为低风险（{risk_score:.2f}），无需人工介入。",
+                'medium': f"综合风险等级为中风险（{risk_score:.2f}），建议人工抽查确认。",
+                'high': f"综合风险等级为高风险（{risk_score:.2f}），强烈建议人工复核处理。",
+            }.get(risk_level, f"综合风险分为{risk_score:.2f}。")
 
         return f"【总体结论】\n{verdict} {risk_desc}"
 
@@ -188,11 +192,12 @@ class TextExplainer:
     # ------------------------------------------------------------------
 
     def explain_brief(self, label: str, fake_prob: float,
-                      risk_level: str = "low", bbox_count: int = 0) -> str:
+                      risk_level: str = "low", bbox_count: int = 0,
+                      tamper_type: str = None) -> str:
         """生成一句话摘要"""
-        if label == 'local_tamper':
+        if tamper_type == 'local_tamper':
             return (
-                f"局部篡改图 | 全局伪造概率{fake_prob:.0%} | 风险{risk_level} | "
+                f"全局判定{label} | 局部篡改证据 | 伪造概率{fake_prob:.0%} | 风险{risk_level} | "
                 f"可疑区域{bbox_count}处"
             )
         elif label == 'fake':

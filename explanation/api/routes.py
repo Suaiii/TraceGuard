@@ -167,6 +167,7 @@ def create_app(
                     AnalysisResponse(
                         status="error",
                         label="error",
+                        tamper_type="unavailable",
                         fake_prob=0,
                         risk_score=0,
                         risk_level="error",
@@ -207,6 +208,7 @@ def _build_response(result: dict) -> AnalysisResponse:
     return AnalysisResponse(
         status="success",
         label=result["label"],
+        tamper_type=result.get("tamper_type", "unavailable"),
         fake_prob=result["fake_prob"],
         risk_score=result["risk_score"],
         risk_level=result["risk_level"],

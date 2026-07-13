@@ -62,6 +62,7 @@ class ReportGenerator:
 
         # ---- 提取数据 ----
         label = result.get('label', 'unknown')
+        tamper_type = result.get('tamper_type', 'unavailable')
         fake_prob = result.get('fake_prob', 0)
         risk_score = result.get('risk_score', 0)
         risk_level = result.get('risk_level', 'low')
@@ -110,7 +111,11 @@ class ReportGenerator:
 <div class="summary">
     <div class="summary-item">
         <span class="summary-label">判定结果</span>
-        <span class="summary-value {'fake-color' if label == 'fake' else 'local-tamper-color' if label == 'local_tamper' else 'real-color'}">{LABELS.get(label, label)}</span>
+        <span class="summary-value {'fake-color' if label == 'fake' else 'real-color'}">{LABELS.get(label, label)}</span>
+    </div>
+    <div class="summary-item">
+        <span class="summary-label">局部证据类型</span>
+        <span class="summary-value {'local-tamper-color' if tamper_type == 'local_tamper' else ''}">{TAMPER_TYPE_LABELS.get(tamper_type, tamper_type)}</span>
     </div>
     <div class="summary-item">
         <span class="summary-label">伪造概率</span>
@@ -219,8 +224,8 @@ class ReportGenerator:
         total = len(results)
         success = sum(1 for r in results if r.get('status', 'success') == 'success')
         fake_count = sum(1 for r in results if r.get('label') == 'fake')
-        tamper_count = sum(1 for r in results if r.get('label') == 'local_tamper')
-        real_count = total - fake_count - tamper_count
+        tamper_count = sum(1 for r in results if r.get('tamper_type') == 'local_tamper')
+        real_count = sum(1 for r in results if r.get('label') == 'real')
         high_risk = sum(1 for r in results if r.get('risk_level') == 'high')
         medium_risk = sum(1 for r in results if r.get('risk_level') == 'medium')
         low_risk = sum(1 for r in results if r.get('risk_level') == 'low')
@@ -245,7 +250,7 @@ class ReportGenerator:
             elapsed_ms = r.get('elapsed_ms', 0)
             file_name = os.path.basename(r.get('file', '')) if r.get('file') else f'#{i}'
 
-            label_cls = 'fake-color' if label == 'fake' else 'local-tamper-color' if label == 'local_tamper' else 'real-color'
+            label_cls = 'fake-color' if label == 'fake' else 'real-color'
             risk_cls = f'risk-{risk_level}-text'
 
             result_rows += f'''
@@ -706,6 +711,14 @@ LABELS = {
     'real': '真实图像',
     'local_tamper': '局部篡改',
     'error': '错误',
+}
+
+TAMPER_TYPE_LABELS = {
+    'confirmed_real': '未发现局部异常',
+    'local_tamper': '局部篡改证据',
+    'full_aigc': '全图AIGC证据',
+    'full_aigc_hotspots': '全图AIGC证据（含热点）',
+    'unavailable': '不可用',
 }
 
 RISK_LABELS = {

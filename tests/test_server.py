@@ -44,3 +44,17 @@ def test_default_checkpoint_error_lists_supported_locations(tmp_path: Path):
     assert str(tmp_path / "checkpoints" / "best.pth") in message
     assert str(tmp_path / "best.pth") in message
     assert "--checkpoint" in message
+
+
+def test_response_preserves_global_label_and_exposes_tamper_type(sample_pipeline_result):
+    from explanation.api.routes import _build_response
+
+    result = dict(sample_pipeline_result)
+    result["label"] = "real"
+    result["tamper_type"] = "local_tamper"
+    result["bbox_list"] = []
+
+    response = _build_response(result)
+
+    assert response.label == "real"
+    assert response.tamper_type == "local_tamper"

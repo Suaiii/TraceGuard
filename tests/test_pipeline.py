@@ -2,6 +2,7 @@
 流水线集成测试 (mock-based)
 """
 
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -162,10 +163,20 @@ class TestPipelineMock:
         assert result['label'] == 'fake'
 
     def test_low_fake_pipeline(self, mock_detector_low, sample_small_image):
-        """低伪造概率 + 随机特征产生假阳性 bbox → local_tamper 覆盖为 fake"""
+        """局部证据不得覆盖 Detector 的全局 real 标签"""
         from explanation.pipeline import ExplanationPipeline
         pl = ExplanationPipeline(mock_detector_low)
+        evidence_image = Image.new('RGB', sample_small_image.size, color='black')
+        pl.tamper_detector.detect = lambda _: {
+            'bbox_list': [
+                {'x': 8, 'y': 8, 'w': 24, 'h': 24, 'area': 576, 'patch_fake_prob': 0.8}
+            ],
+            'score_map': np.ones((128, 128), dtype=np.float32) * 0.8,
+            'tamper_mask': evidence_image.convert('L'),
+            'tamper_mask_overlay': evidence_image,
+            'bbox_image': evidence_image,
+            'elapsed_ms': 1.0,
+        }
         result = pl.run(sample_small_image)
-        # 全局判定 real 但定位有 bbox → 局部篡改 → label 覆盖为 local_tamper
-        assert result['label'] == 'local_tamper'
+        assert result['label'] == 'real'
         assert result['tamper_type'] == 'local_tamper'

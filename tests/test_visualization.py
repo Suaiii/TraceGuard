@@ -127,6 +127,16 @@ class TestReportGenerator:
         html = gen.generate_single('test.jpg', result)
         assert 'AIGC伪造' in html
 
+    def test_single_separates_global_label_from_local_evidence(self, gen, sample_pipeline_result):
+        result = dict(sample_pipeline_result)
+        result['label'] = 'real'
+        result['tamper_type'] = 'local_tamper'
+
+        html = gen.generate_single('test.jpg', result)
+
+        assert '真实图像' in html
+        assert '局部篡改' in html
+
     def test_generate_batch_returns_html(self, gen, sample_batch_results):
         html = gen.generate_batch(sample_batch_results)
         assert isinstance(html, str)

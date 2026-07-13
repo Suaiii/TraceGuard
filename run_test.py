@@ -196,6 +196,7 @@ def main():
         summary.append({
             'file': Path(r['file']).name,
             'label': r['label'],
+            'tamper_type': r.get('tamper_type', 'unavailable'),
             'fake_prob': round(r['fake_prob'], 4),
             'risk_score': round(r['risk_score'], 4),
             'risk_level': r['risk_level'],
@@ -214,7 +215,7 @@ def main():
     print(f'{"="*70}')
     print(f'  Images:  {len(all_results)}')
     print(f'  Fake:    {sum(1 for s in summary if s["label"] == "fake")}')
-    print(f'  局部篡改: {sum(1 for s in summary if s["label"] == "local_tamper")}')
+    print(f'  局部篡改证据: {sum(1 for s in summary if s["tamper_type"] == "local_tamper")}')
     print(f'  Real:    {sum(1 for s in summary if s["label"] == "real")}')
     print(f'  High:    {sum(1 for s in summary if s["risk_level"] == "high")}')
     print(f'  Medium:  {sum(1 for s in summary if s["risk_level"] == "medium")}')

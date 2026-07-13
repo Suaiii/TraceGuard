@@ -84,6 +84,7 @@ class AnalysisResponse(BaseModel):
     """单图分析响应"""
     status: str = "success"
     label: str                                    # real | fake
+    tamper_type: str                              # confirmed_real | local_tamper | full_aigc | full_aigc_hotspots
     fake_prob: float                              # 伪造概率
     risk_score: float                             # 综合风险分 0~1
     risk_level: str                               # low | medium | high

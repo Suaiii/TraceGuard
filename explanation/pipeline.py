@@ -127,9 +127,8 @@ class ExplanationPipeline:
             tamper_score_map = loc_result['score_map']
 
             # --- 局部篡改分类 ---
-            from .localization.tamper_classifier import classify_tamper, get_effective_label
+            from .localization.tamper_classifier import classify_tamper
             tamper_type = classify_tamper(label, bbox_list)
-            label = get_effective_label(label, tamper_type)
         else:
             tamper_type = 'confirmed_real' if label == 'real' else 'full_aigc'
 
@@ -167,6 +166,7 @@ class ExplanationPipeline:
             fake_prob=fake_prob,
             risk_level=risk_result['risk_level'],
             bbox_count=len(bbox_list),
+            tamper_type=tamper_type,
         )
 
         # --- 组装输出 ---

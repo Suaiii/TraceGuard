@@ -81,6 +81,20 @@ class TestTextExplainer:
         brief = explainer_zh.explain_brief('real', 0.04, 'low')
         assert '真实图' in brief or '4%' in brief
 
+    def test_local_evidence_conflict_requires_manual_review(self, explainer_zh):
+        text = explainer_zh.explain(
+            'real', 0.04, risk_level='low', risk_score=0.2,
+            tamper_type='local_tamper',
+            bbox_list=[{'x': 1, 'y': 1, 'w': 10, 'h': 10, 'area': 100}],
+        )
+        brief = explainer_zh.explain_brief(
+            'real', 0.04, 'low', bbox_count=1, tamper_type='local_tamper'
+        )
+
+        assert '无需人工介入' not in text
+        assert '人工复核' in text
+        assert '局部篡改证据' in brief
+
     # ---- Edge cases ----
 
     def test_explain_empty_bbox(self, explainer_zh):

@@ -24,6 +24,7 @@ const el = {
   bboxCount: document.getElementById("bboxCount"),
   riskLevel: document.getElementById("riskLevel"),
   methodText: document.getElementById("methodText"),
+  tamperType: document.getElementById("tamperType"),
   briefText: document.getElementById("briefText"),
   latencyText: document.getElementById("latencyText"),
   evidenceImage: document.getElementById("evidenceImage"),
@@ -37,6 +38,13 @@ const text = {
     real: "\u771f\u5b9e\u56fe\u50cf",
     local_tamper: "\u5c40\u90e8\u7be1\u6539",
     error: "\u5206\u6790\u5931\u8d25",
+  },
+  tamperType: {
+    confirmed_real: "未发现局部异常",
+    local_tamper: "局部篡改证据",
+    full_aigc: "全图 AIGC 证据",
+    full_aigc_hotspots: "全图 AIGC 证据（含热点）",
+    unavailable: "不可用",
   },
   apiOffline: "API \u672a\u5c31\u7eea",
   analyzing: "\u5ba1\u8ba1\u4e2d...",
@@ -146,6 +154,7 @@ function renderResult(data) {
   el.bboxCount.textContent = String(bboxCount);
   el.riskLevel.textContent = data.risk_level || "--";
   el.methodText.textContent = data.metadata?.heatmap_method || "gradcam";
+  el.tamperType.textContent = text.tamperType[data.tamper_type] || data.tamper_type || "--";
   el.briefText.textContent = data.explanation_brief || text.noBrief;
   el.latencyText.textContent = `${Math.round(data.elapsed_ms || 0)} ms`;
   el.detailText.textContent = data.explanation || text.noDetail;

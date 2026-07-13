@@ -39,7 +39,7 @@
 
 ### 当前主要缺口
 
-- GenImage 的 Original/Facebook/WeChat/Weibo 8000 组成对推理与性能保持率分析已完成，下一步是生成报告级图表和典型案例。
+- GenImage 的 Original/Facebook/WeChat/Weibo 8000 组成对推理、性能保持率分析和两张报告级图表已完成，下一步是固定典型案例。
 - AIGCDetectBenchmark、AIGIBench、Chameleon 和 `test_eachfake_500_real500` 的传播后数据已就绪，但对应原始版本尚未定位，暂时不能计算成对性能保持率。
 - 尚未完成 JPEG、缩放、裁剪和截图转存的系统鲁棒性实验。
 - 尚未完成风险权重与 low/medium/high 阈值的验证集校准。
@@ -83,6 +83,13 @@
 - 三个平台分类实验完成 15000 个唯一预测键，0 失败；每个平台包含 500 real 与 4500 fake。
 - 小型汇总、指标边界和来源哈希已冻结到 `experiments/socialmedia/verified_results/`；逐样本原始预测继续保持 ignored。
 - 结果显示不同数据构成下平台影响差异显著，报告必须并列解释，不得仅仅引用较高 Accuracy 回避 GenImage 的传播退化。
+
+### 2026-07-13 - 全局判定与局部证据合同修复
+
+- `label` 与 `fake_prob` 继续仅由 `Detector.predict()` 产生，局部定位不再将全局 `real` 改写为 `local_tamper`。
+- API、Web、CLI、HTML 报告新增或同步 `tamper_type` 独立字段；证据冲突时保留两类输出并提示人工复核。
+- `tests/test_pipeline.py::TestPipelineMock::test_low_fake_pipeline` 改用确定性定位结果，消除随机特征是否产生 bbox 导致的非确定性。
+- 该修复已通过 162 项全量测试；真实 GPU API 返回 `label=real`、`tamper_type=local_tamper`，桌面和 390x844 窄屏浏览器上传闭环均通过，控制台 0 错误。
 
 ### 2026-07-13 - 社交媒体数据完成本地准入核验
 

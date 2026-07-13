@@ -97,6 +97,7 @@ def main():
         record = {
             'file': name,
             'label': result['label'],
+            'tamper_type': result.get('tamper_type', 'unavailable'),
             'fake_prob': round(result['fake_prob'], 6),
             'risk_score': round(result['risk_score'], 4),
             'risk_level': result['risk_level'],
@@ -142,13 +143,13 @@ def main():
     csv_path = args.csv or os.path.join(args.output, 'results.csv')
     with open(csv_path, 'w', newline='', encoding='utf-8-sig') as f:
         writer = csv.writer(f)
-        writer.writerow(['file', 'label', 'fake_prob', 'risk_score', 'risk_level',
+        writer.writerow(['file', 'label', 'tamper_type', 'fake_prob', 'risk_score', 'risk_level',
                          'bbox_count', 'artifact_intensity', 'tamper_area',
                          'region_count', 'consistency', 'elapsed_ms', 'brief'])
         for r in results:
             dims = r['dimension_scores']
             writer.writerow([
-                r['file'], r['label'], r['fake_prob'], r['risk_score'],
+                r['file'], r['label'], r['tamper_type'], r['fake_prob'], r['risk_score'],
                 r['risk_level'], r['bbox_count'],
                 dims.get('artifact_intensity', 0),
                 dims.get('tamper_area', 0),

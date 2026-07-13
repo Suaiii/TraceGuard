@@ -6,7 +6,7 @@ TamperClassifier — 局部篡改 vs 全图 AIGC 四象限分类器
   │ 全局判定  │ 局部定位   │ 结论                  │
   ├──────────┼───────────┼──────────────────────┤
   │ real     │ 无 bbox    │ confirmed_real       │
-  │ real     │ 有 bbox    │ local_tamper → fake  │
+  │ real     │ 有 bbox    │ local_tamper          │
   │ fake     │ 无 bbox    │ full_aigc            │
   │ fake     │ 有 bbox    │ full_aigc_hotspots   │
   └──────────┴───────────┴──────────────────────┘
@@ -50,17 +50,6 @@ def classify_tamper(global_label: str, bbox_list: list) -> str:
         return 'full_aigc_hotspots'
     else:
         return 'confirmed_real'
-
-
-def get_effective_label(global_label: str, tamper_type: str) -> str:
-    """
-    计算有效判定标签。
-
-    local_tamper 时：全局判定为 real，但 patch 级发现可疑区域 → 返回 'local_tamper'。
-    """
-    if tamper_type == 'local_tamper':
-        return 'local_tamper'
-    return global_label
 
 
 def get_tamper_type_label(tamper_type: str, language: str = 'zh') -> str:

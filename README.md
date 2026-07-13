@@ -212,7 +212,7 @@ traceguard_project/
   │
   ├─→ TamperClassifier:  ★ v1.0 新增
   │     classify_tamper(label, bbox_list) → 四象限分类
-  │     local_tamper 时覆盖 label 为 fake (全局 real + 局部 bbox)
+  │     输出独立 tamper_type，不改写 Detector 的全局 label
   │
   ├─→ RiskScorer:
   │     5维: fake_prob(0.30) + artifact_intensity(0.25) + tamper_area(0.25)
@@ -225,7 +225,7 @@ traceguard_project/
   └─→ 完整 JSON + base64 图像 + HTML 报告
 ```
 
-> **判定权责**：`label` 和 `fake_prob` 由 `Detector.predict()` 直接输出（MambaOut 模型 softmax 结果，阈值 0.5），下游不再重复计算。`upstream_risk_score` 随元信息透传，供多证据融合模块使用。
+> **判定权责**：`label` 和 `fake_prob` 由 `Detector.predict()` 直接输出（MambaOut 模型 softmax 结果，阈值 0.5），下游不再重复计算或改写。`tamper_type` 单独记录局部证据类型；当全局判定与局部证据不一致时，系统保留两者并提示人工复核。`upstream_risk_score` 随元信息透传，供多证据融合模块使用。
 
 ---
 
@@ -271,14 +271,14 @@ traceguard_project/
 
 在全局判定 + 局部定位结果上做二次分类：
 
-| 全局判定 | 局部定位 | 篡改类型 | 最终 label | 含义 |
+| 全局判定 | 局部定位 | `tamper_type` | `label` | 含义 |
 |----------|----------|----------|------------|------|
 | real | 无 bbox | `confirmed_real` | real | 全图真，局部无异常，双重确认 |
-| real | 有 bbox | `local_tamper` | local_tamper (显示: 局部篡改) | 全图看着真，但 patch 级发现异常 → 标记为局部篡改 |
+| real | 有 bbox | `local_tamper` | real | 全局模型判真，但局部证据发现异常，保留分歧并提示复核 |
 | fake | 无 bbox | `full_aigc` | fake | 全图假，伪影均匀分布 |
 | fake | 有 bbox | `full_aigc_hotspots` | fake | 全图假，且某些区域伪影更集中 |
 
-> **关键逻辑**：`real + 有 bbox → local_tamper` 是唯一覆盖全局判定的分支，不归入 AIGC 伪造类别，而是独立标记为"局部篡改"。224×224 缩略图上小面积篡改的信号被全图稀释，全局 softmax 看不出来，但 patch 滑窗能定位到。
+> **关键逻辑**：`real + 有 bbox` 时，`label` 仍为 `real`，局部证据以 `tamper_type=local_tamper` 独立输出。该分歧不直接证明图像已经被篡改，仅仅说明 patch 级分析发现了需要人工核验的异常区域。
 
 ### 4.4 解释文本：三段式模板
 
