@@ -60,10 +60,12 @@
 
 ### P0：贺杰，可解释证据与风险复核
 
+- **已完成**：定位定量评价基础设施与风险阈值校准分析框架（分支 `codex/localization-eval-risk-calibration`）。
+- **阻塞中**：等待张潇提供固定 `sample_id` 清单和传播后图像，以替换 CASIA 数据重新运行评价。
 - 使用与张潇相同的 `sample_id` 分析传播前后热力图、bbox、风险等级和证据一致性变化。
 - 完成成功、证据衰减、证据冲突三类案例。
-- 完成定位定量评价；Grad-CAM 仅仅表述为分类证据响应，不替代定位指标。
-- 对比仅使用 `fake_prob` 与五维风险融合的审核效果，统计人工复核触发率。
+- 完成定位定量评价；Grad-CAM 仅仅表述为分类证据响应，不替代定位指标。—— **评价脚本已就绪，待 AIGC 域数据。**
+- 对比仅使用 `fake_prob` 与五维风险融合的审核效果，统计人工复核触发率。—— **分析脚本已就绪，待 AIGC 域数据。**
 - 输出可直接进入报告的案例图、结果表和局限说明。
 
 ### P0：朱羿帅，集成、报告与提交
@@ -135,6 +137,19 @@
 - 新增：`eval_results.csv`
 - 已确认：8 个生成器平衡盲测表、数据划分、训练配置和复现命令说明已提供。
 - 待确认：复现命令引用的训练脚本、评测脚本、数据目录和消融原始表是否已在其他位置提供。
+
+### 2026-07-13 — 贺杰：定位定量评价与风险阈值校准基础设施
+
+- 分支：`codex/localization-eval-risk-calibration`
+- 新增 `experiments/synthetic_dataset.py`：从 CASIA v1 生成 50 张合成篡改图（40 tampered + 10 clean），每张附像素级 GT 掩膜。
+- 新增 `evaluate_localization.py`：TamperDetector 逐样本 IoU / Dice / Pixel F1 / Image Recall 评价 + 百分位阈值扫描。
+- 新增 `calibrate_risk.py`：对 CASIA v1 全量 1721 张运行 ExplanationPipeline, 对比 fake_prob-only vs 五维风险融合策略, 校准 low/medium/high 阈值边界。
+- 初步结果：
+  - **定位**（合成测试集, CASIA 域）：Detection Rate 100%, FP Rate 100%（clean 图也产 bbox）, Avg IoU 0.107, Dice 0.177, 最佳百分位阈值=80。
+  - **风险**（CASIA 全量）：fake_prob 无法区分 CASIA real/fake（real mean=0.068, fake mean=0.067）；risk_score 同样（real mean=0.310, fake mean=0.311）；策略 B（risk_level≥medium）比策略 A（fake_prob>0.5）多捕获 98 个样本（其中 48% 为真篡改），但整体 F1 仅 0.096；risk_score 全域未触及 0.70（high）。
+  - **根本原因**：MambaOut-Small 训练域为 AIGC 图像, 未在 CASIA 传统拼接/copy-move 上微调, 跨域分布偏移导致检测器对 CASIA 几乎无区分力。
+  - **价值**：评价框架和脚本已就绪, 张潇提供 AIGC 测试样本后可直接重新跑。
+- 已知待处理：`scorer.py` 中 risk_levels 硬编码, YAML `risk.levels` 不生效；`FeatureStatsAnalyzer` 方差方法对自然图像纹理也产高异常分。
 
 ### 2026-07-13 - 报告与工作区基线整理
 
