@@ -12,12 +12,48 @@ TraceGuard FastAPI 服务入口
 """
 
 import argparse
+from pathlib import Path
+
 import uvicorn
+
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+
+def resolve_checkpoint_path(requested_path=None, project_root=PROJECT_ROOT):
+    """Resolve an explicit checkpoint or discover a supported local default."""
+    project_root = Path(project_root)
+
+    if requested_path:
+        explicit_path = Path(requested_path).expanduser()
+        if not explicit_path.is_absolute():
+            explicit_path = project_root / explicit_path
+        if explicit_path.is_file():
+            return explicit_path
+        raise FileNotFoundError(
+            f"Explicit checkpoint not found: {explicit_path}. "
+            "Pass an existing model file with --checkpoint."
+        )
+
+    candidates = (
+        project_root / "checkpoints" / "best.pth",
+        project_root / "best.pth",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    locations = "\n".join(f"  - {candidate}" for candidate in candidates)
+    raise FileNotFoundError(
+        "TraceGuard model checkpoint was not found. Checked:\n"
+        f"{locations}\n"
+        "Place best.pth in one of these locations or pass --checkpoint PATH."
+    )
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='TraceGuard API 服务')
-    parser.add_argument('--checkpoint', '-c', default='checkpoints/best.pth',
-                        help='模型权重路径')
+    parser.add_argument('--checkpoint', '-c', default=None,
+                        help='模型权重路径（默认自动查找 checkpoints/best.pth 或 best.pth）')
     parser.add_argument('--config', default=None,
                         help='YAML 配置文件路径 (默认: 使用内置默认值)')
     parser.add_argument('--device', '-d', default='cuda', choices=['cuda', 'cpu'],
@@ -30,6 +66,10 @@ if __name__ == '__main__':
     parser.add_argument('--language', default='zh', choices=['zh', 'en'],
                         help='默认解释语言')
     args = parser.parse_args()
+    try:
+        checkpoint_path = resolve_checkpoint_path(args.checkpoint)
+    except FileNotFoundError as exc:
+        parser.error(str(exc))
 
     # 加载配置文件
     from explanation.config import load_and_convert
@@ -48,7 +88,7 @@ if __name__ == '__main__':
     # 创建 (但不启动) app — uvicorn 会导入并启动
     from explanation.api.routes import create_app
     app = create_app(
-        checkpoint_path=args.checkpoint,
+        checkpoint_path=str(checkpoint_path),
         device=args.device,
         pipeline_config=pipeline_config,
     )

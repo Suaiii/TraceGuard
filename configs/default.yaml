@@ -7,7 +7,7 @@
 # 检测模块 (上游)
 # ------------------------------------------------------------------------------
 detection:
-  checkpoint_path: "checkpoints/best.pth"
+  checkpoint_path: "auto"                   # server.py 自动查找 checkpoints/best.pth 或 best.pth
   device: "cuda"                           # cuda | cpu
 
 # ------------------------------------------------------------------------------

@@ -26,7 +26,7 @@ from typing import Optional
 
 @dataclass
 class DetectionConfig:
-    checkpoint_path: str = "checkpoints/best.pth"
+    checkpoint_path: str = "auto"
     device: str = "cuda"
 
 
@@ -164,7 +164,7 @@ def load_config(yaml_path: str = None) -> TraceGuardConfig:
     """
     # 1. 默认配置
     cfg_data = {
-        'detection': {'checkpoint_path': 'checkpoints/best.pth', 'device': 'cuda'},
+        'detection': {'checkpoint_path': 'auto', 'device': 'cuda'},
         'heatmap': {'method': 'gradcam', 'overlay_alpha': 0.5, 'smooth_sigma': 3.0},
         'localization': {
             'enable': True, 'enable_patch': True, 'enable_feature': True,
