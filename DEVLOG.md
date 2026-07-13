@@ -35,7 +35,8 @@
 
 ### 当前主要缺口
 
-- 尚未完成微信、微博传播后图像的成对测试与性能保持率分析。
+- GenImage 的 Original/Facebook/WeChat/Weibo 8000 组成对清单已建立，但尚未运行模型推理、指标计算与性能保持率分析。
+- AIGCDetectBenchmark、AIGIBench、Chameleon 和 `test_eachfake_500_real500` 的传播后数据已就绪，但对应原始版本尚未定位，暂时不能计算成对性能保持率。
 - 尚未完成 JPEG、缩放、裁剪和截图转存的系统鲁棒性实验。
 - 尚未完成风险权重与 low/medium/high 阈值的验证集校准。
 - 尚未完成可解释与局部定位模块的定量评价。
@@ -49,7 +50,7 @@
 
 - 核对 `REPRODUCIBILITY.md` 中训练/评测命令与本仓库实际脚本、目录是否一致。
 - 补交“跨域提升 17%+”对应的消融原始表、实验配置和结果来源。
-- 固定 Original、WeChat、Weibo、JPEG、Resize、Screenshot 的成对样本清单与 `sample_id`。
+- 以已固定的 GenImage `sample_id` 运行 Original、Facebook、WeChat、Weibo 成对推理，并继续建立 JPEG、Resize、Screenshot 的派生配对。
 - 输出各条件的 Accuracy、F1、AUC、Recall、性能下降量和性能保持率。
 - 所有正式数字必须能追溯到 CSV、配置和命令。
 
@@ -70,6 +71,14 @@
 - 7 月 19 日冻结技术内容，7 月 20 日仅仅处理封版阻塞问题。
 
 ## 变更记录
+
+### 2026-07-13 - 社交媒体数据完成本地准入核验
+
+- Facebook、WeChat、Weibo 三个外层下载包已完成 SHA-256 登记，并解压得到 15 个内层测试集 ZIP。
+- 15 个内层 ZIP 的全部条目已逐条完整读取，未发现读取错误；`.ipynb_checkpoints` 下的重复图片已标记为正式实验排除项。
+- GenImage 原图与三个社交平台版本各有 8000 张有效图片，文件主名均唯一，8000 组 `sample_id` 全部完整配对。
+- 本地生成 `dataset/socialmedia/manifests/archive_inventory.csv` 和 `genimage_socialmedia_pairs.csv`；两者当前受 `dataset/` 忽略规则保护，不进入 Git。
+- 当前结论仅仅证明数据准入与配对完成，不代表传播鲁棒性指标已经产出。
 
 ### 2026-07-13 14:51 - 张潇跨域实验材料进入 `main`
 
