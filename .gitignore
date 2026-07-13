@@ -78,7 +78,8 @@ tests/BigGAN/
 # !tests/BigGAN/.gitkeep
 
 # --- Generated reports & outputs ---
-reports/
+reports/*
+!reports/*.md
 *.pdf
 !docs/**/*.pdf
 !README.pdf

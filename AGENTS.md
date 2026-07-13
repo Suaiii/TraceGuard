@@ -138,7 +138,7 @@ web/index.html + web/static/*
 | `explanation/api/` | FastAPI 路由和 Pydantic 合同 |
 | `web/` | 与 API 同源托管的浏览器工作台 |
 | `tests/` | 当前回归测试及精选样例；测试数量以实际收集结果为准 |
-| `reports/` | 已同步的报告快照；不作为实验真相源 |
+| `reports/` | `TraceGuard.md` 报告工作源；不作为实验真相源 |
 
 新增模块前，先证明现有模块无法准确承载该职责。不得为同一概念创建平行检测器、第二套风险分数或第二份响应合同。
 
@@ -458,7 +458,7 @@ Review 以 findings 开头，按严重程度排序：
 - 平台压力、并发和长期稳定性测试；
 - 全部正式引用、最终架构图和最终提交报告。
 
-`reports/TraceGuard.pdf` 仅是历史报告快照，当前主工作区还处于删除状态，不能视为最终报告或当前可交付物。
+`reports/TraceGuard.md` 是当前报告工作源，但仍含待补内容，不能视为最终报告；PDF/DOCX 应从确认后的 Markdown 或正式文档源生成。
 
 推荐优先 Issue 顺序：
 
