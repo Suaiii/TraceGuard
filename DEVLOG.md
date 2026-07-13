@@ -149,6 +149,7 @@
   - **风险**（CASIA 全量）：fake_prob 无法区分 CASIA real/fake（real mean=0.068, fake mean=0.067）；risk_score 同样（real mean=0.310, fake mean=0.311）；策略 B（risk_level≥medium）比策略 A（fake_prob>0.5）多捕获 98 个样本（其中 48% 为真篡改），但整体 F1 仅 0.096；risk_score 全域未触及 0.70（high）。
   - **根本原因**：MambaOut-Small 训练域为 AIGC 图像, 未在 CASIA 传统拼接/copy-move 上微调, 跨域分布偏移导致检测器对 CASIA 几乎无区分力。
   - **价值**：评价框架和脚本已就绪, 张潇提供 AIGC 测试样本后可直接重新跑。
+- 新增 `classify_cases.py`：传播链案例自动分类（成功/衰减/冲突三分类 + 精选 + 按条件汇总）。等待张潇提供 manifest CSV 后即可运行。
 - 已知待处理：`scorer.py` 中 risk_levels 硬编码, YAML `risk.levels` 不生效；`FeatureStatsAnalyzer` 方差方法对自然图像纹理也产高异常分。
 
 ### 2026-07-13 - 报告与工作区基线整理
