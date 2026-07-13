@@ -39,7 +39,7 @@
 
 ### 当前主要缺口
 
-- GenImage 的 Original/Facebook/WeChat/Weibo 8000 组成对推理、性能保持率分析和两张报告级图表已完成，下一步是固定典型案例。
+- GenImage 的 Original/Facebook/WeChat/Weibo 8000 组成对推理、性能保持率分析、两张汇总图和三类典型案例均已完成。
 - AIGCDetectBenchmark、AIGIBench、Chameleon 和 `test_eachfake_500_real500` 的传播后数据已就绪，但对应原始版本尚未定位，暂时不能计算成对性能保持率。
 - 尚未完成 JPEG、缩放、裁剪和截图转存的系统鲁棒性实验。
 - 尚未完成风险权重与 low/medium/high 阈值的验证集校准。
@@ -90,6 +90,13 @@
 - API、Web、CLI、HTML 报告新增或同步 `tamper_type` 独立字段；证据冲突时保留两类输出并提示人工复核。
 - `tests/test_pipeline.py::TestPipelineMock::test_low_fake_pipeline` 改用确定性定位结果，消除随机特征是否产生 bbox 导致的非确定性。
 - 该修复已通过 162 项全量测试；真实 GPU API 返回 `label=real`、`tamper_type=local_tamper`，桌面和 390x844 窄屏浏览器上传闭环均通过，控制台 0 错误。
+
+### 2026-07-13 - 社交媒体典型案例固定
+
+- 从 32000 条成对预测中固定稳定、Facebook 退化和全局/局部证据冲突三类 `sample_id`，并对 12 个传播版本运行完整 ExplanationPipeline。
+- 稳定案例的 Original/Facebook `fake_prob` 为 0.996/0.995；退化案例为 0.967/0.018；冲突案例在两种条件下均保留 `label=real` 与 `tamper_type=local_tamper`。
+- 案例汇总进入 `experiments/socialmedia/verified_results/case_summary.csv`，报告级案例图进入 `docs/figures/socialmedia/`。
+- 当前红框仅仅是工程解释证据，不是带像素级真值的定位精度结论。
 
 ### 2026-07-13 - 社交媒体数据完成本地准入核验
 

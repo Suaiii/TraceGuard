@@ -1,0 +1,7 @@
+role,sample_id,generator,variant,label,fake_prob,tamper_type,risk_score,bbox_count
+stable,genimage:sd14:028_sdv4_00127,SD14,original,fake,0.9960343242,full_aigc_hotspots,0.5906,10
+stable,genimage:sd14:028_sdv4_00127,SD14,facebook,fake,0.9945386052,full_aigc_hotspots,0.6014,12
+degraded,genimage:biggan:316_biggan_00143,BigGAN,original,fake,0.9671165943,full_aigc_hotspots,0.5035,2
+degraded,genimage:biggan:316_biggan_00143,BigGAN,facebook,real,0.0179759376,confirmed_real,0.1582,0
+conflict,genimage:biggan:006_biggan_00020,BigGAN,original,real,0.2335478216,local_tamper,0.2416,1
+conflict,genimage:biggan:006_biggan_00020,BigGAN,facebook,real,0.0358762927,local_tamper,0.1687,1
