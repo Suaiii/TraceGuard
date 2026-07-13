@@ -498,7 +498,8 @@ python -m pytest tests/ -v -m "gpu"     # GPU 集成测试
 | test_report_docx | 2 |
 | test_originality_statement | 1 |
 | test_windows_launcher | 1 |
-| **合计** | **169** |
+| test_submission_package_script | 1 |
+| **合计** | **170** |
 
 ---
 
