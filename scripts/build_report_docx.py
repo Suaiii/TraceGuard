@@ -18,6 +18,92 @@ from docx.parts.numbering import NumberingPart
 from docx.shared import Inches, Pt
 
 
+# Office's built-in MathML -> OMML transform, used to emit natively editable
+# Word equations instead of rasterised LaTeX images.
+MML2OMML_XSL = r"C:\Program Files\Microsoft Office\root\Office16\MML2OMML.XSL"
+_MML2OMML_TRANSFORM = None
+
+
+def _get_mml2omml_transform():
+    """Return a cached lxml XSLT transform for MathML -> OMML."""
+    global _MML2OMML_TRANSFORM
+    if _MML2OMML_TRANSFORM is None:
+        from lxml import etree
+
+        _MML2OMML_TRANSFORM = etree.XSLT(etree.parse(MML2OMML_XSL))
+    return _MML2OMML_TRANSFORM
+
+
+def _latex_to_omath_xml(expression):
+    """Convert a LaTeX expression to an OMML ``<m:oMath>`` XML byte string."""
+    import latex2mathml.converter
+    from lxml import etree
+
+    latex = expression.strip()
+    if latex.startswith("$$") and latex.endswith("$$"):
+        latex = latex[2:-2]
+    else:
+        latex = latex.strip("$")
+    latex = latex.strip()
+    mathml = latex2mathml.converter.convert(latex)
+    mathml_element = etree.fromstring(mathml.encode("utf-8"))
+    omml_root = _get_mml2omml_transform()(mathml_element).getroot()
+    return etree.tostring(omml_root)
+
+
+# Inline math handling. A redundant LaTeX ``\( ... \)`` wrapper around an inline
+# ``$...$`` span is a dirty authoring artefact and is unwrapped first; genuine
+# bare parentheses in prose are left untouched. Extracted spans are swapped for
+# private-use sentinels so ``_strip_inline`` can run on the surrounding prose
+# without ever mangling the LaTeX (e.g. its ``\_`` / ``\(`` sequences).
+_INLINE_MATH_WRAP_RE = re.compile(r"\\\(\s*(\$[^$]+\$)\s*\\\)")
+_INLINE_MATH_RE = re.compile(r"\$([^$]+)\$")
+_MATH_SENTINEL_RE = re.compile("(\\d+)")
+
+
+def _extract_inline_math(raw_text):
+    """Replace inline ``$...$`` spans with sentinels; return (text, [latex])."""
+    text = _INLINE_MATH_WRAP_RE.sub(lambda m: m.group(1), raw_text)
+    exprs = []
+
+    def _swap(match):
+        exprs.append(match.group(1))
+        return "%d" % (len(exprs) - 1)
+
+    return _INLINE_MATH_RE.sub(_swap, text), exprs
+
+
+def _add_inline_math(paragraph, latex):
+    """Append an inline ``<m:oMath>`` to the paragraph; True on success."""
+    try:
+        paragraph._p.append(parse_xml(_latex_to_omath_xml(latex)))
+        return True
+    except Exception:
+        return False
+
+
+def _add_inline_content(paragraph, raw_text):
+    """Populate a paragraph from raw markdown, rendering inline ``$...$`` as OMML.
+
+    Inline math is pulled from the *raw* text before ``_strip_inline`` touches it;
+    the remaining prose still flows through ``_strip_inline`` exactly as before.
+    A formula that fails to convert falls back to its literal ``$...$`` text.
+    """
+    placeholder_text, exprs = _extract_inline_math(raw_text)
+    stripped = _strip_inline(placeholder_text)
+    pos = 0
+    for match in _MATH_SENTINEL_RE.finditer(stripped):
+        if match.start() > pos:
+            paragraph.add_run(stripped[pos:match.start()])
+        latex = exprs[int(match.group(1))]
+        if not _add_inline_math(paragraph, latex):
+            paragraph.add_run("$%s$" % latex)
+        pos = match.end()
+    if pos < len(stripped) or not paragraph.runs and pos == 0:
+        paragraph.add_run(stripped[pos:])
+    return paragraph
+
+
 SECTION_HEADINGS = OrderedDict([
     ("摘要", "摘要"),
     ("第一章", "第一章 作品概述"),
@@ -94,22 +180,22 @@ def parse_blocks(markdown):
             index += 1
             continue
         if re.match(r"^\d+\\?\.\d+", line):
-            blocks.append(("heading2", _strip_inline(line)))
+            blocks.append(("heading2", line))
             index += 1
             continue
         if line.startswith("**") and line.endswith("**"):
-            blocks.append(("heading3", _strip_inline(line)))
+            blocks.append(("heading3", line))
             index += 1
             continue
         if line.startswith("- "):
-            blocks.append(("bullet", _strip_inline(line[2:])))
+            blocks.append(("bullet", line[2:]))
             index += 1
             continue
         if re.match(r"^(图|表)\s*\d", line):
-            blocks.append(("caption", _strip_inline(line)))
+            blocks.append(("caption", line))
             index += 1
             continue
-        blocks.append(("paragraph", _strip_inline(line)))
+        blocks.append(("paragraph", line))
         index += 1
     return blocks
 
@@ -396,7 +482,10 @@ def _move_before(anchor, element):
 
 def _add_paragraph_before(document, anchor, text, kind):
     paragraph = document.add_paragraph()
-    run = paragraph.add_run(text)
+    # ``text`` is now the raw markdown line: render inline $...$ as OMML while the
+    # surrounding prose still flows through _strip_inline. The _format_* helpers
+    # below re-apply fonts to every text run (inline oMath elements are untouched).
+    _add_inline_content(paragraph, text)
     if kind in {"heading2", "heading3"}:
         _format_heading(paragraph, 2 if kind == "heading2" else 3)
     elif kind == "caption":
@@ -405,7 +494,8 @@ def _add_paragraph_before(document, anchor, text, kind):
         paragraph.paragraph_format.space_before = Pt(3)
         paragraph.paragraph_format.space_after = Pt(6)
         paragraph.paragraph_format.keep_with_next = text.startswith("表")
-        _set_run_font(run, "宋体", 10.5)
+        for run in paragraph.runs:
+            _set_run_font(run, "宋体", 10.5)
     else:
         _format_body(paragraph, first_line=kind == "paragraph")
         if kind == "bullet":
@@ -434,6 +524,21 @@ def _add_image_before(document, anchor, path, width=5.8, alt_text=""):
 
 
 def _add_equation_before(document, anchor, expression, output_dir, index):
+    # Primary path: emit a natively editable Word equation (OMML) built from the
+    # LaTeX source via latex2mathml -> Office MML2OMML.XSL. Any failure falls
+    # back to the matplotlib PNG rendering below so the build never crashes.
+    try:
+        omath_xml = _latex_to_omath_xml(expression)
+        paragraph = document.add_paragraph()
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.paragraph_format.space_before = Pt(3)
+        paragraph.paragraph_format.space_after = Pt(3)
+        paragraph._p.append(parse_xml(omath_xml))
+        _move_before(anchor, paragraph._p)
+        return
+    except Exception:
+        pass
+
     from matplotlib.mathtext import math_to_image
 
     output_dir.mkdir(parents=True, exist_ok=True)
