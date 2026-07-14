@@ -136,3 +136,9 @@ best.pth
 
 # Office lock files and rendered review artifacts.
 ~$*
+
+# --- Competition admin / personal & template Office docs (never commit — identity red line) ---
+# 报告由 reports/TraceGuard.md 生成，官方 Word 稿、原创性声明、联络教师登记表等含身份信息，一律不进 Git。
+*.docx
+*.doc
+tmp_*

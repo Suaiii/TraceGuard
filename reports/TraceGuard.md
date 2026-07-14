@@ -32,15 +32,17 @@ TraceGuard 面向 AIGC 图像在网络传播、新闻图片审核、平台内容
 
 生成式人工智能显著降低了图像内容的生成和编辑门槛，也带来了虚假新闻配图、舆情误导、身份冒用、电子证据污染和平台内容审核压力。仅给出“真/假”标签的检测器难以满足实际安全审核需求，因为审核人员还需要知道模型依据、可疑区域、风险等级以及可复核的检测记录。
 
+同时，图像内容安全不能只依赖生成端的安全对齐。已有研究表明，生成模型的对齐机制仅拦截显式触发预设范式的请求，涉及战争、恐怖主义、枪械等敏感场景的"超监管"图像可以绕过对齐被正常生成，且未被现有检测方法专门覆盖，一旦用于假新闻和谣言传播将威胁社会稳定\[9\]。此类内容与常规内容共享同样的社交媒体传播链路，使传播末端的第三方审核成为必要的兜底环节。
+
 TraceGuard 将参赛作品定位为信息安全场景下的 AIGC 图像安全审核平台，而不是单一模型演示。作品关注真实传播环境中的跨域泛化和可解释取证：同一检测系统需要面对不同生成器、不同数据集、不同图像风格以及压缩、缩放、裁剪、截图转存等扰动后的内容。
 
 1\.2 相关工作与现有不足
 
-现有 AIGC 图像检测方法通常依赖训练数据中的统计纹理、频域特征或模型生成痕迹，在同域测试中可以取得较好效果，但在新生成模型、新分辨率、新压缩链路或二次传播场景中容易出现性能下降\[1-2\]。另一方面，许多检测系统缺少面向审核人员的解释展示和报告导出能力，难以形成完整的安全处置闭环。
+现有 AIGC 图像检测方法通常依赖训练数据中的统计纹理、频域特征或模型生成痕迹，在同域测试中可以取得较好效果，但在新生成模型、新分辨率、新压缩链路或二次传播场景中容易出现性能下降\[1-2\]。此外，现有公开评测数据主要覆盖动物、植物、车辆与自然风景等常规内容，对绕过生成端对齐机制的高危场景内容覆盖不足\[9\]。另一方面，许多检测系统缺少面向审核人员的解释展示和报告导出能力，难以形成完整的安全处置闭环。
 
 1\.3 作品定位与应用场景
 
-本作品面向开放式自主命题作品赛，核心场景包括平台内容审核、新闻图片核验、社交媒体谣言筛查、电子证据初筛和人工复核辅助。系统输出不仅包括真伪概率，还包括风险分数、可疑区域、解释文本和报告化结论，使检测结果能够被复核、沟通和归档。
+本作品面向开放式自主命题作品赛，核心场景包括平台内容审核、新闻图片核验、社交媒体谣言与高危假新闻配图筛查、电子证据初筛和人工复核辅助。系统输出不仅包括真伪概率，还包括风险分数、可疑区域、解释文本和报告化结论，使检测结果能够被复核、沟通和归档。
 
 1\.4 团队分工与阶段计划
 
@@ -88,9 +90,9 @@ $ \widehat{MMD}^2 = \frac{1}{n_s^2}\sum_{i,j} k(x_i^s, x_j^s) + \frac{1}{n_t^2}\
 
 训练阶段采用双流（Two\-Stream）输入架构：每个训练 batch 同时送入源域图像（含 real/fake 标签）和目标域图像（无标签）。训练目标为联合损失函数：
 
-$ \mathcal{L}{total} = \mathcal{L}{cls} + \beta \cdot \mathcal{L}_{MMD} $
+$ \mathcal{L}_{total} = \mathcal{L}_{cls} + \beta \cdot \mathcal{L}_{MMD} $
 
-其中 \($\mathcal{L}{cls}$*\) 为源域交叉熵损失（带标签平滑 0\.1），\(*$\mathcal{L}{MMD}$\) 为源域与目标域 256 维瓶颈特征的 MK\-MMD 距离。平衡因子 \($\beta$\) 采用渐进调度策略：训练初期设 \($\beta$ = 0\) 让分类器充分学习源域判别特征；在训练过程中 \($\beta$\) 线性增长至目标值 \($\beta_{max} = 1.0$\)，逐步增加域对齐的强度。
+其中 $\mathcal{L}_{cls}$ 为源域交叉熵损失（带标签平滑 0\.1），$\mathcal{L}_{MMD}$ 为源域与目标域 256 维瓶颈特征的 MK\-MMD 距离。平衡因子 \($\beta$\) 采用渐进调度策略：训练初期设 \($\beta$ = 0\) 让分类器充分学习源域判别特征；在训练过程中 \($\beta$\) 线性增长至目标值 \($\beta_{max} = 1.0$\)，逐步增加域对齐的强度。
 
 此外，训练策略还包括以下优化组件：
 
@@ -105,6 +107,17 @@ $ \mathcal{L}{total} = \mathcal{L}{cls} + \beta \cdot \mathcal{L}_{MMD} $
 2\.2\.4 模块接口定义
 
 模块对外提供标准化 REST API 接口，输入输出字段定义如下：
+
+|字段|类型|含义|
+|---|---|---|
+|`label`|string|全局判定 `real`/`fake`，仅由 Detector 产生|
+|`fake_prob`|float|伪造概率，取值 0~1|
+|`tamper_type`|string|局部证据类型：`confirmed_real`/`local_tamper`/`full_aigc`/`full_aigc_hotspots`|
+|`risk_score` / `risk_level`|float / string|综合风险分与 low/medium/high 等级|
+|`bbox_list`|array|可疑区域列表，每项含 x/y/w/h、面积与区域风险分|
+|`overlay_b64` / `mask_b64`|string|热力图叠加图与热力掩膜（Base64）|
+|`explanation` / `explanation_brief`|string|结构化中文解释与一句话摘要|
+|`dimension_scores`|object|五维风险分量明细（见 2\.4\.5）|
 
 提供内部接口 `return_features=True` 输出 256 维瓶颈特征，供域对齐训练与特征分析使用；热力图和局部定位分别使用梯度响应与空间特征接口。
 
@@ -219,7 +232,7 @@ $R_{\text{global}} = \sum_{k=1}^{5} w_k \cdot d_k$
 
 2\.5 多证据风险融合模块
 
-融合模块将检测分数、解释结果、定位结果和基础文件信息合成为统一风险等级。初版规则可采用加权融合或阈值规则，将输出划分为低、中、高风险，并给出报告化原因；后续可根据实验表现调整权重和阈值。
+融合模块已实现为 2\.4\.5 所述的五维加权评分：输入全部来自上游合同字段（检测置信度、热力图统计、定位掩膜与 bbox 列表），输出 `risk_score`、低/中/高 `risk_level` 与报告化原因，用于排定人工复核优先级；融合结论不改写 Detector 的全局标签。当前等级边界为可解释的固定规则，其数据驱动校准结果与外推边界见 3\.4。
 
 2\.6 平台实现与交互流程
 
@@ -239,7 +252,7 @@ TraceGuard 的当前提交范围聚焦 AIGC 图像证伪检测，不包含音频
 
 3\.1 测试目标与总体方案
 
-测试围绕两个问题展开：检测器能否识别未知生成器图像，以及同一图像经过社交媒体重编码后，检测证据保留多少。跨生成器盲测使用平衡 real/fake 测试；传播实验使用固定 `sample_id` 的 Original、Facebook、WeChat、Weibo 成对图像。所有预测均由同一权重和 `Detector` 接口产生，逐样本结果、归档哈希和运行环境保留在实验记录中。
+测试围绕两个问题展开：检测器能否识别未知生成器图像，以及同一图像经过社交媒体重编码后，检测证据保留多少。跨生成器盲测使用平衡 real/fake 测试；传播实验使用固定 `sample_id` 的 Original、Facebook、WeChat、Weibo 成对图像。所有预测由同一权重和 `Detector` 接口产生，逐样本结果与归档哈希保留在实验记录中。
 
 3\.2 数据来源与指标定义
 
@@ -247,16 +260,11 @@ TraceGuard 的当前提交范围聚焦 AIGC 图像证伪检测，不包含音频
 
 跨生成器测试使用 GenImage\[3\] 的 ADM、BigGAN、Glide、Midjourney、SD14、SD15、VQDM 与 Wukong 八个生成器子集，每类 1000 张 fake 图像。每组同时使用同一来源的 1000 张 real 图像形成 1:1 平衡测试。
 
-社交媒体成对实验使用上述 8000 张 GenImage fake 图像及其 Facebook、WeChat、Weibo 传播后版本，共形成 32000 个唯一预测键。平台分类实验另使用三个 `test_eachfake_500_real500` 归档，每个平台包含 500 张 real 与 4500 张 fake 图像。GenImage 官方数据采用 CC BY-NC-SA 4.0 并附加非商业使用条款\[8\]；平台派生归档的具体下载链路仍待补齐，因此原始归档仅保存在本地，不随代码发布。
+社交媒体成对实验使用上述 8000 张 GenImage fake 图像及其 Facebook、WeChat、Weibo 传播后版本，共形成 32000 个唯一预测键。平台分类实验另使用三个 `test_eachfake_500_real500` 归档，每个平台包含 500 张 real 与 4500 张 fake 图像。GenImage 官方数据采用 CC BY-NC-SA 4.0 并附加非商业使用条款\[8\]；平台派生归档的下载链路仍待补齐，原始归档仅保存在本地、不随代码发布。
 
 **指标定义**
 
-- Accuracy：正确分类样本占全部样本的比例。
-- Macro F1：real 与 fake 两类 F1 的算术平均值，用于减少类别不平衡对结果解释的影响。
-- ROC AUC：以 `fake_prob` 作为 fake 正类分数计算的受试者工作特征曲线下面积。
-- Real/Fake Recall：对应类别被正确识别的比例。
-- Fake Recall 保持率：传播后 Fake Recall 与 Original Fake Recall 的比值。
-- 成对概率变化：同一 `sample_id` 的传播后 `fake_prob` 减去 Original `fake_prob`，再对样本取平均。
+Accuracy、Macro F1、ROC AUC 与 Real/Fake Recall 均按通行定义计算，其中 ROC AUC 以 `fake_prob` 为 fake 正类分数。两个自定义指标：Fake Recall 保持率为传播后与 Original Fake Recall 的比值；成对概率变化为同一 `sample_id` 传播后 `fake_prob` 减 Original 值的样本均值。
 
 所有实验使用 SHA-256 为 `29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474` 的 `best.pth`，运行环境为 Python 3.10.20、PyTorch 2.5.1+cu121 和 RTX 4060。汇总结果与来源哈希保存在 `experiments/socialmedia/verified_results/`。
 
@@ -264,7 +272,7 @@ TraceGuard 的当前提交范围聚焦 AIGC 图像证伪检测，不包含音频
 
 **3\.3\.1 跨生成器盲测对比（表 3\-1）**
 
-为评价未知生成器上的检测能力，在 GenImage 八个生成器子集上执行平衡盲测。每组由 1000 张固定 real 图像与 1000 张目标生成器 fake 图像构成，因此 Accuracy 同时受到稳定的 Real Recall 和不同生成器 Fake Recall 影响。
+为评价未知生成器上的检测能力，在 GenImage 八个生成器子集上执行平衡盲测，每组由 1000 张固定 real 图像与 1000 张目标生成器 fake 图像构成。
 
 表 3\.1 · GenImage 八生成器平衡盲测结果
 
@@ -297,15 +305,15 @@ TraceGuard 的当前提交范围聚焦 AIGC 图像证伪检测，不包含音频
 
 ![社交媒体传播前后总体检测变化](../docs/figures/socialmedia/socialmedia_overall.svg)
 
-图 3\.1 · 社交媒体传播前后总体检测变化。a，固定 8000 张 GenImage fake 图像在四种条件下的 Fake Recall；b，传播后图像相对 Original 的平均成对 `fake_prob` 变化。该图为固定测试集上的描述性结果，不表示跨随机种子或重复采样置信区间。
+图 3\.1 · 社交媒体传播前后总体检测变化。a，固定 8000 张 GenImage fake 图像在四种条件下的 Fake Recall；b，传播后图像相对 Original 的平均成对 `fake_prob` 变化。
 
-Facebook 条件的 Fake Recall 下降至 21.675%，平均 `fake_prob` 降低 0.3162，显示当前模型依赖的部分伪造证据在该传播处理中显著衰减。WeChat 与 Weibo 的总体保持率分别为 80.919% 和 79.786%，影响相近，但仍造成约 11 个百分点的 Fake Recall 绝对下降。
+Facebook 条件下 Fake Recall 与平均 `fake_prob` 显著下降，说明当前模型依赖的部分伪造证据在该传播处理中被大幅削弱；WeChat 与 Weibo 影响相近，仍造成约 11 个百分点的 Fake Recall 绝对下降。
 
 ![不同生成器的传播后 Fake Recall 保持率](../docs/figures/socialmedia/socialmedia_generator_retention.svg)
 
 图 3\.2 · 不同生成器的传播后 Fake Recall 保持率。单元格为传播后 Fake Recall 与同生成器 Original Fake Recall 的比值；行标签括号中给出 Original Fake Recall，避免仅仅以相对保持率掩盖低基线。
 
-生成器分组结果显示，Facebook 对 BigGAN、VQDM、ADM 与 Glide 的保持率分别仅为 2.5%、2.3%、4.9% 与 11.8%，而 Midjourney、Wukong 的保持率分别为 78.7% 与 63.5%。WeChat 与 Weibo 对 Wukong 的保持率超过 92%，但 VQDM 的 Original Fake Recall 本身只有 13.2%，传播后实际 Fake Recall 仍然很低。这说明传播鲁棒性必须同时查看绝对检出率与相对保持率。
+生成器分组显示，Facebook 对 BigGAN、VQDM、ADM、Glide 的保持率仅 2.3%--11.8%，而 Midjourney、Wukong 达 63.5%--78.7%；VQDM 因 Original 基线本身仅 13.2%，传播后绝对检出率仍然很低。传播鲁棒性必须同时查看绝对检出率与相对保持率。
 
 平台分类集提供 real/fake 完整标签，但与 GenImage 成对集不是同一数据构成。每个平台 500 real、4500 fake，结果如下。
 
@@ -317,21 +325,31 @@ Facebook 条件的 Fake Recall 下降至 21.675%，平均 `fake_prob` 降低 0.3
 | WeChat | 92.50% | 84.01% | 99.29% | 98.20% | 91.87% |
 | Weibo | 92.60% | 84.24% | 99.30% | 98.80% | 91.91% |
 
-较高的平台分类 Accuracy 说明当前模型在这组 500 real + 4500 fake 数据上仍能区分两类，但不能据此否定 GenImage 成对实验揭示的传播退化。两个实验的数据来源、生成器组成和类别结构不同，应分别回答“同图传播前后证据变化”和“给定平台测试集上的分类表现”。由于尚未找到该平台分类集的 Original 对应版本，本报告不计算其 Original-to-platform 性能保持率。
+较高的平台分类 Accuracy 不能否定成对实验揭示的传播退化：两个实验的数据构成不同，分别回答“同图传播前后证据变化”与“给定平台集上的分类表现”；因无 Original 对应版本，平台分类集不计算保持率。
 
 3\.4 可解释与篡改定位案例分析
 
-案例分析使用与成对实验相同的 `sample_id`，按稳定、证据衰减和证据冲突三类组织。对 3 个样本、9 个传播对运行完整 `ExplanationPipeline` 后，自动分类得到 3 个稳定对、1 个退化对、2 个退化冲突对和 3 个纯证据冲突对；该分类用于筛选人工复核案例，不替代像素级标注评价。图 3\.3 展示固定权重在 Original 与 Facebook 条件下的区域标注结果；图中 `label` 和 `fake_prob` 均来自 Detector，`local evidence` 来自独立定位分支。
+案例分析使用与成对实验相同的 `sample_id`，按稳定、证据衰减和证据冲突三类组织。对 3 个样本、9 个传播对运行完整 `ExplanationPipeline` 后，自动分类得到 3 个稳定对、1 个退化对、2 个退化冲突对和 3 个纯证据冲突对，用于筛选人工复核案例。图 3\.3 展示固定权重在 Original 与 Facebook 条件下的区域标注结果；图中 `label` 和 `fake_prob` 均来自 Detector，`local evidence` 来自独立定位分支。
 
 ![社交媒体传播典型案例及局部证据](../docs/figures/socialmedia/socialmedia_case_evidence.svg)
 
 图 3\.3 · 社交媒体传播典型案例及局部证据。稳定案例在传播前后均保持 `fake`，伪造概率由 0\.996 变为 0\.995；退化案例由 0\.967 降至 0\.018，标签从 `fake` 变为 `real`；冲突案例的全局标签在两个条件下均为 `real`，但定位分支均输出 `local_tamper`。红框仅仅表示当前定位模块的可疑区域，不代表已经由像素级真值验证。
 
-稳定案例说明并非所有生成器证据都会被平台处理破坏；退化案例直观对应 Facebook 条件下 BigGAN Fake Recall 的总体下降；冲突案例则验证了系统合同：局部证据可以质疑全局判断，但不能静默覆盖 `label`。这三类样本用于解释系统行为，不能替代定位定量评价或风险阈值校准。
+稳定案例说明并非所有生成器证据都会被平台处理破坏；退化案例直观对应 Facebook 条件下 BigGAN Fake Recall 的总体下降；冲突案例则验证了系统合同：局部证据可以质疑全局判断，但不能静默覆盖 `label`。
 
-为检查定位分支的量化边界，使用同一 Facebook 派生 AIGC 集抽取 100 张 real 和 100 张 fake，固定随机种子 42；从每类中生成 10 个带已知粘贴区域的合成篡改样本，并保留 5 个 clean 对照。以像素 IoU、Dice、Pixel F1、篡改图像级 Detection Rate 和 clean False-Positive Rate 评价，扫描 50--97 百分位阈值。默认 90 百分位时，10 个篡改样本的 Detection Rate 为 100%，但 Avg IoU=0.0148、Dice=0.0286、Pixel F1=0.0286、像素 Precision=0.0171、Recall=0.1360；5 个 clean 对照的 False-Positive Rate 为 100%。阈值扫描的最高 Dice/F1 出现在 85 百分位，仍只有 0.0326，且 clean False-Positive Rate 仍为 100%。这说明当前 bbox 分支更适合提供需人工复核的可疑区域线索，不支持像素级篡改定位精度主张。
+为检查定位分支的量化边界，使用同一 Facebook 派生 AIGC 集抽取 100 张 real 和 100 张 fake（随机种子 42），从中生成 10 个带已知粘贴区域的合成篡改样本并保留 5 个 clean 对照，扫描 50--97 百分位阈值。默认 90 百分位结果如下：
 
-风险校准使用独立的 Facebook 派生平衡集（100 real + 100 fake，fake 覆盖 9 个生成器），按 ground truth 分层以 60% 校准、40% 留出，随机种子为 42。校准边界在校准集上选择：人工复核边界为 0.3947，高风险边界为 0.4232，并要求高风险边界 precision 不低于 0.95；留出 80 个样本上，复核策略 Precision=0.9756、Recall=1.0000、F1=0.9877，高风险边界 Precision=1.0000、Recall=1.0000、F1=1.0000。该结果仅支持本次来源、权重和划分下的阈值候选，不能直接替换生产配置，也不能外推到其他平台或未见域。
+表 3\.4 · 定位分支像素级边界评价（90 百分位，10 tampered + 5 clean）
+
+| 指标 | 数值 | 指标 | 数值 |
+|---|---:|---|---:|
+| 图像级 Detection Rate | 100% | Avg IoU | 0.0148 |
+| Dice / Pixel F1 | 0.0286 | 像素 Recall | 0.1360 |
+| 像素 Precision | 0.0171 | clean 误报率 | 100% |
+
+阈值扫描最优 Dice/F1（85 百分位）仍仅 0\.0326 且 clean 误报未消除。当前 bbox 分支适合提供需人工复核的可疑区域线索，不支持像素级篡改定位精度主张。
+
+风险校准使用独立的 Facebook 派生平衡集（100 real + 100 fake，fake 覆盖 9 个生成器），按 ground truth 分层以 60% 校准、40% 留出，随机种子为 42。校准边界在校准集上选择：人工复核边界为 0.3947，高风险边界为 0.4232，并要求高风险边界 precision 不低于 0.95；留出 80 个样本上，复核策略 Precision=0.9756、Recall=1.0000、F1=0.9877，高风险边界 Precision=1.0000、Recall=1.0000、F1=1.0000。该阈值候选未替换生产配置。
 
 3\.5 平台闭环与案例验证
 
@@ -339,7 +357,7 @@ Facebook 条件的 Fake Recall 下降至 21.675%，平均 `fake_prob` 降低 0.3
 
 当前案例库已覆盖稳定 AIGC、传播退化和证据冲突三类行为，并保存输入图、检测分数、风险等级、解释图、可疑区域和 HTML 报告。AIGC 派生合成篡改集已提供像素级真值用于边界评价；真实自然篡改与更多来源标注仍需补齐。
 
-表 3\.4 · 平台闭环验收结果
+表 3\.5 · 平台闭环验收结果
 
 | 验收项 | 环境或输入 | 结果 | 解释边界 |
 |---|---|---|---|
@@ -350,13 +368,13 @@ Facebook 条件的 Fake Recall 下降至 21.675%，平均 `fake_prob` 降低 0.3
 | 窄屏浏览器 | 390×844 | 页面无重叠，结论与证据完整显示 | 非设备兼容性全覆盖 |
 | 短时并发烟测 | RTX 4060 Laptop GPU，12 请求，并发度 3 | 12/12 成功；中位延迟 0.520 s，P95 2.075 s | 单样例、短时单机运行，不代表容量上限或长期稳定性 |
 
-上述结果仅证明 Web/API/CLI 闭环和固定样例的短时并发可用，不支持长时稳定性、容量或多输入主张。传播实验、定位边界评价和新增校准均为固定权重的一次运行；定位结果暴露出 clean 误报和低像素重合，风险边界仍需在更多独立来源上复核，跨域消融仍待补证据。
+**结果解释边界**：本章全部结果均为固定权重、固定测试集上的单次运行，不含跨随机种子置信区间；平台闭环与并发烟测仅证明短时单机可用，不支持长时稳定性与容量主张；三类传播案例用于解释系统行为，不替代定量评价；定位分支的 clean 误报与低像素重合、风险阈值候选的单一来源与不可外推性，为当前主要局限；跨域消融仍待原始表补充。
 
 # 第四章 创新性说明
 
 4\.1 面向真实传播环境的跨域检测叙事
 
-作品以跨生成器和跨平台传播作为核心测试维度，面向来源复杂、处理链路多样的网络图像审核需求。
+作品以跨生成器和跨平台传播作为核心测试维度，面向来源复杂、处理链路多样的网络图像审核需求。在生成端安全对齐可被绕过的现实约束下\[9\]，传播链末端的第三方检测承担兜底职责，这是本作品聚焦传播后图像审核能力的根本动机。
 
 **技术创新点 1：去全局池化的状态空间骨干网络**
 
@@ -407,3 +425,5 @@ TraceGuard 面向 AIGC 图像安全中的检测、解释、取证和报告需求
 \[7\] R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and D. Batra, “Grad-CAM: Visual explanations from deep networks via gradient-based localization,” in *Proc. IEEE ICCV*, 2017, pp. 618-626, doi: 10.1109/ICCV.2017.74.
 
 \[8\] GenImage Dataset, “GenImage dataset license,” GitHub, 2023. [Online]. Available: https://github.com/GenImage-Dataset/GenImage/blob/main/License. [Accessed: Jul. 13, 2026].
+
+\[9\] W. Mu, Z. Li, Q. Xu, X. Jiang, and T. Sun, “ExDA: Towards universal detection and plug-and-play attribution of AI-generated ex-regulatory images,” in *Proc. 33rd ACM Int. Conf. Multimedia (MM ’25)*, Dublin, Ireland, 2025, pp. 11512-11521, doi: 10.1145/3746027.3755434.

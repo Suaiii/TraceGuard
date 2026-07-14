@@ -255,8 +255,12 @@ def binary_metrics(labels, probabilities, threshold=0.5):
     }
 
 
-def expand_pair_manifest(manifest_path, project_root=None) -> List[PredictionInput]:
-    """Expand one paired-manifest row into four prediction records."""
+def expand_pair_manifest(
+    manifest_path,
+    project_root=None,
+    variants=("original", "facebook", "wechat", "weibo"),
+) -> List[PredictionInput]:
+    """Expand one paired-manifest row into one prediction record per variant."""
     manifest_path = Path(manifest_path).resolve()
     root = Path(project_root).resolve() if project_root else manifest_path.parents[3]
     records = []
@@ -269,7 +273,7 @@ def expand_pair_manifest(manifest_path, project_root=None) -> List[PredictionInp
             sample_ids.add(sample_id)
             if row.get("pair_status") != "complete":
                 raise ValueError(f"incomplete pair in manifest: {sample_id}")
-            for variant in ("original", "facebook", "wechat", "weibo"):
+            for variant in variants:
                 archive_value = row[f"{variant}_archive"]
                 archive_path = Path(archive_value)
                 if not archive_path.is_absolute():
@@ -419,8 +423,13 @@ def _prediction_row(
     }
 
 
-def summarize_paired_predictions(rows):
-    """Summarize fake-only paired predictions by platform and generator."""
+def summarize_paired_predictions(
+    rows,
+    variants=("original", "facebook", "wechat", "weibo"),
+):
+    """Summarize fake-only paired predictions by variant and generator."""
+    if not variants or variants[0] != "original":
+        raise ValueError("variants must start with original")
     valid = [row for row in rows if row.get("status") == "ok"]
     generators = sorted({row["generator"] for row in valid}, key=str.casefold)
     summaries = []
@@ -436,7 +445,7 @@ def summarize_paired_predictions(rows):
             row["predicted_label"] == "fake" for row in originals.values()
         ) / len(originals)
 
-        for variant in ("original", "facebook", "wechat", "weibo"):
+        for variant in variants:
             variant_rows = by_variant.get(variant, {})
             common_ids = sorted(set(originals) & set(variant_rows))
             if not common_ids:
@@ -590,6 +599,18 @@ def _build_parser():
     paired.add_argument("--project-root", default=None)
     _add_inference_arguments(paired)
 
+    derived = subparsers.add_parser(
+        "paired-derived", help="run paired inference over locally derived perturbations"
+    )
+    derived.add_argument("--manifest", required=True)
+    derived.add_argument("--project-root", default=None)
+    derived.add_argument(
+        "--variants",
+        required=True,
+        help="comma-separated variant list starting with original",
+    )
+    _add_inference_arguments(derived)
+
     benchmark = subparsers.add_parser(
         "platform-benchmark", help="run labeled platform classification benchmarks"
     )
@@ -634,7 +655,7 @@ def _parse_archive_arguments(values):
     return archives
 
 
-def _run_inference(mode, records, args):
+def _run_inference(mode, records, args, variants=None):
     from detection import Detector
 
     records = list(records)
@@ -663,8 +684,10 @@ def _run_inference(mode, records, args):
         batch_size=args.batch_size,
     )
     rows = _read_csv_rows(raw_path)
-    if mode == "paired-genimage":
-        summary = summarize_paired_predictions(rows)
+    if mode in ("paired-genimage", "paired-derived"):
+        summary = summarize_paired_predictions(
+            rows, variants=variants or ("original", "facebook", "wechat", "weibo")
+        )
         _write_csv(output_dir / "summary_all.csv", [row for row in summary if row["scope"] == "all"])
         _write_csv(output_dir / "summary_by_generator.csv", [row for row in summary if row["scope"] != "all"])
     else:
@@ -695,6 +718,20 @@ def main(argv=None):
         records = expand_pair_manifest(args.manifest, project_root=args.project_root)
         records = _limit_paired_records(records, args.limit)
         return _run_inference("paired-genimage", records, args)
+
+    if args.command == "paired-derived":
+        variants = tuple(
+            value.strip().casefold()
+            for value in args.variants.split(",")
+            if value.strip()
+        )
+        if not variants or variants[0] != "original" or len(set(variants)) != len(variants):
+            raise ValueError("variants must be unique and start with original")
+        records = expand_pair_manifest(
+            args.manifest, project_root=args.project_root, variants=variants
+        )
+        records = _limit_paired_records(records, args.limit)
+        return _run_inference("paired-derived", records, args, variants=variants)
 
     archives = _parse_archive_arguments(args.archive)
     records = []
