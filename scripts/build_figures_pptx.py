@@ -365,30 +365,27 @@ set_text(textbox(s2, 7.0, 6.78, 5.9, 0.5),
 
 # ================================================================ Slide 3
 s3 = prs.slides.add_slide(BLANK)
-# 图内不设标题：Word 图下方已有自动题注（占位提示保留在各卡片与页脚）
+# 图内不设标题：Word 图下方已有自动题注。
 
-# 用原创示意图作“示例样式”淡显，提示每格应放什么（非真实检测结果）
-demo = [("a  输入图像", None), ("b  Stage2 Grad-CAM 叠加图", "gradcam.png"),
-        ("c  局部定位可疑区域", "bbox.png")]
+# 固定样例经正式权重和 CUDA 端到端运行所得，三格均为真实系统输出。
+demo = [
+    ("a  输入图像", "detection_input_real.png", "固定测试样例"),
+    ("b  Stage2 Grad-CAM 叠加图", "detection_gradcam_real.png", "实测热力响应"),
+    ("c  局部定位可疑区域", "detection_bbox_real.png", "实测定位结果"),
+]
 xs = [0.55, 4.75, 8.95]
 pw, ph, py = 3.83, 4.55, 1.55
-for x, (t, asset) in zip(xs, demo):
+for x, (t, asset, note) in zip(xs, demo):
     box = rrect(s3, x, py, pw, ph, RGBColor(0xF5, 0xF5, 0xF8),
                 line=C_MUTED, line_w=1.6, radius=0.03)
-    dash_line(box)
-    if asset:
-        p = pic_fit(s3, asset, x + 0.55, py + 0.75, pw - 1.1, ph - 1.7)
-        # 半透明，示意而非真结果
-        p.line.fill.background()
-    else:
-        icon_image_vec(s3, x + pw / 2 - 1.0, py + 1.05, 2.0, 1.7)
+    pic_fit(s3, asset, x + 0.55, py + 0.75, pw - 1.1, ph - 1.7)
     set_text(textbox(s3, x + 0.05, py + 0.10, pw - 0.10, 0.45), t, size=17,
              color=C_TITLE, bold=True, anchor=MSO_ANCHOR.TOP)
     set_text(textbox(s3, x + 0.05, py + ph - 0.55, pw - 0.10, 0.45),
-             "（示意样式，待填真实截图）", size=12.5, color=C_MUTED)
+             note, size=12.5, color=C_MUTED)
 
 set_text(textbox(s3, 0.55, 6.42, 12.23, 0.5),
-         "占位：示意图仅表示每格应呈现的内容形态，最终由成员填入真实检测截图，不得伪造检测结果。",
+         "实测样例：正式权重、CUDA 推理；全局判断与局部证据分别保留。",
          size=13, color=C_MUTED, align=PP_ALIGN.CENTER, anchor=MSO_ANCHOR.TOP)
 
 
