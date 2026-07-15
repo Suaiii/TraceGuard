@@ -503,4 +503,5 @@ python -m pytest tests/ -v -m "gpu"     # GPU 集成测试
 | test_risk_calibration | 3 |
 | test_case_classification | 3 |
 | test_extract_balanced_subset | 1 |
-| **合计** | **179** |
+| test_socialmedia_perturb | 11 |
+| **合计** | **190** |
