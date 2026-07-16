@@ -38,7 +38,36 @@ $trackedFiles = & git -C $projectRoot ls-files
 if ($LASTEXITCODE -ne 0) {
     throw "Unable to enumerate tracked source files"
 }
-foreach ($relativePath in $trackedFiles) {
+
+$rootAllowlist = @(
+    "README.md",
+    "REPRODUCIBILITY.md",
+    "batch_analyze.py",
+    "calibrate_risk.py",
+    "classify_cases.py",
+    "eval_results.csv",
+    "evaluate_localization.py",
+    "requirements-dev.txt",
+    "requirements.txt",
+    "run_test.py",
+    "server.py",
+    "start_traceguard.bat"
+)
+$directoryAllowlist = @(
+    "configs/",
+    "detection/",
+    "explanation/",
+    "experiments/",
+    "tests/",
+    "web/"
+)
+$programFiles = @($trackedFiles | Where-Object {
+    $relativePath = $_
+    ($rootAllowlist -contains $relativePath) -or
+        ($directoryAllowlist | Where-Object { $relativePath.StartsWith($_) } | Select-Object -First 1)
+})
+
+foreach ($relativePath in $programFiles) {
     $source = Join-Path $projectRoot $relativePath
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
         continue
@@ -58,6 +87,7 @@ $manifestLines = @(
     "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz')",
     "Git commit: $(& git -C $projectRoot rev-parse HEAD)",
     "Status: NOT FINAL - teammate evidence, cover fields, handwritten signatures, stamp and liaison upload remain pending.",
+    "Program scope: runtime source, configuration, Web assets, tests and verified experiment code/results only; internal coordination and report-authoring files are excluded.",
     ""
 )
 

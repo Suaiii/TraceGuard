@@ -16,7 +16,7 @@
 | AIGC 定位边界评价 | `results/localization/aigc_15/localization_summary.json` | 实验汇总 | `experiments/synthetic_dataset.py` + `evaluate_localization.py` | ignored/local | 10 tampered + 5 clean；Avg IoU 0.0148、Pixel F1 0.0286、clean FP 100%；仅支持局限性说明 |
 | Facebook 风险留出校准 | `results/risk/facebook_balanced_200/risk_calibration_summary.json` | 实验汇总 | `extract_balanced_subset.py` + `calibrate_risk.py` | ignored/local | 200 张平衡集、60/40 分层；留出 review F1 0.9877、high F1 1.0；不直接改生产阈值 |
 | 传播案例分类 | `results/case_classification/socialmedia_3_cases/` | 实验汇总 | `classify_cases.py` | ignored/local | 3 个 sample_id、9 个传播对：3 success、1 degradation、2 conflict_degraded、3 conflict |
-| 提交包装配脚本与工作包 | `scripts/build_submission_package.ps1`、`output/submission/` | 提交工具/本地工作包 | 从 Git 跟踪源码、本地报告和正式权重生成 | tracked + ignored/local | 2026-07-16 已按 190/190 测试口径重建报告；含权重工作包待本次提交后重新装配并核查，仍标记为未封版 |
+| 提交包装配脚本与工作包 | `scripts/build_submission_package.ps1`、`output/submission/` | 提交工具/本地工作包 | 从运行白名单源码、本地报告和正式权重生成 | tracked + ignored/local | 装配白名单排除 AGENTS/DEVLOG/内部计划与报告作者文件；按 191/191 测试口径重建后生成含权重工作包，仍标记为未封版 |
 | 社交媒体案例输出 | `output/cases/socialmedia/` | 运行产物 | `run_test.py` 生成 | ignored | 12 个传播版本已完成完整流水线分析；小型汇总和报告级图已进入 Git |
 | 批量分析输出 | `batch_results/` | 运行产物 | `batch_analyze.py` 生成 | ignored | 当前不存在，且缺少 `tests/BigGAN/` 输入 |
 
