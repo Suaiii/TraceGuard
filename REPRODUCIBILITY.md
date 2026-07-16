@@ -16,9 +16,23 @@
 | Wukong      | 1000  | 1000  | 81.70%     | 99.80%      | 63.60%      |
 | **Average** |       |       | **79.68%** |             |             |
 
-> **BigGAN 检出率 94.9%** 来自 Balanced Test Fake Recall 列。
+> **BigGAN 检出率 94.9%<mark>** 来自 Balanced Test Fake Recall 列。</mark>
 
-> **跨域提升 17%+** 来自专利消融实验 (MambaOut only vs MambaOut+MK-MMD)，具体数据见 `实验数据表.md`。
+### MMD 消融对比 (Ablation Study)
+
+| Generator   | No MMD FakeR | With MMD FakeR | MMD贡献      |
+| ----------- | ------------:| --------------:|:----------:|
+| ADM         | 25.3%        | 37.0%          | **+11.7%** |
+| BigGAN      | 73.3%        | 94.9%          | **+21.6%** |
+| Glide       | 65.7%        | 72.9%          | +7.2%      |
+| Midjourney  | 43.7%        | 49.2%          | +5.5%      |
+| SD14        | 63.9%        | 72.5%          | +8.6%      |
+| SD15        | 65.7%        | 73.1%          | +7.4%      |
+| VQDM        | 8.9%         | 13.2%          | +4.3%      |
+| Wukong      | 50.3%        | 63.6%          | **+13.3%** |
+| **Average** | **74.60%**   | **79.68%**     | **+5.08%** |
+
+> MMD 在所有 8 个生成器上均有正向贡献，平均 Fake Recall 提升 5.08 个百分点。BigGAN 提升最大(+21.6%)。原始 CSV: `eval_results.csv` (with MMD) | `eval_results_no_mmd.csv` (without MMD)
 
 ## 数据划分
 
