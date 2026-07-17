@@ -13,6 +13,7 @@
 - Generator heatmap：8 个生成器 × 3 个平台；行标签同时显示 Original Fake Recall。
 - Case evidence (`socialmedia_case_evidence.*`)：三类已测量样本的 Original/Facebook 区域标注图；数值来源为 `case_manifest_extended.csv`。
 - Case evidence full (`socialmedia_case_evidence_full.*`)：三类样本 × 四平台 (Original/Facebook/WeChat/Weibo) 完整对比图；每格标注 label、fake_prob、risk_score(risk_level)、bbox_count、tamper_type。底部附解释边界声明。生成脚本同上，`--variants original,facebook,wechat,weibo`。
+- Case evidence per-type (`socialmedia_case_{stable,degraded,conflict}.*`)：**#15-A 三类案例图**，每种案例独立一张，均为 1×4（四平台并排），便于报告逐案例详细展示。生成脚本同上，`--roles stable` / `--roles degraded` / `--roles conflict`。
 - 案例解释与高危处置叙事：见 `docs/narrative_risk_escalation.md`（#17-P4 交付物）。
 - Statistics：固定测试集、固定权重的一次确定性推理；没有跨随机种子或重复采样，因此不绘制误差条或置信区间。
 - Export：SVG 为可编辑主格式，PDF 与 PNG 为报告兼容格式，600 dpi TIFF 保存在本地 `output/figures/socialmedia/`。
