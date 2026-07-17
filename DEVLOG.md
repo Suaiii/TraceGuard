@@ -187,8 +187,6 @@
 
 ### 2026-07-17 - #15-A 案例图中文化 + 红框 bbox 叠加 + 独立叙事图
 
-### 2026-07-17 - #15-A 案例图中文化 + 红框 bbox 叠加 + 独立叙事图
-
 - `plot_case_evidence.py` 升级：`--roles` 参数、Microsoft YaHei 中文字体、中文标注 + 英文平台标题、案例级【行为】/【关键】叙事框（黄色）、底部中文解释边界声明、左侧标签贴近网格、底部留白收紧。
 - 新增 `generate_bbox_overlays.py`：一次性批量调用 TamperDetector 对 12 张案例图生成红框 bbox 叠加图，存入 `data/case_images/bbox/`。manifest 的 `image_path` 同步切换。
 - 三张独立案例图（`socialmedia_case_{stable,degraded,conflict}.*`）作为 #15-A 核心产出：1×4 四平台并排、红框 bbox、中文数据标注、行为叙事、解释边界。四平台图片各有不同红框分布。
