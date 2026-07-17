@@ -40,7 +40,15 @@
 
 ### 2026-07-17 - 贺杰 #15 / #17-P4 交付物落地
 
-- **#15-A（三类案例图）已完成**：12 张案例图像（3 样本 × 4 条件）已上传至 `data/case_images/`；扩展 manifest `case_manifest_extended.csv`（3×4=12 行）含 image_path、label、fake_prob、tamper_type、risk_score、risk_level、bbox_count 全字段；`plot_case_evidence.py` 升级支持多平台布局（`--variants` 参数）、富注释（每格标注全字段）与底部解释边界声明。输出两个版本：全量 3×4（`socialmedia_case_evidence_full.*`）+ 报告用 3×2（`socialmedia_case_evidence.*`）。
+- **#15-A（三类案例图）已完成**：
+  - 12 张案例图像（3 样本 × 4 条件）已上传至 `data/case_images/`；扩展 manifest `case_manifest_extended.csv`（3×4=12 行）。
+  - `plot_case_evidence.py` 升级：`--roles` 按案例类型筛选、`--variants` 多平台布局、Microsoft YaHei 中文字体、中文标注（判定/伪造概率/风险分/可疑区域/篡改类型）、英文平台标题（Original/Facebook/WeChat/Weibo）、底部中文解释边界声明。
+  - **新增三张独立案例图**（#15-A 核心产出）：`socialmedia_case_stable.*` / `socialmedia_case_degraded.*` / `socialmedia_case_conflict.*`，均为 1×4 四平台并排，含黄色【行为】/【关键】叙事框：
+    - 稳定案例（SD14）：四平台伪造概率 0.99+ 不动，系统稳定放行
+    - 衰减案例（BigGAN）：0.967→0.018 翻转，系统触发转人工而非静默改判
+    - 冲突案例（BigGAN）：全局判真但局部持续检出，系统保留分歧转人工
+  - **12 张图片已替换为红框 bbox 叠加图**：`generate_bbox_overlays.py` 批量调用 TamperDetector 生成 `data/case_images/bbox/` 下 12 张 bbox 标注图，manifest 同步更新路径。四平台图片各有不同红框分布，不再千篇一律。
+  - 合并网格同步更新：3×2（`socialmedia_case_evidence.*`）+ 3×4（`socialmedia_case_evidence_full.*`），均含中文标注 + 叙事框（多案例无行为叙事）。
 - **#15-B（篡改标注依据）已完成**：`experiments/localization/verified_results/README.md` 从 4 行占位重写为完整 8 节文档——数据来源（CASIA v1 + AIGC 合成）、标注协议（程序自动生成硬粘贴 GT）、指标定义（IoU/Dice/Pixel F1/Detection Rate/Clean FP + 阈值扫描）、基线对比、结果表（CASIA IoU=0.107/Dice=0.177、AIGC IoU=0.015/Dice=0.029）、局限性（100% clean FP、不支持像素级定位、GT 硬粘贴局限）、与社交媒体案例图关系、复现命令。
 - **#17-P4（高危处置叙事）已完成**：`docs/narrative_risk_escalation.md` 含三段叙事——衰减案例证据归零时系统转人工（case_summary 单样本）、策略 B 比策略 A 多捕获 16 个 b_only 样本（risk summary JSON 数据）、冲突案例跨四平台全局/局部分歧（case_classification data）。每段附报告可直接使用的表述和建议位置，含解释边界。
 - 张潇 `2c8899f`（19:57）：REPRODUCIBILITY.md 微调 2 行。#14 消融文档修补仍在进行中。
@@ -146,6 +154,13 @@
 - 7 月 19 日冻结技术内容，7 月 20 日仅仅处理封版阻塞问题。
 
 ## 变更记录
+
+### 2026-07-17 - #15-A 案例图中文化 + 红框 bbox 叠加 + 独立叙事图
+
+- `plot_case_evidence.py` 升级：`--roles` 参数、Microsoft YaHei 中文字体、中文标注 + 英文平台标题、案例级【行为】/【关键】叙事框（黄色）、底部中文解释边界声明、左侧标签贴近网格、底部留白收紧。
+- 新增 `generate_bbox_overlays.py`：一次性批量调用 TamperDetector 对 12 张案例图生成红框 bbox 叠加图，存入 `data/case_images/bbox/`。manifest 的 `image_path` 同步切换。
+- 三张独立案例图（`socialmedia_case_{stable,degraded,conflict}.*`）作为 #15-A 核心产出：1×4 四平台并排、红框 bbox、中文数据标注、行为叙事、解释边界。四平台图片各有不同红框分布。
+- 合并网格（3×2 / 3×4）同步更新；`docs/figures/socialmedia/README.md` 更新图录。
 
 ### 2026-07-13 - 单机短时并发烟测完成
 
