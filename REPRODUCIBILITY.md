@@ -30,9 +30,9 @@
 | SD15        | 65.7%        | 73.1%          | +7.4%      |
 | VQDM        | 8.9%         | 13.2%          | +4.3%      |
 | Wukong      | 50.3%        | 63.6%          | **+13.3%** |
-| **Average** | **74.60%**   | **79.68%**     | **+5.08%** |
+| **Average** | **49.60%**   | **59.55%**     | **+9.96%** |
 
-> MMD 在所有 8 个生成器上均有正向贡献，平均 Fake Recall 提升 5.08 个百分点。BigGAN 提升最大(+21.6%)。原始 CSV: `eval_results.csv` (with MMD) | `eval_results_no_mmd.csv` (without MMD)
+> MMD 在所有 8 个生成器上均有正向贡献，平均 Fake Recall 提升 9.96 个百分点。BigGAN 提升最大(+21.6%)，ADM(+11.7%)和Wukong(+13.3%)提升显著。原始 CSV: `eval_results.csv` (with MMD) | `eval_results_no_mmd.csv` (without MMD)
 
 ## 数据划分
 
