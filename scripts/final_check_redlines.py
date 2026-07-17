@@ -46,9 +46,12 @@ REPORT_DOCX_DIR = PROJECT_ROOT / "output" / "doc"
 # scope: report | program | both
 # exempt_substr: 命中文件路径含这些子串时豁免该规则
 RULES = [
+    # 官方模板须知句本身在说"应避免出现院系/指导教师"——含这些反身份措辞的行跳过；
+    # 真实泄露（如"院系：XX学院"）不含"避免/泄露身份"，照样命中。
     dict(name="身份措辞", severity="HIGH", scope="both",
          pattern=r"实验室|指导教师|导师|同组|课题组|本校|我校|院系|学院|系主任|师兄|师姐|教研室",
-         exempt=["DEVLOG", "AGENTS", "final_check_redlines", "report_restructure"]),
+         exempt=["DEVLOG", "AGENTS", "final_check_redlines", "report_restructure"],
+         skip_if_line_contains=["避免出现", "泄露身份", "隐去", "匿名"]),
     dict(name="真实姓名", severity="HIGH", scope="report",
          pattern=r"朱羿帅|张潇|贺杰",
          exempt=[]),
@@ -130,8 +133,11 @@ def scan_text(rel_label: str, text: str, scope: str, hits: list):
             continue
         if any(sub in rel_label for sub in rule["exempt"]):
             continue
+        skip_ctx = rule.get("skip_if_line_contains", [])
         rx = re.compile(rule["pattern"])
         for i, line in enumerate(lines, 1):
+            if any(s in line for s in skip_ctx):
+                continue
             for m in rx.finditer(line):
                 frag = line.strip()
                 if len(frag) > 160:
