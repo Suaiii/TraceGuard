@@ -1,6 +1,6 @@
 # TraceGuard Devlog
 
-更新时间：2026-07-16
+更新时间：2026-07-17
 技术封版目标：2026-07-20
 
 ## 使用规则
@@ -38,7 +38,12 @@
 
 ## 当前状态
 
-### 2026-07-16 - 报告字数、匿名化与全量回归收口
+### 2026-07-17 - 贺杰 #15 / #17-P4 交付物落地
+
+- **#15-A（三类案例图）已完成**：12 张案例图像（3 样本 × 4 条件）已上传至 `data/case_images/`；扩展 manifest `case_manifest_extended.csv`（3×4=12 行）含 image_path、label、fake_prob、tamper_type、risk_score、risk_level、bbox_count 全字段；`plot_case_evidence.py` 升级支持多平台布局（`--variants` 参数）、富注释（每格标注全字段）与底部解释边界声明。输出两个版本：全量 3×4（`socialmedia_case_evidence_full.*`）+ 报告用 3×2（`socialmedia_case_evidence.*`）。
+- **#15-B（篡改标注依据）已完成**：`experiments/localization/verified_results/README.md` 从 4 行占位重写为完整 8 节文档——数据来源（CASIA v1 + AIGC 合成）、标注协议（程序自动生成硬粘贴 GT）、指标定义（IoU/Dice/Pixel F1/Detection Rate/Clean FP + 阈值扫描）、基线对比、结果表（CASIA IoU=0.107/Dice=0.177、AIGC IoU=0.015/Dice=0.029）、局限性（100% clean FP、不支持像素级定位、GT 硬粘贴局限）、与社交媒体案例图关系、复现命令。
+- **#17-P4（高危处置叙事）已完成**：`docs/narrative_risk_escalation.md` 含三段叙事——衰减案例证据归零时系统转人工（case_summary 单样本）、策略 B 比策略 A 多捕获 16 个 b_only 样本（risk summary JSON 数据）、冲突案例跨四平台全局/局部分歧（case_classification data）。每段附报告可直接使用的表述和建议位置，含解释边界。
+- 张潇 `2c8899f`（19:57）：REPRODUCIBILITY.md 微调 2 行。#14 消融文档修补仍在进行中。
 
 - 按模板最严格的“章节全部可见汉字”口径核查，第一至第五章分别为 617/4022/1416/447/145，均低于 2000/5000/2000/1000/500 上限。
 - 修复摘要、第一章和参考文献因模板固定节容量造成的截断；9 条参考文献全部可见，6 张图和 9 张表编号、引用与文件存在性一致。

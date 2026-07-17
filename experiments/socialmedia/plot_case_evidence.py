@@ -1,4 +1,9 @@
-"""Generate a report-grade case plate from measured pipeline evidence."""
+"""Generate report-grade case evidence plates with interpretation boundaries.
+
+#15-A deliverable: three classes of cases (stable / degraded / conflict) with
+explanatory annotations and mandatory disclaimers that bboxes are engineering
+evidence only, not pixel-precise ground truth.
+"""
 
 import argparse
 import csv
@@ -10,22 +15,32 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from PIL import Image
 
-
 plt.rcParams["font.family"] = "sans-serif"
 plt.rcParams["font.sans-serif"] = ["Arial", "DejaVu Sans", "Liberation Sans"]
 plt.rcParams["svg.fonttype"] = "none"
 plt.rcParams["pdf.fonttype"] = 42
-plt.rcParams["font.size"] = 7
-
 
 ROLES = ["stable", "degraded", "conflict"]
-VARIANTS = ["original", "facebook"]
 ROLE_LABELS = {
     "stable": "Stable",
     "degraded": "Degraded",
     "conflict": "Conflict",
 }
-VARIANT_LABELS = {"original": "Original", "facebook": "Facebook"}
+ROLE_TITLES_CN = {
+    "stable": "稳定案例 (Stable)",
+    "degraded": "衰减案例 (Degraded)",
+    "conflict": "冲突案例 (Conflict)",
+}
+
+VARIANT_LABELS = {
+    "original": "Original",
+    "facebook": "Facebook",
+    "wechat": "WeChat",
+    "weibo": "Weibo",
+}
+
+# Risk level colour hints for annotation
+RISK_COLORS = {"low": "#4CAF50", "medium": "#FF9800", "high": "#F44336"}
 
 
 def _save(fig, output_base):
@@ -36,7 +51,6 @@ def _save(fig, output_base):
         ("svg", {}),
         ("pdf", {}),
         ("png", {"dpi": 300}),
-        ("tiff", {"dpi": 600}),
     ):
         path = output_base.with_suffix(f".{extension}")
         fig.savefig(path, bbox_inches="tight", facecolor="white", **kwargs)
@@ -51,61 +65,132 @@ def _save(fig, output_base):
     return paths
 
 
-def generate_case_figure(rows, output_base):
-    """Render Original/Facebook evidence for stable, degraded, and conflict cases."""
-    lookup = {(row["role"], row["variant"]): row for row in rows}
-    missing = [
-        (role, variant)
-        for role in ROLES
-        for variant in VARIANTS
-        if (role, variant) not in lookup
-    ]
-    if missing:
-        raise ValueError(f"missing case evidence rows: {missing}")
+def _format_fp(val):
+    """Format fake_prob consistently: 3 decimals for sub-0.1, 4 otherwise."""
+    v = float(val)
+    if v < 0.001:
+        return f"{v:.4f}"
+    elif v < 0.1:
+        return f"{v:.4f}"
+    else:
+        return f"{v:.4f}"
 
-    fig, axes = plt.subplots(3, 2, figsize=(6.3, 6.6))
+
+def _annotation_text(record):
+    """Build rich multi-line annotation from case record."""
+    lines = []
+    label = record.get("label", "")
+    fp = _format_fp(record["fake_prob"])
+    risk = _format_fp(record.get("risk_score", 0))
+    risk_level = record.get("risk_level", "")
+    bbox = record.get("bbox_count", "0")
+    tamper = record.get("tamper_type", "")
+
+    lines.append(f"label={label}  fake_prob={fp}")
+    lines.append(f"risk={risk}({risk_level})  bbox={bbox}")
+    lines.append(f"tamper_type={tamper}")
+
+    return "\n".join(lines)
+
+
+def generate_case_figure(rows, output_base, variants=None):
+    """Render case evidence grid with interpretation boundaries.
+
+    Parameters
+    ----------
+    rows : list[dict]
+        Manifest rows with columns: role, variant, image_path, label,
+        fake_prob, tamper_type, risk_score, risk_level, bbox_count.
+    output_base : str or Path
+        Output file path without extension.
+    variants : list[str] or None
+        Which variant columns to render.  Default: original, facebook, wechat, weibo.
+    """
+    if variants is None:
+        variants = ["original", "facebook", "wechat", "weibo"]
+
+    lookup = {(row["role"], row["variant"]): row for row in rows}
+
+    n_roles = len(ROLES)
+    n_variants = len(variants)
+
+    # Tight layout: each cell ~2.2 x 2.0 inches
+    fig_width = n_variants * 2.4 + 0.8
+    fig_height = n_roles * 2.6 + 1.6  # extra for footer
+    fig, axes = plt.subplots(
+        n_roles, n_variants, figsize=(fig_width, fig_height),
+        gridspec_kw={"hspace": 0.42, "wspace": 0.06,
+                     "top": 0.94, "bottom": 0.20, "left": 0.12, "right": 0.98},
+    )
+    if n_roles == 1 and n_variants == 1:
+        axes = [[axes]]
+    elif n_roles == 1:
+        axes = [axes]
+    elif n_variants == 1:
+        axes = [[ax] for ax in axes]
+
     for row_index, role in enumerate(ROLES):
-        for column_index, variant in enumerate(VARIANTS):
-            ax = axes[row_index, column_index]
-            record = lookup[(role, variant)]
-            with Image.open(record["image_path"]) as image:
-                ax.imshow(image.convert("RGB"))
+        for col_index, variant in enumerate(variants):
+            ax = axes[row_index][col_index]
+            key = (role, variant)
+            if key not in lookup:
+                ax.text(0.5, 0.5, "N/A", transform=ax.transAxes,
+                        ha="center", va="center", fontsize=10, color="#999")
+                ax.set_xticks([])
+                ax.set_yticks([])
+                continue
+
+            record = lookup[key]
+            img_path = Path(record["image_path"])
+            if img_path.exists():
+                with Image.open(img_path) as img:
+                    ax.imshow(img.convert("RGB"))
+            else:
+                ax.text(0.5, 0.5, f"missing:\n{img_path}", transform=ax.transAxes,
+                        ha="center", va="center", fontsize=6, color="#999")
+
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
                 spine.set_color("#B8B8B8")
                 spine.set_linewidth(0.6)
-            label = record.get("label", "")
-            probability = float(record["fake_prob"])
-            evidence = record.get("tamper_type", "")
-            annotation = f"label={label} | fake probability={probability:.3f}"
-            if role == "conflict":
-                annotation += f"\nlocal evidence={evidence}"
-            ax.text(0.5, -0.055, annotation, transform=ax.transAxes, ha="center", va="top")
+
+            # Rich annotation below
+            ann = _annotation_text(record)
+            ax.text(0.5, -0.18, ann, transform=ax.transAxes,
+                    ha="center", va="top", fontsize=5.5,
+                    fontfamily="monospace",
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="#F5F5F5",
+                              edgecolor="#DDD", alpha=0.9))
+
+            # Variant header (top row)
             if row_index == 0:
                 ax.text(
-                    0.5,
-                    1.025,
-                    VARIANT_LABELS[variant],
-                    transform=ax.transAxes,
-                    ha="center",
-                    va="bottom",
-                    fontsize=8,
-                    fontweight="bold",
+                    0.5, 1.03, VARIANT_LABELS.get(variant, variant),
+                    transform=ax.transAxes, ha="center", va="bottom",
+                    fontsize=9, fontweight="bold",
                 )
-            if column_index == 0:
+
+            # Role label (leftmost column)
+            if col_index == 0:
                 ax.text(
-                    -0.08,
-                    0.5,
-                    ROLE_LABELS[role],
-                    transform=ax.transAxes,
-                    ha="right",
-                    va="center",
-                    rotation=90,
-                    fontsize=8,
-                    fontweight="bold",
+                    -0.25, 0.5, ROLE_LABELS[role],
+                    transform=ax.transAxes, ha="right", va="center",
+                    rotation=90, fontsize=9, fontweight="bold",
                 )
-    fig.subplots_adjust(left=0.10, right=0.99, bottom=0.06, top=0.96, hspace=0.30, wspace=0.10)
+
+    # ---- Interpretation boundary footer ----
+    footer = (
+        "All values from case_summary.csv / case_classification/all.csv (real system output). "
+        "bbox counts and tamper_type are engineering localization evidence only — "
+        "NOT pixel-level ground truth. "
+        "See experiments/localization/verified_results/ for pixel-level localization metrics."
+    )
+    fig.text(0.5, 0.015, footer, ha="center", va="bottom", fontsize=6.0,
+             color="#666666", style="italic",
+             bbox=dict(boxstyle="round,pad=0.4", facecolor="#FAFAFA",
+                       edgecolor="#CCCCCC", alpha=0.85))
+
     return _save(fig, output_base)
 
 
@@ -115,11 +200,20 @@ def _read_rows(path):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Plot verified social-media case evidence")
-    parser.add_argument("--manifest", required=True)
-    parser.add_argument("--output", required=True)
+    parser = argparse.ArgumentParser(
+        description="Plot social-media case evidence with interpretation boundaries"
+    )
+    parser.add_argument("--manifest", required=True,
+                        help="CSV with columns: role, variant, image_path, label, "
+                             "fake_prob, tamper_type, risk_score, risk_level, bbox_count")
+    parser.add_argument("--output", required=True,
+                        help="Output path without extension (svg/pdf/png auto)")
+    parser.add_argument("--variants", default="original,facebook,wechat,weibo",
+                        help="Comma-separated variant list (default: original,facebook,wechat,weibo)")
     args = parser.parse_args(argv)
-    for path in generate_case_figure(_read_rows(args.manifest), args.output):
+    variants = [v.strip() for v in args.variants.split(",")]
+    rows = _read_rows(args.manifest)
+    for path in generate_case_figure(rows, args.output, variants=variants):
         print(path)
     return 0
 
