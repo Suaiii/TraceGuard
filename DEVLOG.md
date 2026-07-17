@@ -51,6 +51,14 @@
   - 合并网格同步更新：3×2（`socialmedia_case_evidence.*`）+ 3×4（`socialmedia_case_evidence_full.*`），均含中文标注 + 叙事框（多案例无行为叙事）。
 - **#15-B（篡改标注依据）已完成**：`experiments/localization/verified_results/README.md` 从 4 行占位重写为完整 8 节文档——数据来源（CASIA v1 + AIGC 合成）、标注协议（程序自动生成硬粘贴 GT）、指标定义（IoU/Dice/Pixel F1/Detection Rate/Clean FP + 阈值扫描）、基线对比、结果表（CASIA IoU=0.107/Dice=0.177、AIGC IoU=0.015/Dice=0.029）、局限性（100% clean FP、不支持像素级定位、GT 硬粘贴局限）、与社交媒体案例图关系、复现命令。
 - **#17-P4（高危处置叙事）已完成**：`docs/narrative_risk_escalation.md` 含三段叙事——衰减案例证据归零时系统转人工（case_summary 单样本）、策略 B 比策略 A 多捕获 16 个 b_only 样本（risk summary JSON 数据）、冲突案例跨四平台全局/局部分歧（case_classification data）。每段附报告可直接使用的表述和建议位置，含解释边界。
+- **#15-D（交付形态合规）已补齐**：对照 `AGENTS.md §12.1` 逐线审计 6 条实验线的 README + provenance.json + 报告级汇总三件套。
+  - **`risk/verified_results/`**：
+    - README.md：4 行英文重写为 80 行中文口径边界文档——文件清单、策略 A vs B 对比表（Recall 0.910→0.990、b_only 16 样本特征）、holdout 评价（review F1=0.9877 / high F1=1.0）、阈值来源（硬编码 vs 数据驱动）、口径边界（200 张单一来源不可外推、60/40 留出不代表泛化）。
+    - provenance.json：补齐 runtime（Python 3.12.4 / Torch 2.6.0+cu124 / RTX 4060）、原始预测三文件 SHA-256（`risk_pipeline_outputs.csv` + `risk_calibration_summary.json` + `risk_conflict_cases.csv`）、cross_checks、gaps 如实标注。
+  - **`localization/verified_results/`**：
+    - provenance.json：补齐 runtime、**新增 CASIA v1 主评价实验记录**（40+10, seed=42, Au.zip + Modified Tp.zip SHA-256、合成方式、指标、原始预测/汇总/阈值扫描三文件 SHA-256）、cross_checks、gaps（torchvision 待补、AIGC 逐样本预测未保存、GT 硬粘贴局限、无外部 baseline）。
+  - 当前 6 条线合规状态：`socialmedia/`（✅ 贺杰）、`crossdomain/`（✅ 张潇）、`perturbation/`（✅ 朱羿帅）、`localization/`（✅ 已补）、`risk/`（✅ 已补）、`platform/`（⚠️ README 英文仅有命令——朱羿帅的线，非本次范围）。
+- **Git 记录**：`80f53cd`（中文化+叙事框）、`12d0360`（红框 bbox 叠加+D 合规补齐+DEVLOG），均已推送。`d60c186` 为上一会话交付，未 push（用户要求不推送）。
 - 张潇 `2c8899f`（19:57）：REPRODUCIBILITY.md 微调 2 行。#14 消融文档修补仍在进行中。
 
 - 按模板最严格的“章节全部可见汉字”口径核查，第一至第五章分别为 617/4022/1416/447/145，均低于 2000/5000/2000/1000/500 上限。

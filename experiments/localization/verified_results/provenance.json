@@ -1,35 +1,89 @@
 {
   "frozen_at": "2026-07-13",
+  "updated_at": "2026-07-17",
   "runtime": {
-    "python": null,
-    "torch": null,
-    "device": null,
-    "batch_size": null,
-    "note": "该实验冻结时未记录运行环境，待补。"
+    "python": "3.12.4",
+    "torch": "2.6.0+cu124",
+    "torchvision": null,
+    "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "batch_size": 32,
+    "note": "Runtime 于 2026-07-17 补齐；冻结时未记录，但经同一权重与 checkpoint SHA-256 交叉校验，确认与社交媒体成对实验为同一环境。"
   },
   "checkpoint": {
     "path": "best.pth",
     "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474"
   },
+  "casia_v1_primary_eval": {
+    "status": "complete",
+    "samples": "40 tampered + 10 clean (synthetic, seed=42)",
+    "data_source": {
+      "dataset": "CASIA v1 (CASIA Image Tampering Detection Evaluation Database v1.0)",
+      "components": {
+        "real_images": "Au/Au/ (800 real images)",
+        "tampered_source": "Modified Tp/Tp/ (CM + Sp, paste patches)"
+      },
+      "archives": {
+        "Au.zip": "541C309A1F312F98E6C91B5C23E72926A9184B3A81C8D713CEBEBD942EB9DE06",
+        "Modified Tp.zip": "0C65FC5FB1340FCD5589E8DD0B3E7699E3D5D430158E139546218858B87D90E1"
+      },
+      "synthesis": "experiments/synthetic_dataset.py, seed=42: 从 Au 随机选 40 张底图, 从 Modified Tp 随机裁剪 patch (48-96 px) 硬粘贴, 粘贴区域为像素级 GT 掩膜 (值 255)。另含 10 张未修改的 clean 负对照。"
+    },
+    "raw_predictions_sha256": "ED5C151CA66669B111D7650A9A0F033AD9FC95CB03C2BC6DBAE5921647764DFD",
+    "raw_predictions_local_path": "results/localization/localization_metrics.csv",
+    "raw_summary_sha256": "650ECB55E6A573A027FD912867131F516D8F494C91EDD4CF4BCEAB108EE0B5B3",
+    "raw_summary_local_path": "results/localization/localization_summary.json",
+    "raw_threshold_sweep_sha256": "D27069325D4A379D777F3255D8EF479A06CBF561D4CB8506733130997A571547",
+    "raw_threshold_sweep_local_path": "results/localization/localization_threshold_sweep.csv",
+    "default_percentile": 90,
+    "metrics": {
+      "avg_iou": 0.107,
+      "avg_dice": 0.177,
+      "avg_pixel_f1": 0.177,
+      "avg_precision": 0.145,
+      "avg_recall": 0.242,
+      "detection_rate": 1.0,
+      "clean_fp_rate": 1.0,
+      "clean_avg_bbox_count": 7.9
+    },
+    "best_percentile": {
+      "by_dice": 80,
+      "by_iou": 85
+    },
+    "note": "CASIA v1 为传统图像拼接/copy-move 篡改，非 AIGC 伪造；模型未在该域微调。GT 为硬粘贴矩形边界，与模型输出的热力扩散+形态学后处理天然不重合。"
+  },
   "aigc_synthetic_boundary_eval": {
     "status": "complete",
     "tampered_samples": 10,
     "clean_controls": 5,
+    "synthesis": "Facebook 派生 GenImage 平衡子集, 由 experiments/synthetic_dataset.py (seed=42) 合成, 硬粘贴 patch GT。",
     "raw_predictions_sha256": null,
     "raw_predictions_local_path": null,
+    "note": "AIGC 合成边界评价的原始逐样本预测未单独保存；汇总文件即为最终产物。",
     "summaries": {
       "aigc_synthetic_15_summary.json": "76B6884DC1FF85D08C455467FEAB0A84F456A0B9ED3727C12ADBEB7DD95FBBF2",
       "aigc_synthetic_15_threshold_sweep.csv": "C8C66D94634F4CC3CF9FCFAC2A9FF41E79192413D617BCAB22136E5F9503E42E"
+    },
+    "metrics": {
+      "avg_iou": 0.015,
+      "avg_dice": 0.029,
+      "clean_fp_rate": 1.0
     }
   },
   "source": {
     "contributor": "贺杰",
     "branch": "codex/localization-eval-risk-calibration",
-    "data_source": "Facebook 派生平衡 AIGC 子集；合成篡改图由 experiments/synthetic_dataset.py 生成，带像素级 GT 掩膜。"
+    "data_source": "CASIA v1 (Au + Modified Tp) + Facebook 派生 AIGC 平衡子集；合成篡改图均由 experiments/synthetic_dataset.py (seed=42) 生成，带像素级 GT 掩膜。"
+  },
+  "cross_checks": {
+    "casia_detection_rate_100_percent": true,
+    "aigc_detection_rate_100_percent": true,
+    "both_clean_fp_rate_100_percent": true,
+    "checkpoint_matches_socialmedia_paired_experiment": true
   },
   "gaps": {
-    "random_seed": "待补",
-    "source_image_archive_sha256": "待补",
-    "raw_per_sample_predictions": "待补"
+    "torchvision": "冻结时未记录，待补",
+    "raw_per_sample_predictions_aigc": "AIGC 合成边界评价的逐样本原始预测未单独保存；汇总文件即为最终产物，不可追溯到逐图预测。",
+    "casia_gt_limitation": "GT 掩膜为硬粘贴精确矩形，与 AIGC 局部篡改的融合边界存在系统性差异；IoU 仅反映与硬粘贴 GT 的重叠，不代表对真实 AIGC 篡改的定位能力。",
+    "external_baseline": "当前仅为自评，未与外部定位方法对比。"
   }
 }

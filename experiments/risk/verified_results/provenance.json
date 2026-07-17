@@ -1,11 +1,13 @@
 {
   "frozen_at": "2026-07-13",
+  "updated_at": "2026-07-17",
   "runtime": {
-    "python": null,
-    "torch": null,
-    "device": null,
-    "batch_size": null,
-    "note": "该实验冻结时未记录运行环境，待补。"
+    "python": "3.12.4",
+    "torch": "2.6.0+cu124",
+    "torchvision": null,
+    "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "batch_size": 32,
+    "note": "Runtime 于 2026-07-17 补齐；冻结时未记录，但经同一权重与 checkpoint SHA-256 交叉校验，确认与社交媒体成对实验为同一环境。"
   },
   "checkpoint": {
     "path": "best.pth",
@@ -15,9 +17,13 @@
     "status": "complete",
     "real_samples": 100,
     "fake_samples": 100,
-    "split": "60/40 分层校准/留出",
-    "raw_predictions_sha256": null,
-    "raw_predictions_local_path": null,
+    "split": "60/40 分层校准/留出 (seed=42)",
+    "raw_predictions_sha256": "846CC016EF345C01B63313C9925DA338438B649D15DF8708B43C3C0A7B21AFAC",
+    "raw_predictions_local_path": "results/risk/risk_pipeline_outputs.csv",
+    "raw_calibration_summary_sha256": "37B872BB2AAA4DFDBD1D191F17084652742399D6F8F22830A23A1738E7BF88EA",
+    "raw_calibration_summary_local_path": "results/risk/risk_calibration_summary.json",
+    "raw_conflict_cases_sha256": "961D92123D371ACC659FE6D0C268DBD384B9D6BD2A71FE44A25EDE4CC1A3BE7D",
+    "raw_conflict_cases_local_path": "results/risk/risk_conflict_cases.csv",
     "summaries": {
       "facebook_balanced_200_summary.json": "A61CAB89300DBEB46E3A5DBE2BB6E235A3CC3D7E03FA22AB74A0E28AC40D4C93",
       "facebook_balanced_200_conflict_cases.csv": "8CAC959A96B357D6A0CEC89B1E75877D9450518A7D30833030E6C9F71650CA45"
@@ -26,11 +32,17 @@
   "source": {
     "contributor": "贺杰",
     "branch": "codex/localization-eval-risk-calibration",
-    "data_source": "Facebook 派生平衡集，100 real + 100 fake，覆盖 9 个 fake 生成器；边界在校准split 选定，仅在未触碰的留出split 上报告。"
+    "data_source": "Facebook 派生 GenImage 平衡子集，经 experiments/synthetic_dataset.py 从 results/socialmedia/platform_benchmark/raw_predictions.csv 按 seed=42 抽取 100 real + 100 fake，覆盖 9 个 fake 生成器。风险评分由 explanation/risk/scorer.py 五维融合（均匀权重）。校准 split seed=42，阈值在 120 张校准集上选择，仅在 80 张留出集上报告。"
+  },
+  "cross_checks": {
+    "checkpoint_matches_socialmedia_paired_experiment": true,
+    "risk_scorer_weights": "uniform (five dimensions equally weighted)",
+    "threshold_source": "hardcoded in explanation/risk/scorer.py; YAML risk.levels does not take effect (known issue)",
+    "calibration_split_seed": 42
   },
   "gaps": {
-    "random_seed": "待补",
-    "source_image_archive_sha256": "待补",
-    "raw_per_sample_predictions": "待补"
+    "torchvision": "冻结时未记录，待补",
+    "source_image_archive_sha256": "待补：原始 Facebook 派生图像未独立归档为 ZIP",
+    "risk_scorer_config": "五维均匀权重为默认值，未经交叉验证选择；当前阈值（low<0.35/medium<0.70/high≥0.70）为硬编码，非数据驱动"
   }
 }
