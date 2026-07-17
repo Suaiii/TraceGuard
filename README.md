@@ -10,7 +10,7 @@
 
 TraceGuard 面向真实网络传播环境中的 AIGC 图像审核需求，将全局真伪判断、可解释热力图、局部可疑区域定位、风险融合和报告输出组织为一条可复核链路。仓库同时提供浏览器工作台、HTTP API、命令行和批量分析入口。
 
-当前可协作报告源：[reports/TraceGuard.md](reports/TraceGuard.md)。该文件已同步到官方 Word 模板并完成逐页视觉核查；传播扰动与社交媒体成对评测已写入并冻结，跨域消融的复现链、定位标注依据和更多独立来源复核仍在补齐中，因此不是最终提交版本。报告中每个正式数字的出处见[六、案例结果](#六案例结果)的「证据与复现」。
+当前可协作报告源：[reports/TraceGuard.md](reports/TraceGuard.md)。该文件已同步到官方 Word 模板并完成逐页视觉核查；传播扰动、社交媒体成对评测、零样本超监管跨内容域评测（纯公开子集）均已写入并冻结，跨域消融的复现链和更多独立来源复核仍在补齐中，因此不是最终提交版本。报告中每个正式数字的出处见[六、案例结果](#六案例结果)的「证据与复现」。
 
 ```text
 上传图片 -> 跨域真伪检测 -> 热力图与局部定位 -> 风险融合 -> 中文解释与证据展示
@@ -424,7 +424,7 @@ python -m explanation.batch --input-dir ./images --output-json results.json
 | 局部定位 | `experiments/localization/verified_results/` | 合成数据上的定位边界评价与阈值扫描 |
 | 风险融合 | `experiments/risk/verified_results/` | 风险等级留出校准与全局/局部冲突案例 |
 | 平台运行 | `experiments/platform/verified_results/` | Web 闭环运行时烟测汇总 |
-| 零样本跨内容域 | `experiments/eximage/verified_results/` | **建设中**，尚未冻结，不得引用 |
+| 零样本跨内容域 | `experiments/eximage/verified_results/` | 纯公开 ExImage 子集（9 生成器 × 250）零样本 Fake Recall 98.00% 与传播扰动保持率；旧混合集数字已弃用 |
 
 约定全文见 [`AGENTS.md`](AGENTS.md) §12 / §12.1。
 
