@@ -1,0 +1,189 @@
+{
+  "frozen_at": "2026-07-17",
+  "experiment": "Zero-shot fake recall + deterministic propagation retention on a self-constructed subset of the PUBLIC ExImage release",
+  "runtime": {
+    "python": "3.10.20 | packaged by conda-forge | (main, Mar  5 2026, 16:36:49) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "torch": "1.13.1+cpu",
+    "cuda_available": false,
+    "cuda_device": null,
+    "device": "cpu",
+    "command": "experiments/socialmedia/evaluate.py paired-derived --manifest dataset/eximage_public_subset/derived_fake/derived_manifest.csv --project-root . --variants original,jpeg75,jpeg50,resize50,screenshot --checkpoint best.pth --device cpu --batch-size 32 --output output/eximage_zeroshot_public/fake"
+  },
+  "checkpoint": {
+    "path": "best.pth",
+    "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474",
+    "sha256_recomputed": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474"
+  },
+  "public_source": {
+    "archive": "dataset/eximage/ExImage.zip",
+    "origin": "ExDA project README public Google Drive link (no login required)",
+    "google_drive_file_id": "1s2JYbZyMe-SzWjkja9tlZFrzIJiFhwI-",
+    "size_bytes": 12095600787,
+    "sha256": "4BB0B1A163B6607E304E126A88168326CB6F19EC281B2BB70207390965BF2ECA",
+    "release_survey": {
+      "method": "path-string scan of all entries in all nested ZIPs (no decoding)",
+      "entries_total": 35605,
+      "split_dirs": {
+        "train": 28800,
+        "test": 6805
+      },
+      "test_by_generator": {
+        "BigGAN": 800,
+        "CycleGAN": 800,
+        "DALLE": 800,
+        "Flux": 800,
+        "Glide": 800,
+        "LatentDM": 405,
+        "Midjourney": 800,
+        "SD14": 800,
+        "SD15": 800
+      },
+      "real_keyword_hits": 0,
+      "real_images": 0,
+      "byte_duplicates_in_release": {
+        "method": "match on (crc32, uncompressed_size) from ZIP central directories",
+        "distinct_entries": 35530,
+        "duplicate_entries": 75,
+        "by_generator": {
+          "CycleGAN": 27,
+          "Midjourney": 36,
+          "SD14": 12
+        },
+        "note": "Explains why deduplicated per-generator totals read 3973/3964/3988 instead of 4000; the built subset itself contains no duplicate crc32."
+      }
+    }
+  },
+  "subset": {
+    "builder": "experiments/eximage/build_public_subset.py",
+    "seed": 42,
+    "sampling": "per generator: sort test/ entry names casefold, then random.Random(seed).sample(...), re-sorted",
+    "per_generator_target": 250,
+    "selected_total": 2250,
+    "counts_by_generator": {
+      "BigGAN": {
+        "test_available": 800,
+        "selected": 250,
+        "short": false
+      },
+      "CycleGAN": {
+        "test_available": 800,
+        "selected": 250,
+        "short": false
+      },
+      "DALLE": {
+        "test_available": 800,
+        "selected": 250,
+        "short": false
+      },
+      "Flux": {
+        "test_available": 800,
+        "selected": 250,
+        "short": false
+      },
+      "Glide": {
+        "test_available": 800,
+        "selected": 250,
+        "short": false
+      },
+      "LatentDM": {
+        "test_available": 405,
+        "selected": 250,
+        "short": false
+      },
+      "Midjourney": {
+        "test_available": 800,
+        "selected": 250,
+        "short": false
+      },
+      "SD14": {
+        "test_available": 800,
+        "selected": 250,
+        "short": false
+      },
+      "SD15": {
+        "test_available": 800,
+        "selected": 250,
+        "short": false
+      }
+    },
+    "fake_subset_zip": {
+      "path": "dataset/eximage_public_subset/fake_subset.zip",
+      "sha256": "6AA173B2555C5974B102A453C1B3EB5920E43411CDF75BF0B2B24CB54DDF21A3"
+    },
+    "manifest": {
+      "path": "dataset/eximage_public_subset/manifest.csv",
+      "sha256": "4415DFF0BA3E943163BE5D6B88CD98FEBA8BAFE0EA998A075FC6B36C5246BEAE"
+    },
+    "real_images": 0,
+    "real_note": "The public ExImage release contains no real images; this experiment reports Fake Recall only."
+  },
+  "derived_archives": {
+    "jpeg50": {
+      "path": "dataset/eximage_public_subset/derived_fake/derived_jpeg50.zip",
+      "sha256": "DE92FCCB73E2258A922F9B5635DDB6D01D36288DB3DBEF51842255414A5745B6"
+    },
+    "jpeg75": {
+      "path": "dataset/eximage_public_subset/derived_fake/derived_jpeg75.zip",
+      "sha256": "024EC5C73B5DA50427FBF53FEFCB25A99DCCD93F946F5015F01F200C1EAFE24D"
+    },
+    "resize50": {
+      "path": "dataset/eximage_public_subset/derived_fake/derived_resize50.zip",
+      "sha256": "327AE874BFFBFFAA77B33A152F12C6D31C334DDC453E6DC8C1F394869CDF372B"
+    },
+    "screenshot": {
+      "path": "dataset/eximage_public_subset/derived_fake/derived_screenshot.zip",
+      "sha256": "273EDE1C7EA50A59BC635AE2E70A744781CA2EBDFC165EAB92016B9870BB5504"
+    }
+  },
+  "derived_manifest": {
+    "path": "dataset/eximage_public_subset/derived_fake/derived_manifest.csv",
+    "sha256": "8D17B45C6E1F7AC9FF57D8DCDFCFB7A656C6906982B9D715F1A3FE6720721430"
+  },
+  "raw_predictions": {
+    "path": "output/eximage_zeroshot_public/fake/raw_predictions.csv",
+    "sha256": "14EE72ED95D00F331C9A8BA1B0ED3374A97AF83D44F583DF11CF8593D16C0266",
+    "rows": 11250,
+    "failures": 0
+  },
+  "frozen_summaries": {
+    "zeroshot_summary_all.csv": "024C888079FAD0CD9ED316976EB5F58B1BEE441C04E835CD52FBA76B3EEBA80E",
+    "zeroshot_summary_by_generator.csv": "92A4F19695FC22E0C0C7583633DA374C4BDF2DBF36DF60833E9E4C2172811149",
+    "subset_counts.csv": "2FA1104F5EEE2967903A4DA66442F2ADF691849381FFEEE185BA6A1D13A3AF2D"
+  },
+  "cross_checks": {
+    "all_rows_ok": true,
+    "probabilities_in_range": true,
+    "labels_are_fake_only": true,
+    "single_checkpoint_hash": true,
+    "checkpoint_hash_matches_expected": true,
+    "rows_equal_samples_times_variants": true
+  },
+  "metrics_not_computable": [
+    "accuracy",
+    "macro_f1",
+    "roc_auc",
+    "real_false_positive_rate"
+  ],
+  "gaps": [
+    "The public ExImage release ships no official split (dataset_paths.py is not distributed); the subset here is self-constructed and is not the split used by the original paper.",
+    "The public release contains no real images, so no false-positive rate can be measured on this data.",
+    "Perturbations are local deterministic simulations, not real platform transmission; they do not replace the socialmedia platform experiments."
+  ],
+  "relation_to_prior_run": {
+    "prior_output": "output/eximage_zeroshot/",
+    "prior_overall_fake_recall": 0.9884,
+    "prior_real_false_positive_rate": 0.014,
+    "prior_source": "Mixed set: 1152 'js' fake images are byte-identical to entries in the public ExImage release, 1098 'db' fake images are absent from it; the 500 real images are not from the public release either.",
+    "prior_source_audit": {
+      "method": "match on (crc32, uncompressed_size) from ZIP central directories",
+      "old_subset_fake_total": 2250,
+      "js_total": 1152,
+      "js_found_in_public_release": 1152,
+      "db_total": 1098,
+      "db_found_in_public_release": 0
+    },
+    "comparable": false,
+    "note": "Different sample set and different provenance. The two numbers must not be mixed, substituted for one another, or presented as versions of the same experiment."
+  }
+}

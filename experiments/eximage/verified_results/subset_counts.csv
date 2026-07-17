@@ -1,0 +1,11 @@
+generator,test_available,selected,short_of_target
+BigGAN,800,250,False
+CycleGAN,800,250,False
+DALLE,800,250,False
+Flux,800,250,False
+Glide,800,250,False
+LatentDM,405,250,False
+Midjourney,800,250,False
+SD14,800,250,False
+SD15,800,250,False
+ALL,6805,2250,False
