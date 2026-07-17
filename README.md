@@ -6,11 +6,11 @@
 
 > 团队成员：朱羿帅（系统集成、产品化、作品报告与答辩）张潇（跨域 AIGC 检测，MambaOut-Small + MK-MMD）｜贺杰（可解释检测与取证）
 >
-> 2026-07-12 | Web + FastAPI 单进程闭环 | 四象限局部篡改分类 | 1000 张 BigGAN 批量验证（94.9%）
+> Web + FastAPI 单进程闭环 | 四象限局部篡改分类 | BigGAN 1000 张盲测 Fake Recall 94.9%（见[六、案例结果](#六案例结果)）
 
 TraceGuard 面向真实网络传播环境中的 AIGC 图像审核需求，将全局真伪判断、可解释热力图、局部可疑区域定位、风险融合和报告输出组织为一条可复核链路。仓库同时提供浏览器工作台、HTTP API、命令行和批量分析入口。
 
-当前可协作报告源：[reports/TraceGuard.md](reports/TraceGuard.md)。该文件已同步到官方 Word 模板并完成 25 页视觉核查；当前来源的定位边界评价和风险留出校准已写入，但仍等待跨域消融、传播扰动和更多独立来源复核，因此不是最终提交版本。
+当前可协作报告源：[reports/TraceGuard.md](reports/TraceGuard.md)。该文件已同步到官方 Word 模板并完成逐页视觉核查；传播扰动与社交媒体成对评测已写入并冻结，跨域消融的复现链、定位标注依据和更多独立来源复核仍在补齐中，因此不是最终提交版本。报告中每个正式数字的出处见[六、案例结果](#六案例结果)的「证据与复现」。
 
 ```text
 上传图片 -> 跨域真伪检测 -> 热力图与局部定位 -> 风险融合 -> 中文解释与证据展示
@@ -396,6 +396,38 @@ python -m explanation.batch --input-dir ./images --output-json results.json
 
 > 本节保存的是已有实验记录，不是当前目录中的现场输出。当前缺少 `tests/BigGAN/`、`case_study/` 和 `batch_results/`，因此必须先恢复相同数据、权重和命令，再复核以下数字。
 
+### 6.0 证据与复现
+
+入库证据的**唯一**归宿是 `experiments/<线>/verified_results/`。任何进入报告、答辩或本 README 的实验数字，都必须能追溯到某个 `verified_results/` 目录；实验线各自摆放证据、或把结果留在 `output/` 与仓库根目录，一律视为未入库。
+
+每个 `verified_results/` 目录齐备三件：
+
+| 文件 | 作用 |
+|---|---|
+| `README.md` | **口径边界**——结果文件清单，以及每个数字**能支持什么、不能支持什么**。只含 fake 的数据须写明不得计算 Accuracy / Macro F1 / ROC AUC；反常数字须写明其性质与配套对照实验；构成不同的实验须写明不可互相替代。 |
+| `provenance.json` | **哈希锚点**——冻结时间、运行环境、权重与数据归档的校验值、逐样本原始 CSV 的校验值及其本地路径、入库汇总自身的校验值，以及交叉核对项。字段缺失时如实标注，不推断、不编造。 |
+| 报告级汇总 CSV / JSON | 小型、可进 Git、可直接支撑报告表格。 |
+
+分工原则：
+
+- **逐样本原始预测**统一放本地 `results/<线>/`（gitignored），不进 Git，靠 `provenance.json` 的哈希锚定。大文件不进 Git，但证据链不因此断裂——哈希是原始产物与入库汇总之间唯一的连接。
+- **`output/` 只放构建产物**（docx、figures、submission），不作为证据落脚点。实验产物先落 `output/`，冻结时须把汇总迁入对应 `verified_results/` 并补齐 README 与 `provenance.json`。
+- **模型权重与大型数据集不进 Git**，在对应 `provenance.json` 中以校验值和来源说明锚定。
+
+当前实验线：
+
+| 实验线 | 路径 | 内容 |
+|---|---|---|
+| 跨域检测 | `experiments/crossdomain/verified_results/` | 八生成器盲测与 MK-MMD 消融的原始表（`eval_results.csv`、`eval_results_no_mmd.csv`）、GenImage 原图 `fake_prob` |
+| 社交媒体传播 | `experiments/socialmedia/verified_results/` | 三平台成对传播评测汇总、平台内分类指标、三类代表案例 |
+| 确定性扰动 | `experiments/perturbation/verified_results/` | JPEG / Resize / 截图模拟的成对保持率，以及真图假阳对照 |
+| 局部定位 | `experiments/localization/verified_results/` | 合成数据上的定位边界评价与阈值扫描 |
+| 风险融合 | `experiments/risk/verified_results/` | 风险等级留出校准与全局/局部冲突案例 |
+| 平台运行 | `experiments/platform/verified_results/` | Web 闭环运行时烟测汇总 |
+| 零样本跨内容域 | `experiments/eximage/verified_results/` | **建设中**，尚未冻结，不得引用 |
+
+约定全文见 [`AGENTS.md`](AGENTS.md) §12 / §12.1。
+
 ### 6.1 BigGAN 全量验证（1000 张，v2 Grad-CAM，更新版 checkpoint）
 
 | 指标 | 数值 |
@@ -410,7 +442,8 @@ python -m explanation.batch --input-dir ./images --output-json results.json
 | 总体平均 risk_score | 0.4885 |
 | 平均推理耗时 | ~90ms/张 |
 
-> **检出率 94.9%，接近张潇模型预期（~97%）**。此前旧 checkpoint 的 69.7% 为模型权重版本问题，已更新解决。
+> **出处**：其中的 BigGAN Fake Recall **94.9%** 已冻结于 `experiments/crossdomain/verified_results/eval_results.csv`（BigGAN 行，1000 real / 1000 fake），口径边界见同目录 `README.md`。本表其余各项（fake_prob 分布、risk_score、耗时）来自本地批量运行，**尚未迁入 `verified_results/`，属未入库记录，不得写入报告**。
+> 此前旧 checkpoint 的 69.7% 为模型权重版本问题，已更新解决。
 > Grad-CAM 热力图在 AIGC 图像上呈现清晰的块状/网格状伪影热点区域，检测分数与热力响应高度一致。
 > 51 张 real 图中无一误判为 fake（最高 fake_prob=0.49 < 0.50），决策边界清晰。
 > 无高风险案例（risk_score ≥ 0.70），风险评分体系偏保守，Phase 7 将进行阈值校准。
