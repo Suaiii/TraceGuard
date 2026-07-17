@@ -106,3 +106,5 @@ python eval.py \
 
 # 结果见 experiments/crossdomain/verified_results/eval_results.csv
 ```
+
+> **脚本口径说明（如实记录）**：`train.py` / `eval.py` 为 AutoDL RTX 4090 实例上实际使用的训练与评测代码，依赖的 `models` 包（`mambaout_custom` / `mkmmd`）位于仓库 `detection/models/` 下，随 `detection/` 一并发布；在实例上以 `detection/` 为工作根运行。附带的 `eval.py` 输出的是逐生成器 **Accuracy** 快查表，本文档表 1/表 2 的逐生成器 **Fake Recall / Real Recall** 及 `eval_results.csv` / `eval_results_no_mmd.csv` 两份原始 CSV 由该实例上的完整评测管线产出并冻结入库，非由此处附带的 `eval.py` 直接生成。如需从仓库根一键复现全部指标，需后续补一版整合脚本（当前未做，按需再说）。

@@ -49,6 +49,7 @@
 - **核心价值**：换纯公开数据后头牌数字毫发无损，且在**全新内容域独立复现「JPEG 量化是证据破坏主通道」**（98%→19%→12%，resize 近无损、截图居中）——从「补窟窿」变「添独立佐证」。
 - **已落地**：报告 3.3.4 表 3.6/3.7 + 摘要/1.3/4.1/结论共 6+ 处数字全线更新并自洽；`experiments/eximage/verified_results/` 冻结（README 口径边界 + provenance.json 哈希锚点[已相对化绝对路径] + 3 份汇总 CSV），代码 + test（11 项全绿）入库，**无数据无权重无图片**。commit `2ac53f9`，已 push。数据/权重/output 全 gitignored。
 - **张潇 #14 已再点**（[issue 评论](https://github.com/Suaiii/TraceGuard/issues/14#issuecomment-5005897448)）：确认口径错标已改对（Average 改成真实 Fake Recall 49.60→59.55），剩两项封版前必交——① `train.py`/`eval.py` 死链修复；② 消融两臂「两次独立训练、非单一开关」如实声明（no-MMD checkpoint 已丢，如实说明即可，**不要重训**）。
+  - **07-18 张潇已交（commit `ea72898`）**：② **受控变量声明做得到位**——两臂两次独立训练、共享 seed=42 划分、唯一差异 β=0、Real Recall 99.80 vs 99.60、+9.96pp 含训练随机性不可全归因、no-MMD checkpoint 存 AutoDL 未随仓库发布。**封版硬卡点（过度声明）已解除。** ① 上传了 `train.py`/`eval.py` 并补全 CSV 路径，但脚本复现完整性仍有两处残留（严重度低一档，已按队长指示"记录即可、按需再说"）：eval.py 只算 Accuracy、不产 Fake Recall、不写 `eval_results.csv`（文档表为 Fake Recall）；两脚本在仓库根却 `from models.X` import，包在 `detection/models/`，从根跑会 ImportError。已在 `REPRODUCIBILITY.md` 复现命令段补「脚本口径说明」如实记录：脚本以 `detection/` 为工作根运行、附带 eval.py 是 Accuracy 快查、原始 Fake Recall CSV 由完整管线产出并冻结；一键整合脚本按需再补。
 
 ### 2026-07-17 - 贺杰 #15 / #17-P4 交付物落地
 
