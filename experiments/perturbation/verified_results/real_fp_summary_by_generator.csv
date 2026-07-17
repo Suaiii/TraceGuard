@@ -1,0 +1,3 @@
+scope,variant,sample_count,fake_recall,mean_fake_prob,mean_probability_delta,recall_retention
+unknown,original,1000,0.015,0.09591059182956815,0.0,1.0
+unknown,resize50,1000,0.175,0.24514018060732634,0.1492295887777582,11.666666666666666

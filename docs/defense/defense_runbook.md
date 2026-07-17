@@ -9,7 +9,7 @@
 | 0:00-0:40 | 1. 题目与安全问题 | TraceGuard 面向真实网络传播环境中的跨域 AIGC 图像审核 | 项目题目与系统定位 |
 | 0:40-1:30 | 2. 用户流程 | 单张 RGB 图像输入，输出全局判断、局部证据和融合结论 | Web/API/CLI 统一入口 |
 | 1:30-2:30 | 3. 系统架构 | Detector 是全局判断唯一来源；热力图和定位为并行证据 | 图 2-1、接口合同 |
-| 2:30-3:30 | 4. 跨域检测 | MambaOut-Small 与 MK-MMD 机制；已验证与待验证边界分开说明 | `eval_results.csv`、待补消融表 |
+| 2:30-3:30 | 4. 跨域检测 | MambaOut-Small 与 MK-MMD 机制；已验证与待验证边界分开说明 | `experiments/crossdomain/verified_results/eval_results.csv`、待补消融表 |
 | 3:30-4:30 | 5. 可解释取证 | Grad-CAM、patch 与 feature 融合、bbox 和证据冲突 | 图 2-2、三类案例 |
 | 4:30-5:30 | 6. 风险与报告 | `risk_score` 不等于 `fake_prob`，用于排序人工复核优先级 | 配置、API 合同、HTML 报告 |
 | 5:30-7:00 | 7. 传播实验 | 32000 个成对预测揭示 Facebook 条件下的明显性能退化 | 汇总 CSV、图 3-1/3-2 |

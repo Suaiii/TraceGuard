@@ -1,0 +1,35 @@
+{
+  "frozen_at": "2026-07-13",
+  "runtime": {
+    "python": null,
+    "torch": null,
+    "device": null,
+    "batch_size": null,
+    "note": "该实验冻结时未记录运行环境，待补。"
+  },
+  "checkpoint": {
+    "path": "best.pth",
+    "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474"
+  },
+  "aigc_synthetic_boundary_eval": {
+    "status": "complete",
+    "tampered_samples": 10,
+    "clean_controls": 5,
+    "raw_predictions_sha256": null,
+    "raw_predictions_local_path": null,
+    "summaries": {
+      "aigc_synthetic_15_summary.json": "76B6884DC1FF85D08C455467FEAB0A84F456A0B9ED3727C12ADBEB7DD95FBBF2",
+      "aigc_synthetic_15_threshold_sweep.csv": "C8C66D94634F4CC3CF9FCFAC2A9FF41E79192413D617BCAB22136E5F9503E42E"
+    }
+  },
+  "source": {
+    "contributor": "贺杰",
+    "branch": "codex/localization-eval-risk-calibration",
+    "data_source": "Facebook 派生平衡 AIGC 子集；合成篡改图由 experiments/synthetic_dataset.py 生成，带像素级 GT 掩膜。"
+  },
+  "gaps": {
+    "random_seed": "待补",
+    "source_image_archive_sha256": "待补",
+    "raw_per_sample_predictions": "待补"
+  }
+}

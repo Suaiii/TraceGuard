@@ -1,0 +1,48 @@
+{
+  "frozen_at": "2026-07-13",
+  "runtime": {
+    "python": null,
+    "torch": null,
+    "device": null,
+    "batch_size": null,
+    "note": "交付材料未提供运行环境记录，待补。"
+  },
+  "checkpoint": {
+    "path": "best.pth",
+    "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474",
+    "note": "与社交媒体成对实验同一权重；八生成器 Fake Recall 均值 59.55% 与该实验 original 臂逐位一致，可作为同权重的交叉校验。"
+  },
+  "cross_domain_balanced_blind_test": {
+    "status": "delivered-summary-only",
+    "generators": 8,
+    "per_generator_real": 1000,
+    "per_generator_fake": 1000,
+    "raw_predictions_sha256": null,
+    "raw_predictions_local_path": null,
+    "summaries": {
+      "eval_results.csv": "CBD080C6143DBB256AF87C8723BEE2A01741731C8FB0EE12CDEA09232B22251D"
+    }
+  },
+  "source": {
+    "contributor_github": "zx973",
+    "delivered_at": "2026-07-13",
+    "commit": "af22feed3d0ce34c4a0287065ae2acccb664cbad",
+    "delivered_with": ["REPRODUCIBILITY.md"],
+    "original_repo_path": "eval_results.csv",
+    "current_repo_path": "experiments/crossdomain/verified_results/eval_results.csv"
+  },
+  "gaps": {
+    "training_config": "待补",
+    "eval_config": "待补",
+    "data_split": "待补",
+    "random_seed": "待补",
+    "raw_per_sample_predictions": "待补",
+    "train_eval_scripts": "待补：REPRODUCIBILITY.md 引用的 train.py 与 eval.py 未进入本仓库。"
+  },
+  "cross_checks": {
+    "generator_fake_recall_mean": 0.5955,
+    "matches_socialmedia_paired_original_fake_recall": true,
+    "accuracy_average_is_macro_over_generators": true,
+    "real_recall_shares_one_source_subset": true
+  }
+}

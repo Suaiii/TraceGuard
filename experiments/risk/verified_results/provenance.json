@@ -1,0 +1,36 @@
+{
+  "frozen_at": "2026-07-13",
+  "runtime": {
+    "python": null,
+    "torch": null,
+    "device": null,
+    "batch_size": null,
+    "note": "该实验冻结时未记录运行环境，待补。"
+  },
+  "checkpoint": {
+    "path": "best.pth",
+    "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474"
+  },
+  "facebook_balanced_calibration": {
+    "status": "complete",
+    "real_samples": 100,
+    "fake_samples": 100,
+    "split": "60/40 分层校准/留出",
+    "raw_predictions_sha256": null,
+    "raw_predictions_local_path": null,
+    "summaries": {
+      "facebook_balanced_200_summary.json": "A61CAB89300DBEB46E3A5DBE2BB6E235A3CC3D7E03FA22AB74A0E28AC40D4C93",
+      "facebook_balanced_200_conflict_cases.csv": "8CAC959A96B357D6A0CEC89B1E75877D9450518A7D30833030E6C9F71650CA45"
+    }
+  },
+  "source": {
+    "contributor": "贺杰",
+    "branch": "codex/localization-eval-risk-calibration",
+    "data_source": "Facebook 派生平衡集，100 real + 100 fake，覆盖 9 个 fake 生成器；边界在校准split 选定，仅在未触碰的留出split 上报告。"
+  },
+  "gaps": {
+    "random_seed": "待补",
+    "source_image_archive_sha256": "待补",
+    "raw_per_sample_predictions": "待补"
+  }
+}

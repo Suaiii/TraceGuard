@@ -1,0 +1,60 @@
+{
+  "frozen_at": "2026-07-14",
+  "runtime": {
+    "python": "3.10.20",
+    "torch": "1.13.1+cpu",
+    "platform": "Windows-10-10.0.26200-SP0",
+    "device": "cpu",
+    "batch_size": 32
+  },
+  "checkpoint": {
+    "path": "best.pth",
+    "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474"
+  },
+  "perturb_full": {
+    "status": "complete",
+    "mode": "paired-derived",
+    "variants": ["original", "jpeg75", "jpeg50", "resize50", "screenshot"],
+    "sample_count": 8000,
+    "prediction_rows": 40000,
+    "failures": 0,
+    "raw_predictions_sha256": "632E1D32996E6BAAE386228C665467081BB2D6FD23505587E814E9B944F76A42",
+    "raw_predictions_local_path": "output/perturb_full/raw_predictions.csv",
+    "archives": {
+      "original": "3ED4C6335043C1F52E67D7DA9B7E02E10D60E7764506EBE3658408D12D2E5782",
+      "jpeg50": "D3BEA6BDD8B2F74D42023DCD9679579D888172A6FDCCFF8CF91A7836E21558BA",
+      "jpeg75": "2F3EC627731898319C101FC501C4A5D14F044217E084E7AD965D1D1E4CA53142",
+      "resize50": "5C8FD69FD511571F3CB5B0D323DFDA2F769FCDB1CEC02769A93750B28EE9A4B0",
+      "screenshot": "8EDCEA1476BB0C4C6B12137D932CB92326B950836234BB2D17804CC006B3AE58"
+    },
+    "summaries": {
+      "perturb_full_summary_all.csv": "A85FFA73553B0AB7DAF079857B330E49DDB810F6D81496B4A05DFD383F0D1CF9",
+      "perturb_full_summary_by_generator.csv": "C95DC09C324E6E6C1A35D6BA588E07B2E5EFA4F1A0E846C9E67D640A153D4C0A"
+    }
+  },
+  "perturb_real_fp": {
+    "status": "complete",
+    "mode": "paired-derived",
+    "variants": ["original", "resize50"],
+    "sample_count": 1000,
+    "prediction_rows": 2000,
+    "failures": 0,
+    "raw_predictions_sha256": "CC74346255E61E2B0FBEE1313DFD5947877E414500D8CFFDD4C028E9266646EE",
+    "raw_predictions_local_path": "output/perturb_real_fp/raw_predictions.csv",
+    "archives": {
+      "original": "4D588CE9DB0422C941E312599C3D4082ADBC77384B1BBDE5C6F88106CCFF02DC",
+      "resize50": "831100E226171B6512B58643498D3D85C352C651230113292FAAF92B7B0925E5"
+    },
+    "summaries": {
+      "real_fp_summary_all.csv": "1106D00441988E15D38CD2AE701D310E7B5BA76BE20214720496FB60FDFFC800",
+      "real_fp_summary_by_generator.csv": "CB7A4FB52512820DB483D8444AB6D8582560B0ACD6D229F38A38CF74BEC45482"
+    }
+  },
+  "cross_checks": {
+    "perturb_full_original_arm_is_independent_rerun_of_socialmedia_paired_original": true,
+    "perturb_full_original_fake_recall": 0.595375,
+    "socialmedia_paired_original_fake_recall": 0.5955,
+    "original_arm_difference_note": "差异仅来自 VQDM 单个样本（0.131 与 0.132），两者均为各自实验的既有记录，未做任何重算或对齐。",
+    "resize50_retention_requires_real_fp_check": true
+  }
+}

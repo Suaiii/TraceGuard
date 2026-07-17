@@ -83,16 +83,16 @@
 - 启动程序会依次查找 `checkpoints/best.pth` 与根目录 `best.pth`。
 - 已建立数据、模型和交付物库存清单。
 - `reports/TraceGuard.md` 已作为多人协作报告工作源进入 Git。
-- 张潇已提交跨 8 个生成器的平衡盲测结果与复现说明，见 `REPRODUCIBILITY.md` 和 `eval_results.csv`。
+- 张潇已提交跨 8 个生成器的平衡盲测结果与复现说明，见 `REPRODUCIBILITY.md` 和 `experiments/crossdomain/verified_results/eval_results.csv`。
 
 ### 当前实验基线
 
 | 项目 | 当前记录 | 证据 | 解释边界 |
 |---|---:|---|---|
-| 8 生成器平均 Accuracy | 79.68% | `eval_results.csv` | 平衡测试集上的宏观平均，不代表所有社交传播条件 |
-| BigGAN Accuracy | 97.35% | `eval_results.csv` | 1000 real + 1000 fake |
-| BigGAN Fake Recall | 94.90% | `eval_results.csv` | README 中“BigGAN 检出率 94.9%”的正式口径 |
-| Real Recall | 99.80% | `eval_results.csv` | 当前 8 组测试使用同一源域 real 子集 |
+| 8 生成器平均 Accuracy | 79.68% | `experiments/crossdomain/verified_results/eval_results.csv` | 平衡测试集上的宏观平均，不代表所有社交传播条件 |
+| BigGAN Accuracy | 97.35% | `experiments/crossdomain/verified_results/eval_results.csv` | 1000 real + 1000 fake |
+| BigGAN Fake Recall | 94.90% | `experiments/crossdomain/verified_results/eval_results.csv` | README 中“BigGAN 检出率 94.9%”的正式口径 |
+| Real Recall | 99.80% | `experiments/crossdomain/verified_results/eval_results.csv` | 当前 8 组测试使用同一源域 real 子集 |
 | GenImage Facebook Fake Recall | 21.675% | `experiments/socialmedia/verified_results/paired_summary_all.csv` | 8000 个 fake-only 成对样本，不是完整二分类 Accuracy |
 | GenImage WeChat Fake Recall | 48.1875% | `experiments/socialmedia/verified_results/paired_summary_all.csv` | 相对 Original 59.55%，保持率 80.919% |
 | GenImage Weibo Fake Recall | 47.5125% | `experiments/socialmedia/verified_results/paired_summary_all.csv` | 相对 Original 59.55%，保持率 79.786% |
@@ -159,7 +159,7 @@
 ### 2026-07-13 - 社交媒体传播鲁棒性正式实验完成
 
 - 使用 SHA-256 为 `29F85...0474` 的 `best.pth`，在 RTX 4060、PyTorch 2.5.1+cu121 环境运行。
-- GenImage 成对实验完成 32000 个唯一预测键，0 失败；Original 的八生成器 Fake Recall 与 `eval_results.csv` 逐项一致。
+- GenImage 成对实验完成 32000 个唯一预测键，0 失败；Original 的八生成器 Fake Recall 与 `experiments/crossdomain/verified_results/eval_results.csv` 逐项一致。
 - 三个平台分类实验完成 15000 个唯一预测键，0 失败；每个平台包含 500 real 与 4500 fake。
 - 小型汇总、指标边界和来源哈希已冻结到 `experiments/socialmedia/verified_results/`；逐样本原始预测继续保持 ignored。
 - 结果显示不同数据构成下平台影响差异显著，报告必须并列解释，不得仅仅引用较高 Accuracy 回避 GenImage 的传播退化。
@@ -198,7 +198,7 @@
 - 提交：`af22feed3d0ce34c4a0287065ae2acccb664cbad`
 - 作者：张潇 GitHub 账号 `zx973`
 - 新增：`REPRODUCIBILITY.md`
-- 新增：`eval_results.csv`
+- 新增：`eval_results.csv`（提交时位于仓库根目录；2026-07-17 按 AGENTS.md §12 的 verified_results 约定迁至 `experiments/crossdomain/verified_results/eval_results.csv`，内容未改动）
 - 已确认：8 个生成器平衡盲测表、数据划分、训练配置和复现命令说明已提供。
 - 待确认：复现命令引用的训练脚本、评测脚本、数据目录和消融原始表是否已在其他位置提供。
 

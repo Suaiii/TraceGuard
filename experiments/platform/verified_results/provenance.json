@@ -1,0 +1,33 @@
+{
+  "frozen_at": "2026-07-13",
+  "runtime": {
+    "python": "E:\\aNB\\envs\\traceguard\\python.exe",
+    "torch": null,
+    "device": "cuda",
+    "batch_size": null,
+    "note": "运行环境、聚合指标与响应合同的完整记录在 runtime_smoke_summary.json 内。"
+  },
+  "checkpoint": {
+    "path": "best.pth",
+    "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474"
+  },
+  "runtime_smoke": {
+    "status": "complete",
+    "requests": 12,
+    "concurrency": 3,
+    "failures": 0,
+    "raw_per_request_csv_sha256": null,
+    "raw_per_request_csv_local_path": "output/experiments/platform_smoke_20260713/",
+    "summaries": {
+      "runtime_smoke_summary.json": "C3A0AD69AAA6405C0DFEA5A8BE7E29605C5DFCC5E3F1DA37492AFE7CFA64510F"
+    }
+  },
+  "source": {
+    "contributor": "朱羿帅",
+    "command": "experiments/platform/runtime_smoke.py --endpoint http://127.0.0.1:8012/api/v1/analyze --image tests/fixtures/006_biggan_00020.png --requests 12 --concurrency 3 --timeout 60",
+    "data_source": "从未封版工作提交包解包后启动 CUDA 服务，以固定样例 tests/fixtures/006_biggan_00020.png 发送请求。"
+  },
+  "gaps": {
+    "raw_per_request_csv_sha256": "待补：逐请求 CSV 属本地 ignored 产物，冻结时未登记哈希。"
+  }
+}

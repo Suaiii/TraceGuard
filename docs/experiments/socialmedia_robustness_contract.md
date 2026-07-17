@@ -100,7 +100,7 @@ predicted_label,real_prob,fake_prob,checkpoint_sha256,elapsed_ms,status,error
 - 相对 Original，Facebook、WeChat、Weibo 的 Fake Recall 保持率分别为 36.398%、80.919%、79.786%。
 - 相对 Original，三个平台的平均 `fake_prob` 成对变化分别为 -0.3162、-0.0957、-0.0990。
 - 三个平台分类集各有 500 real 与 4500 fake。Facebook、WeChat、Weibo 的 Accuracy 分别为 92.64%、92.50%、92.60%，Macro F1 分别为 84.28%、84.01%、84.24%，ROC AUC 分别为 99.29%、99.29%、99.30%。
-- GenImage Original 的八生成器 Fake Recall 与 `eval_results.csv` 逐项一致。
+- GenImage Original 的八生成器 Fake Recall 与 `experiments/crossdomain/verified_results/eval_results.csv` 逐项一致。
 - 已验证汇总与来源哈希见 `experiments/socialmedia/verified_results/`。
 
 上述两个实验的数据构成不同。平台分类结果不能替代 GenImage 成对传播结果，也不能用于声称 Facebook 对所有数据都没有显著影响。
