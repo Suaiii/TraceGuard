@@ -1,5 +1,6 @@
 {
   "frozen_at": "2026-07-13",
+  "updated_at": "2026-07-17",
   "runtime": {
     "python": null,
     "torch": null,
@@ -10,7 +11,7 @@
   "checkpoint": {
     "path": "best.pth",
     "sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474",
-    "note": "与社交媒体成对实验同一权重；八生成器 Fake Recall 均值 59.55% 与该实验 original 臂逐位一致，可作为同权重的交叉校验。"
+    "note": "仅对应 eval_results.csv（+MK-MMD 臂）。与社交媒体成对实验同一权重；八生成器 Fake Recall 均值 59.55% 与该实验 original 臂逐位一致，可作为同权重的交叉校验。"
   },
   "cross_domain_balanced_blind_test": {
     "status": "delivered-summary-only",
@@ -23,26 +24,109 @@
       "eval_results.csv": "CBD080C6143DBB256AF87C8723BEE2A01741731C8FB0EE12CDEA09232B22251D"
     }
   },
+  "mkmmd_ablation": {
+    "status": "delivered-summary-only",
+    "design": "两臂为两次独立训练，不是同一权重的消融开关；两臂 Real_Recall 不同（99.6 vs 99.8）即为证据。",
+    "arms": {
+      "no_mmd": {
+        "summary_file": "eval_results_no_mmd.csv",
+        "summary_sha256": "2EA159DE6A51276098BD2BC7A1D474AF958685BE3E70482619784CCEF95C55AF",
+        "checkpoint_path": null,
+        "checkpoint_sha256": null,
+        "checkpoint_note": "待补：no-MMD 臂的训练权重未随材料交付，不在手上，该臂无法复算。",
+        "real_recall_percent": 99.6
+      },
+      "with_mkmmd": {
+        "summary_file": "eval_results.csv",
+        "summary_sha256": "CBD080C6143DBB256AF87C8723BEE2A01741731C8FB0EE12CDEA09232B22251D",
+        "checkpoint_path": "best.pth",
+        "checkpoint_sha256": "29F85CAFFA5FCE11C7F31A2FB29C4DC44F65782D5300064BC4F73ADB153B0474",
+        "real_recall_percent": 99.8
+      }
+    },
+    "fake_recall_percent_by_generator": {
+      "ADM": { "no_mmd": 25.30, "with_mkmmd": 37.00, "delta_pp": 11.70 },
+      "BigGAN": { "no_mmd": 73.26, "with_mkmmd": 94.90, "delta_pp": 21.64 },
+      "Glide": { "no_mmd": 65.70, "with_mkmmd": 72.90, "delta_pp": 7.20 },
+      "Midjourney": { "no_mmd": 43.70, "with_mkmmd": 49.20, "delta_pp": 5.50 },
+      "SD14": { "no_mmd": 63.90, "with_mkmmd": 72.50, "delta_pp": 8.60 },
+      "SD15": { "no_mmd": 65.66, "with_mkmmd": 73.10, "delta_pp": 7.44 },
+      "VQDM": { "no_mmd": 8.90, "with_mkmmd": 13.20, "delta_pp": 4.30 },
+      "Wukong": { "no_mmd": 50.33, "with_mkmmd": 63.60, "delta_pp": 13.27 }
+    },
+    "aggregate": {
+      "fake_recall_mean_percent": {
+        "no_mmd": 49.5938,
+        "with_mkmmd": 59.5500,
+        "delta_pp": 9.96,
+        "relative_gain_percent": 20.08
+      },
+      "accuracy_mean_percent": {
+        "no_mmd": 74.5950,
+        "with_mkmmd": 79.6750,
+        "delta_pp": 5.08,
+        "relative_gain_percent": 6.81
+      }
+    },
+    "citation_constraint": "报告中「跨域提升 17%+」只在 Fake Recall 相对提升口径下成立（+20.08%）。绝对提升 +9.96 pp 与 Accuracy 相对提升 +6.81% 均够不到 17%。引用必须标明指标与口径，不得裸写「提升 17%+」。"
+  },
+  "per_sample_predictions": {
+    "genimage_original_fakeprob.csv": {
+      "sha256": "695300F2B43473A1B37DEBF97B79A964FD81CD7AF2037E2042F5F21533D05953",
+      "rows": 8000,
+      "columns": ["sample_id", "condition", "fake_prob", "ground_truth"],
+      "condition": "Original",
+      "ground_truth": "全部为 fake，不得由该表计算 Accuracy / Macro F1 / ROC AUC。",
+      "convention_status": "违规入库：按 AGENTS.md §12.1，逐样本预测应放本地 results/<线>/（gitignored）。因已由队友公开推送至远端，暂时保留，是否移出待队长决定。",
+      "producing_script": null,
+      "producing_script_note": "待补：产出该表的脚本未提供。"
+    }
+  },
   "source": {
     "contributor_github": "zx973",
-    "delivered_at": "2026-07-13",
-    "commit": "af22feed3d0ce34c4a0287065ae2acccb664cbad",
-    "delivered_with": ["REPRODUCIBILITY.md"],
-    "original_repo_path": "eval_results.csv",
-    "current_repo_path": "experiments/crossdomain/verified_results/eval_results.csv"
+    "deliveries": [
+      {
+        "delivered_at": "2026-07-13",
+        "commit": "af22feed3d0ce34c4a0287065ae2acccb664cbad",
+        "files": ["eval_results.csv"],
+        "delivered_with": ["REPRODUCIBILITY.md"],
+        "original_repo_path": "eval_results.csv",
+        "current_repo_path": "experiments/crossdomain/verified_results/eval_results.csv"
+      },
+      {
+        "delivered_at": "2026-07-17",
+        "commit": null,
+        "files": ["eval_results_no_mmd.csv", "genimage_original_fakeprob.csv"],
+        "delivered_with": ["REPRODUCIBILITY.md（大幅改写）"],
+        "original_repo_path": ["eval_results_no_mmd.csv", "experiments/detection/genimage_original_fakeprob.csv"],
+        "current_repo_path": [
+          "experiments/crossdomain/verified_results/eval_results_no_mmd.csv",
+          "experiments/crossdomain/verified_results/genimage_original_fakeprob.csv"
+        ],
+        "note": "推送时 §12.1 verified_results 约定尚未确立，位置不合规，已由 git mv 归位；文件内容未改动。"
+      }
+    ]
   },
   "gaps": {
     "training_config": "待补",
     "eval_config": "待补",
     "data_split": "待补",
     "random_seed": "待补",
-    "raw_per_sample_predictions": "待补",
-    "train_eval_scripts": "待补：REPRODUCIBILITY.md 引用的 train.py 与 eval.py 未进入本仓库。"
+    "raw_per_sample_predictions": "待补：两臂平衡盲测的原始预测未提供；genimage_original_fakeprob.csv 只覆盖 GenImage original 条件的 fake 侧，不能替代。",
+    "train_eval_scripts": "待补：REPRODUCIBILITY.md 引用的 train.py 与 eval.py 未进入本仓库。",
+    "ablation_no_mmd_checkpoint": "待补：no-MMD 臂无权重文件、无 SHA-256，该臂无法复算。",
+    "ablation_shared_data_split": "待补：两次独立训练是否共享同一数据划分与同一 real 子集未说明。",
+    "ablation_producing_script": "待补：产出消融对比表的脚本未提供。",
+    "issue_14_acceptance": "该消融当前仅满足「原始表」一项，数据来源、划分、配置、命令、指标定义与复现记录均缺，复现链未闭合。"
   },
   "cross_checks": {
     "generator_fake_recall_mean": 0.5955,
     "matches_socialmedia_paired_original_fake_recall": true,
     "accuracy_average_is_macro_over_generators": true,
-    "real_recall_shares_one_source_subset": true
+    "real_recall_shares_one_source_subset": true,
+    "ablation_arms_share_checkpoint": false,
+    "ablation_arms_real_recall_differs": true,
+    "perturbation_original_arm_independent_rerun": 0.595375,
+    "summary_hashes_recomputed_by_script_at": "2026-07-17"
   }
 }
