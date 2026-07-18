@@ -213,7 +213,9 @@ def generate_case_figure(rows, output_base, variants=None, roles=None):
         else:
             narr_bottom = labels_absolute_bottom - 0.02
 
-        if ri == n_roles - 1:
+        if role in ("degraded", "conflict"):
+            card_bottom = narr_bottom - 0.03
+        elif ri == n_roles - 1:
             card_bottom = max(0.07, narr_bottom - 0.025)
         else:
             card_bottom = narr_bottom - 0.025
