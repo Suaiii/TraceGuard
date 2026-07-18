@@ -175,11 +175,17 @@
 
 ## 变更记录
 
-### 2026-07-18 - #15-A 三案例纵向拼接总图
+### 2026-07-18 - #15-A 三案例纵向拼接总图（学术重构）
 
-- 新增 `experiments/socialmedia/stitch_combined_case.py`：将 stable/degraded/conflict 三张独立案例图从上到下纵向拼接为一张总图，仅最下方保留一条「数据来源」灰底注释。
-- 输出：`docs/figures/socialmedia/socialmedia_case_combined.png`（2987×3584，RGBA），三段各保留【行为】/【关键】黄色叙事框。
-- 实现方式：PIL 裁剪前三图中前两张的底部 80px（覆盖 footer），第三张保留完整 footer，垂直拼合。
+- **重构脚本**：`experiments/socialmedia/plot_case_combined.py`（替代旧的 PIL 拼接方案），使用 matplotlib 原生渲染三卡片纵向总图，保存时用 PIL 裁白边替代 `bbox_inches='tight'` 避免坐标漂移。
+- **输出**：`docs/figures/socialmedia/socialmedia_case_combined.{png,svg,pdf}`（PNG 3434×3515，300 DPI）。
+- **设计规格（按用户要求重做）**：
+  - 布局：三大组（稳定/衰减/冲突）各为一张极浅灰卡片（#F8F9FA），圆角细边（#DEE2E6），卡片间留白可见；左侧标签改为左上角水平 Badge（彩色圆点 + 中文粗体 + 英文斜体灰色）。
+  - 文字层级：一级标题（Original/Facebook 等）13pt Arial 粗体居中对齐；二级数据去掉灰框，标签 #ADB5BD 小字右对齐、数值 #212529 加粗左对齐；三级结论去掉老式黄框，改为 #FFF3CD 无边框底纹 + 左侧 #FFC107 粗竖线强调。
+  - 脚注：8.5pt #6C757D 居中，与底边留足够白边。
+- 旧的 `stitch_combined_case.py`（PIL 拼接）已删除，被 `plot_case_combined.py` 完全替代。
+
+### 2026-07-17 - #15-A 案例图中文化 + 红框 bbox 叠加 + 独立叙事图
 
 ### 2026-07-17 - #15-A 案例图中文化 + 红框 bbox 叠加 + 独立叙事图
 

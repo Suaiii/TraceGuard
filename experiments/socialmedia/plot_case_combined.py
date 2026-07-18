@@ -1,0 +1,332 @@
+"""Generate a polished, academic-grade combined case-evidence figure (#15-A).
+
+Three case cards (stable / degraded / conflict) stacked vertically.
+Design spec:
+- Card background (#F8F9FA) with subtle #DEE2E6 border, rounded corners
+- Horizontal badge (colored dot + Chinese + English italic) in top-left
+- Bold Arial platform headers centered above images
+- Plain-text data annotations: labels muted (#ADB5BD), values bold (#212529)
+- Modern narrative box: #FFF3CD fill, #FFC107 thick left border
+- Single #6C757D footnote at bottom, 8.5pt
+
+Coordinate strategy: save WITHOUT bbox_inches='tight', then PIL-crop white borders.
+This avoids figure-fraction drift between fig.canvas.draw() and tight-bbox save.
+"""
+
+import argparse
+import csv
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch, Rectangle
+import numpy as np
+from PIL import Image
+
+# ── Font & style ──────────────────────────────────────────────
+plt.rcParams["font.family"] = "sans-serif"
+plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "Arial", "DejaVu Sans"]
+plt.rcParams["axes.unicode_minus"] = False
+plt.rcParams["svg.fonttype"] = "none"
+plt.rcParams["pdf.fonttype"] = 42
+
+# ── Constants ─────────────────────────────────────────────────
+ROLES = ["stable", "degraded", "conflict"]
+ROLE_LABELS_CN = {"stable": "稳定案例", "degraded": "衰减案例", "conflict": "冲突案例"}
+ROLE_LABELS_EN = {"stable": "Stable", "degraded": "Degraded", "conflict": "Conflict"}
+ROLE_BADGE_COLORS = {
+    "stable": "#198754",
+    "degraded": "#DC3545",
+    "conflict": "#FD7E14",
+}
+
+VARIANT_LABELS = {
+    "original": "Original", "facebook": "Facebook",
+    "wechat": "WeChat", "weibo": "Weibo",
+}
+
+ROLE_NARRATIVES = {
+    "stable": (
+        "【行为】传播前后伪造概率维持 0.99+，风险等级保持「中」，"
+        "判定始终为「伪」。证据充分且一致——系统稳定放行，不引入额外不确定性。"
+    ),
+    "degraded": (
+        "【行为】原始图像伪造概率 0.967 → Facebook 传播后骤降至 0.018，"
+        "判定由「伪」翻转为「真」，风险等级从「中」降至「低」，可疑区域归零。\n"
+        "【关键】系统并未静默改判为真，而是同步降低置信度并触发转人工——"
+        "证据不足时宁可转人工，不以低证据状态做出高置信判定。"
+    ),
+    "conflict": (
+        "【行为】四平台伪造概率均远低于 0.5，全局判定为「真」，"
+        "但局部模块持续检出 1 处可疑区域（篡改类型=局部篡改）。\n"
+        "【关键】系统保留全局与局部的证据分歧，不强行取一路覆盖另一路，转人工鉴定。"
+    ),
+}
+
+_LABEL_CN = {"fake": "伪", "real": "真"}
+_RISK_LEVEL_CN = {"low": "低", "medium": "中", "high": "高"}
+_TAMPER_CN = {
+    "full_aigc_hotspots": "全图AIGC热点",
+    "local_tamper": "局部篡改",
+    "confirmed_real": "确认真实",
+}
+
+FOOTNOTE_TEXT = (
+    "数据来源：case_summary.csv / case_classification/all.csv（真实系统输出）。"
+    "可疑区域计数与篡改类型为工程定位证据，不等同于像素级真值标注。"
+    "像素级定位指标见 experiments/localization/verified_results/。"
+)
+
+
+# ── Helpers ───────────────────────────────────────────────────
+def _format_fp(val):
+    return f"{float(val):.4f}"
+
+
+def _annotation_lines(record):
+    label = record.get("label", "")
+    label_cn = _LABEL_CN.get(label, label)
+    fp = _format_fp(record["fake_prob"])
+    risk = _format_fp(record.get("risk_score", 0))
+    risk_level = record.get("risk_level", "")
+    risk_level_cn = _RISK_LEVEL_CN.get(risk_level, risk_level)
+    bbox = record.get("bbox_count", "0")
+    tamper = record.get("tamper_type", "")
+    tamper_cn = _TAMPER_CN.get(tamper, tamper)
+    return [
+        ("判定", f"{label_cn}", "伪造概率", f"{fp}"),
+        ("风险分", f"{risk}({risk_level_cn})", "可疑区域", f"{bbox}"),
+        ("篡改类型", f"{tamper_cn}", None, None),
+    ]
+
+
+def _crop_white_borders(pil_image, margin=8):
+    """Crop white/transparent borders from a PIL image, leaving a `margin` px padding."""
+    arr = np.array(pil_image)
+    if arr.shape[-1] == 4:
+        # RGBA: treat transparent as background
+        mask = (arr[:, :, 0] < 250) | (arr[:, :, 1] < 250) | (arr[:, :, 2] < 250) | (arr[:, :, 3] < 250)
+    else:
+        mask = (arr[:, :, 0] < 250) | (arr[:, :, 1] < 250) | (arr[:, :, 2] < 250)
+    rows = np.any(mask, axis=1)
+    cols = np.any(mask, axis=0)
+    if not rows.any() or not cols.any():
+        return pil_image
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
+    rmin = max(0, rmin - margin)
+    rmax = min(arr.shape[0], rmax + margin)
+    cmin = max(0, cmin - margin)
+    cmax = min(arr.shape[1], cmax + margin)
+    return pil_image.crop((cmin, rmin, cmax, rmax))
+
+
+def _save(fig, output_base):
+    output_base = Path(output_base)
+    output_base.parent.mkdir(parents=True, exist_ok=True)
+    paths = []
+
+    for ext, kw in (("png", {"dpi": 300}), ("svg", {}), ("pdf", {})):
+        p = output_base.with_suffix(f".{ext}")
+        if ext == "png":
+            # Save without tight bbox, then PIL-crop white borders
+            tmp = output_base.with_suffix(".tmp.png")
+            fig.savefig(tmp, facecolor="white", dpi=300)
+            with Image.open(tmp) as im:
+                cropped = _crop_white_borders(im.convert("RGBA"), margin=10)
+                cropped.convert("RGB").save(p, dpi=(300, 300))
+            tmp.unlink()
+        else:
+            fig.savefig(p, bbox_inches="tight", facecolor="white", pad_inches=0.12, **kw)
+            if ext == "svg":
+                svg = p.read_text(encoding="utf-8")
+                p.write_text(
+                    "\n".join(line.rstrip() for line in svg.splitlines()) + "\n",
+                    encoding="utf-8",
+                )
+        paths.append(p)
+
+    plt.close(fig)
+    return paths
+
+
+# ── Main drawing ──────────────────────────────────────────────
+def generate_combined_figure(rows, output_base, variants=None):
+    variants = variants or ["original", "facebook", "wechat", "weibo"]
+    lookup = {(row["role"], row["variant"]): row for row in rows}
+
+    n_roles = len(ROLES)
+    n_vars = len(variants)
+
+    # ── 1. 重新调整画布比例与合理的网格间距 ─────────────────
+    fig_width = n_vars * 3.0 + 1.5    # 拓宽列宽
+    fig_height = n_roles * 4.5 + 1.0   # 增高行高
+    fig = plt.figure(figsize=(fig_width, fig_height), facecolor="white")
+
+    from matplotlib import gridspec
+    # 将 hspace 降到 0.55，留出 0.45 的垂直空间给图片下方的标签和结论框
+    gs = gridspec.GridSpec(
+        n_roles, n_vars, figure=fig,
+        hspace=0.55, wspace=0.12,
+        top=0.92, bottom=0.08, left=0.08, right=0.96
+    )
+
+    # ── 2. 渲染图片子图 ──────────────────────────────────
+    all_axes = []
+    for ri in range(n_roles):
+        row_axes = []
+        for ci in range(n_vars):
+            ax = fig.add_subplot(gs[ri, ci])
+            row_axes.append(ax)
+        all_axes.append(row_axes)
+
+    for ri, role in enumerate(ROLES):
+        for ci, variant in enumerate(variants):
+            ax = all_axes[ri][ci]
+            key = (role, variant)
+            if key not in lookup:
+                ax.text(0.5, 0.5, "N/A", transform=ax.transAxes, ha="center", va="center", color="#999")
+                ax.set_axis_off()
+                continue
+
+            record = lookup[key]
+            img_path = Path(record["image_path"])
+            if img_path.exists():
+                with Image.open(img_path) as img:
+                    ax.imshow(img.convert("RGB"))
+            else:
+                ax.text(0.5, 0.5, f"Missing:\n{img_path.name}", transform=ax.transAxes,
+                        ha="center", va="center", fontsize=8, color="#999")
+
+            ax.set_xticks([])
+            ax.set_yticks([])
+            # 优雅地隐藏子图自带的边框
+            for spine in ax.spines.values():
+                spine.set_visible(False)
+            # 确保子图渲染在卡片背景之上
+            ax.set_zorder(10)
+
+    fig.canvas.draw()
+
+    # ── 3. 动态计算卡片背景、标签与结论框 ─────────────────
+    for ri, role in enumerate(ROLES):
+        # 获取当前行最左和最右子图的绝对坐标
+        fb = all_axes[ri][0].get_position()
+        lb = all_axes[ri][-1].get_position()
+
+        # 严格基于子图边界计算外围大卡片（Card）的范围
+        card_left = fb.x0 - 0.04
+        card_right = lb.x1 + 0.04
+        card_top = fb.y1 + 0.06      # 往上延伸留给标题和Badge
+        card_bottom = fb.y0 - 0.14   # 往下延伸留给标签和结论框
+
+        # 绘制浅色大背景卡片
+        card = FancyBboxPatch(
+            (card_left, card_bottom), card_right - card_left, card_top - card_bottom,
+            boxstyle="round,pad=0.01",
+            facecolor="#F8F9FA", edgecolor="#DEE2E6", linewidth=0.8,
+            transform=fig.transFigure, zorder=-1,  # 置于子图下层
+        )
+        fig.patches.append(card)
+
+        # ── 顶层精致 Badge ──
+        badge_color = ROLE_BADGE_COLORS[role]
+        bx = card_left + 0.02
+        by = card_top - 0.025
+        fig.text(bx, by, "●", fontsize=9, color=badge_color, ha="left", va="center", transform=fig.transFigure, zorder=3)
+        fig.text(bx + 0.012, by, ROLE_LABELS_CN[role], fontsize=11, fontweight="bold", color="#212529", ha="left", va="center", transform=fig.transFigure, zorder=3)
+        fig.text(bx + 0.095, by, f"({ROLE_LABELS_EN[role]})", fontsize=9, style="italic", color="#6C757D", ha="left", va="center", transform=fig.transFigure, zorder=3)
+
+        # ── 平台标题与核心数据标签（改用内置坐标，绝不错位） ──
+        for ci, variant in enumerate(variants):
+            ax = all_axes[ri][ci]
+
+            # 14pt 顶层平台标题
+            ax.text(0.5, 1.06, VARIANT_LABELS.get(variant, variant), fontsize=13, fontweight="bold",
+                    fontfamily="Arial", color="#212529", ha="center", va="bottom", transform=ax.transAxes, zorder=3)
+
+            key = (role, variant)
+            if key not in lookup: continue
+            ann_lines = _annotation_lines(lookup[key])
+
+            # 数据标签改为基于每个子图自身的坐标体系 (transform=ax.transAxes)
+            # 以 0.5 (中心) 为基准向两侧排布，彻底解决满屏幕乱飞的问题
+            start_y = -0.08
+            y_space = 0.05
+            for li, (lbl1, val1, lbl2, val2) in enumerate(ann_lines):
+                cur_y = start_y - li * y_space
+                # 左半侧标签
+                ax.text(0.46, cur_y, f"{lbl1}=", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
+                ax.text(0.47, cur_y, val1, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
+                # 右半侧标签
+                if lbl2 is not None:
+                    ax.text(0.80, cur_y, f"{lbl2}=", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
+                    ax.text(0.81, cur_y, val2, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
+
+        # ── 现代无边框结论叙事框 ──
+        narrative = ROLE_NARRATIVES.get(role, "")
+        if narrative:
+            # 高度契合大卡片的底部边缘
+            narr_bottom = card_bottom + 0.015
+            narr_height = 0.055 if "\n" in narrative else 0.035
+            narr_left = card_left + 0.02
+            narr_width = card_right - card_left - 0.04
+
+            # 浅黄底色
+            narr_bg = FancyBboxPatch(
+                (narr_left, narr_bottom), narr_width, narr_height,
+                boxstyle="round,pad=0.002", facecolor="#FFF3CD", edgecolor="none",
+                transform=fig.transFigure, zorder=1,
+            )
+            fig.patches.append(narr_bg)
+
+            # 左侧高亮金条
+            bar = Rectangle(
+                (narr_left + 0.005, narr_bottom + 0.004), 0.003, narr_height - 0.008,
+                facecolor="#FFC107", edgecolor="none", transform=fig.transFigure, zorder=2,
+            )
+            fig.patches.append(bar)
+
+            # 结论文字描述
+            fig.text(
+                narr_left + 0.012, narr_bottom + narr_height / 2, narrative,
+                fontsize=8.5, color="#495057", ha="left", va="center", linespacing=1.3,
+                transform=fig.transFigure, zorder=3,
+            )
+
+    # ── 4. 全局底部页脚（Footnote） ────────────────────────
+    fig.text(
+        0.5, 0.02, FOOTNOTE_TEXT,
+        fontsize=8.5, color="#6C757D", style="italic",
+        ha="center", va="bottom", transform=fig.transFigure, zorder=3,
+    )
+
+    return _save(fig, output_base)
+
+
+# ── CLI ───────────────────────────────────────────────────────
+def _read_rows(path):
+    with Path(path).open(newline="", encoding="utf-8-sig") as handle:
+        return list(csv.DictReader(handle))
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Generate polished combined case-evidence figure"
+    )
+    parser.add_argument("--manifest", required=True, help="CSV manifest")
+    parser.add_argument("--output", required=True,
+                        help="Output path without extension")
+    parser.add_argument("--variants", default="original,facebook,wechat,weibo",
+                        help="Comma-separated variant list")
+    args = parser.parse_args(argv)
+    variants = [v.strip() for v in args.variants.split(",")]
+    rows = _read_rows(args.manifest)
+    for path in generate_combined_figure(rows, args.output, variants=variants):
+        print(path)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
