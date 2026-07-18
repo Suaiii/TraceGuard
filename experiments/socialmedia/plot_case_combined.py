@@ -6,11 +6,8 @@ Design spec:
 - Horizontal badge (colored dot + Chinese + English italic) in top-left
 - Bold Arial platform headers centered above images
 - Plain-text data annotations: labels muted (#ADB5BD), values bold (#212529)
-- Modern narrative box: #FFF3CD fill, #FFC107 thick left border
+- Modern narrative box: Auto-wrapped #FFF3CD fill, tightly following annotations
 - Single #6C757D footnote at bottom, 8.5pt
-
-Coordinate strategy: save WITHOUT bbox_inches='tight', then PIL-crop white borders.
-This avoids figure-fraction drift between fig.canvas.draw() and tight-bbox save.
 """
 
 import argparse
@@ -20,7 +17,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, Rectangle
+from matplotlib.patches import FancyBboxPatch
 import numpy as np
 from PIL import Image
 
@@ -105,7 +102,6 @@ def _crop_white_borders(pil_image, margin=8):
     """Crop white/transparent borders from a PIL image, leaving a `margin` px padding."""
     arr = np.array(pil_image)
     if arr.shape[-1] == 4:
-        # RGBA: treat transparent as background
         mask = (arr[:, :, 0] < 250) | (arr[:, :, 1] < 250) | (arr[:, :, 2] < 250) | (arr[:, :, 3] < 250)
     else:
         mask = (arr[:, :, 0] < 250) | (arr[:, :, 1] < 250) | (arr[:, :, 2] < 250)
@@ -130,7 +126,6 @@ def _save(fig, output_base):
     for ext, kw in (("png", {"dpi": 300}), ("svg", {}), ("pdf", {})):
         p = output_base.with_suffix(f".{ext}")
         if ext == "png":
-            # Save without tight bbox, then PIL-crop white borders
             tmp = output_base.with_suffix(".tmp.png")
             fig.savefig(tmp, facecolor="white", dpi=300)
             with Image.open(tmp) as im:
@@ -159,17 +154,15 @@ def generate_combined_figure(rows, output_base, variants=None):
     n_roles = len(ROLES)
     n_vars = len(variants)
 
-    # ── 1. 重新调整画布比例与合理的网格间距 ─────────────────
-    fig_width = n_vars * 3.0 + 1.5    # 拓宽列宽
-    fig_height = n_roles * 4.5 + 1.0   # 增高行高
+    fig_width = n_vars * 3.0 + 1.5    
+    fig_height = n_roles * 4.8 + 1.5   
     fig = plt.figure(figsize=(fig_width, fig_height), facecolor="white")
 
     from matplotlib import gridspec
-    # 将 hspace 降到 0.55，留出 0.45 的垂直空间给图片下方的标签和结论框
     gs = gridspec.GridSpec(
         n_roles, n_vars, figure=fig,
-        hspace=0.55, wspace=0.12,
-        top=0.92, bottom=0.08, left=0.08, right=0.96
+        hspace=0.60, wspace=0.15,
+        top=0.95, bottom=0.14, left=0.08, right=0.96
     )
 
     # ── 2. 渲染图片子图 ──────────────────────────────────
@@ -201,36 +194,45 @@ def generate_combined_figure(rows, output_base, variants=None):
 
             ax.set_xticks([])
             ax.set_yticks([])
-            # 优雅地隐藏子图自带的边框
             for spine in ax.spines.values():
                 spine.set_visible(False)
-            # 确保子图渲染在卡片背景之上
             ax.set_zorder(10)
 
     fig.canvas.draw()
 
-    # ── 3. 动态计算卡片背景、标签与结论框 ─────────────────
+    # ── 3. 动态卡片与自适应叙事框渲染 ───────────────────────
     for ri, role in enumerate(ROLES):
-        # 获取当前行最左和最右子图的绝对坐标
         fb = all_axes[ri][0].get_position()
         lb = all_axes[ri][-1].get_position()
 
-        # 严格基于子图边界计算外围大卡片（Card）的范围
+        # 核心优化：把标签的相对底部往上提（由 -0.30 变成 -0.22），拉近与黄色框的物理间距
+        labels_relative_bottom = -0.20
+        labels_absolute_bottom = fb.y0 + labels_relative_bottom * fb.height
+
+        narrative = ROLE_NARRATIVES.get(role, "")
+        if narrative:
+            narr_height = 0.045 if "\n" in narrative else 0.030
+            # 缩短黄色框和数据标签之间的微调空隙
+            narr_top = labels_absolute_bottom - 0.008
+            narr_bottom = narr_top - narr_height
+        else:
+            narr_bottom = labels_absolute_bottom - 0.015
+
         card_left = fb.x0 - 0.04
         card_right = lb.x1 + 0.04
-        card_top = fb.y1 + 0.06      # 往上延伸留给标题和Badge
-        card_bottom = fb.y0 - 0.14   # 往下延伸留给标签和结论框
+        card_top = fb.y1 + 0.05      
+        card_bottom = narr_bottom - 0.02
 
-        # 绘制浅色大背景卡片
+        # 绘制大卡片背景
         card = FancyBboxPatch(
             (card_left, card_bottom), card_right - card_left, card_top - card_bottom,
             boxstyle="round,pad=0.01",
             facecolor="#F8F9FA", edgecolor="#DEE2E6", linewidth=0.8,
-            transform=fig.transFigure, zorder=-1,  # 置于子图下层
+            transform=fig.transFigure, zorder=-1,
         )
         fig.patches.append(card)
 
-        # ── 顶层精致 Badge ──
+        # ── 顶层小徽章 ──
         badge_color = ROLE_BADGE_COLORS[role]
         bx = card_left + 0.02
         by = card_top - 0.025
@@ -238,11 +240,9 @@ def generate_combined_figure(rows, output_base, variants=None):
         fig.text(bx + 0.012, by, ROLE_LABELS_CN[role], fontsize=11, fontweight="bold", color="#212529", ha="left", va="center", transform=fig.transFigure, zorder=3)
         fig.text(bx + 0.095, by, f"({ROLE_LABELS_EN[role]})", fontsize=9, style="italic", color="#6C757D", ha="left", va="center", transform=fig.transFigure, zorder=3)
 
-        # ── 平台标题与核心数据标签（改用内置坐标，绝不错位） ──
+        # ── 平台标题与数据标签 ──
         for ci, variant in enumerate(variants):
             ax = all_axes[ri][ci]
-
-            # 14pt 顶层平台标题
             ax.text(0.5, 1.06, VARIANT_LABELS.get(variant, variant), fontsize=13, fontweight="bold",
                     fontfamily="Arial", color="#212529", ha="center", va="bottom", transform=ax.transAxes, zorder=3)
 
@@ -250,54 +250,40 @@ def generate_combined_figure(rows, output_base, variants=None):
             if key not in lookup: continue
             ann_lines = _annotation_lines(lookup[key])
 
-            # 数据标签改为基于每个子图自身的坐标体系 (transform=ax.transAxes)
-            # 以 0.5 (中心) 为基准向两侧排布，彻底解决满屏幕乱飞的问题
-            start_y = -0.08
-            y_space = 0.05
+            start_y = -0.10
+            y_space = 0.06
             for li, (lbl1, val1, lbl2, val2) in enumerate(ann_lines):
                 cur_y = start_y - li * y_space
-                # 左半侧标签
-                ax.text(0.46, cur_y, f"{lbl1}=", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
-                ax.text(0.47, cur_y, val1, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
-                # 右半侧标签
+                ax.text(0.42, cur_y, f"{lbl1} =", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
+                ax.text(0.45, cur_y, val1, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
                 if lbl2 is not None:
-                    ax.text(0.80, cur_y, f"{lbl2}=", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
-                    ax.text(0.81, cur_y, val2, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
+                    ax.text(0.80, cur_y, f"{lbl2} =", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
+                    ax.text(0.83, cur_y, val2, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
 
-        # ── 现代无边框结论叙事框 ──
-        narrative = ROLE_NARRATIVES.get(role, "")
+        # ── 渲染上移后的紧凑黄色叙事框 ──
         if narrative:
-            # 高度契合大卡片的底部边缘
-            narr_bottom = card_bottom + 0.015
-            narr_height = 0.055 if "\n" in narrative else 0.035
-            narr_left = card_left + 0.02
-            narr_width = card_right - card_left - 0.04
-
-            # 浅黄底色
-            narr_bg = FancyBboxPatch(
-                (narr_left, narr_bottom), narr_width, narr_height,
-                boxstyle="round,pad=0.002", facecolor="#FFF3CD", edgecolor="none",
-                transform=fig.transFigure, zorder=1,
-            )
-            fig.patches.append(narr_bg)
-
-            # 左侧高亮金条
-            bar = Rectangle(
-                (narr_left + 0.005, narr_bottom + 0.004), 0.003, narr_height - 0.008,
-                facecolor="#FFC107", edgecolor="none", transform=fig.transFigure, zorder=2,
-            )
-            fig.patches.append(bar)
-
-            # 结论文字描述
             fig.text(
-                narr_left + 0.012, narr_bottom + narr_height / 2, narrative,
-                fontsize=8.5, color="#495057", ha="left", va="center", linespacing=1.3,
-                transform=fig.transFigure, zorder=3,
+                card_left + 0.04, 
+                narr_bottom + narr_height / 2, 
+                narrative,
+                fontsize=8.5, 
+                color="#495057", 
+                ha="left", 
+                va="center", 
+                linespacing=1.4,
+                transform=fig.transFigure, 
+                zorder=3,
+                bbox=dict(
+                    boxstyle="round,pad=0.4", 
+                    facecolor="#FFF3CD", 
+                    edgecolor="#FFC107", 
+                    linewidth=0.6
+                )
             )
 
     # ── 4. 全局底部页脚（Footnote） ────────────────────────
     fig.text(
-        0.5, 0.02, FOOTNOTE_TEXT,
+        0.5, 0.03, FOOTNOTE_TEXT,
         fontsize=8.5, color="#6C757D", style="italic",
         ha="center", va="bottom", transform=fig.transFigure, zorder=3,
     )
@@ -305,21 +291,16 @@ def generate_combined_figure(rows, output_base, variants=None):
     return _save(fig, output_base)
 
 
-# ── CLI ───────────────────────────────────────────────────────
 def _read_rows(path):
     with Path(path).open(newline="", encoding="utf-8-sig") as handle:
         return list(csv.DictReader(handle))
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(
-        description="Generate polished combined case-evidence figure"
-    )
+    parser = argparse.ArgumentParser(description="Generate polished combined case-evidence figure")
     parser.add_argument("--manifest", required=True, help="CSV manifest")
-    parser.add_argument("--output", required=True,
-                        help="Output path without extension")
-    parser.add_argument("--variants", default="original,facebook,wechat,weibo",
-                        help="Comma-separated variant list")
+    parser.add_argument("--output", required=True, help="Output path without extension")
+    parser.add_argument("--variants", default="original,facebook,wechat,weibo", help="Comma-separated variant list")
     args = parser.parse_args(argv)
     variants = [v.strip() for v in args.variants.split(",")]
     rows = _read_rows(args.manifest)
