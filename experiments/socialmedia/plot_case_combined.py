@@ -7,7 +7,7 @@ Design spec:
 - Bold Arial platform headers centered above images
 - Plain-text data annotations: labels muted (#ADB5BD), values bold (#212529)
 - Modern narrative box: Auto-wrapped #FFF3CD fill, tightly following annotations
-- Single #6C757D footnote at bottom, 8.5pt
+- Single #6C757D footnote at bottom, 8.5pt on pure white background
 """
 
 import argparse
@@ -98,26 +98,6 @@ def _annotation_lines(record):
     ]
 
 
-def _crop_white_borders(pil_image, margin=8):
-    """Crop white/transparent borders from a PIL image, leaving a `margin` px padding."""
-    arr = np.array(pil_image)
-    if arr.shape[-1] == 4:
-        mask = (arr[:, :, 0] < 250) | (arr[:, :, 1] < 250) | (arr[:, :, 2] < 250) | (arr[:, :, 3] < 250)
-    else:
-        mask = (arr[:, :, 0] < 250) | (arr[:, :, 1] < 250) | (arr[:, :, 2] < 250)
-    rows = np.any(mask, axis=1)
-    cols = np.any(mask, axis=0)
-    if not rows.any() or not cols.any():
-        return pil_image
-    rmin, rmax = np.where(rows)[0][[0, -1]]
-    cmin, cmax = np.where(cols)[0][[0, -1]]
-    rmin = max(0, rmin - margin)
-    rmax = min(arr.shape[0], rmax + margin)
-    cmin = max(0, cmin - margin)
-    cmax = min(arr.shape[1], cmax + margin)
-    return pil_image.crop((cmin, rmin, cmax, rmax))
-
-
 def _save(fig, output_base):
     output_base = Path(output_base)
     output_base.parent.mkdir(parents=True, exist_ok=True)
@@ -125,21 +105,13 @@ def _save(fig, output_base):
 
     for ext, kw in (("png", {"dpi": 300}), ("svg", {}), ("pdf", {})):
         p = output_base.with_suffix(f".{ext}")
-        if ext == "png":
-            tmp = output_base.with_suffix(".tmp.png")
-            fig.savefig(tmp, facecolor="white", dpi=300)
-            with Image.open(tmp) as im:
-                cropped = _crop_white_borders(im.convert("RGBA"), margin=10)
-                cropped.convert("RGB").save(p, dpi=(300, 300))
-            tmp.unlink()
-        else:
-            fig.savefig(p, bbox_inches="tight", facecolor="white", pad_inches=0.12, **kw)
-            if ext == "svg":
-                svg = p.read_text(encoding="utf-8")
-                p.write_text(
-                    "\n".join(line.rstrip() for line in svg.splitlines()) + "\n",
-                    encoding="utf-8",
-                )
+        fig.savefig(p, bbox_inches="tight", facecolor="white", pad_inches=0.15, **kw)
+        if ext == "svg":
+            svg = p.read_text(encoding="utf-8")
+            p.write_text(
+                "\n".join(line.rstrip() for line in svg.splitlines()) + "\n",
+                encoding="utf-8",
+            )
         paths.append(p)
 
     plt.close(fig)
@@ -148,21 +120,24 @@ def _save(fig, output_base):
 
 # ── Main drawing ──────────────────────────────────────────────
 def generate_combined_figure(rows, output_base, variants=None):
+    plt.close("all")
+    
     variants = variants or ["original", "facebook", "wechat", "weibo"]
     lookup = {(row["role"], row["variant"]): row for row in rows}
 
     n_roles = len(ROLES)
     n_vars = len(variants)
 
-    fig_width = n_vars * 3.0 + 1.5    
-    fig_height = n_roles * 4.8 + 1.5   
+    fig_width = n_vars * 3.1 + 1.5    
+    fig_height = n_roles * 5.0 + 1.5   # 稍微拉高整体画布，配合大行距
     fig = plt.figure(figsize=(fig_width, fig_height), facecolor="white")
+    fig.clf()
 
     from matplotlib import gridspec
     gs = gridspec.GridSpec(
         n_roles, n_vars, figure=fig,
-        hspace=0.60, wspace=0.15,
-        top=0.95, bottom=0.14, left=0.08, right=0.96
+        hspace=0.75, wspace=0.15,  # 核心修改：大幅拉大行距（0.55 -> 0.75），彻底隔离上下文
+        top=0.96, bottom=0.15, left=0.08, right=0.96
     )
 
     # ── 2. 渲染图片子图 ──────────────────────────────────
@@ -205,25 +180,24 @@ def generate_combined_figure(rows, output_base, variants=None):
         fb = all_axes[ri][0].get_position()
         lb = all_axes[ri][-1].get_position()
 
-        # 核心优化：把标签的相对底部往上提（由 -0.30 变成 -0.22），拉近与黄色框的物理间距
-        labels_relative_bottom = -0.20
+        # 精确计算行内各元素坐标
+        labels_relative_bottom = -0.22
         labels_absolute_bottom = fb.y0 + labels_relative_bottom * fb.height
 
         narrative = ROLE_NARRATIVES.get(role, "")
         if narrative:
-            narr_height = 0.045 if "\n" in narrative else 0.030
-            # 缩短黄色框和数据标签之间的微调空隙
-            narr_top = labels_absolute_bottom - 0.008
+            narr_height = 0.035 if "\n" in narrative else 0.024
+            narr_top = labels_absolute_bottom - 0.005
             narr_bottom = narr_top - narr_height
         else:
-            narr_bottom = labels_absolute_bottom - 0.015
+            narr_bottom = labels_absolute_bottom - 0.010
 
         card_left = fb.x0 - 0.04
         card_right = lb.x1 + 0.04
-        card_top = fb.y1 + 0.05      
-        card_bottom = narr_bottom - 0.02
+        card_top = fb.y1 + 0.03       # 稍微收紧上边缘，不越界
+        card_bottom = narr_bottom - 0.010 # 紧凑底部，留出充足的白色行间距
 
-        # 绘制大卡片背景
+        # 绘制浅灰色大卡片背景框
         card = FancyBboxPatch(
             (card_left, card_bottom), card_right - card_left, card_top - card_bottom,
             boxstyle="round,pad=0.01",
@@ -235,10 +209,10 @@ def generate_combined_figure(rows, output_base, variants=None):
         # ── 顶层小徽章 ──
         badge_color = ROLE_BADGE_COLORS[role]
         bx = card_left + 0.02
-        by = card_top - 0.025
+        by = card_top - 0.012
         fig.text(bx, by, "●", fontsize=9, color=badge_color, ha="left", va="center", transform=fig.transFigure, zorder=3)
         fig.text(bx + 0.012, by, ROLE_LABELS_CN[role], fontsize=11, fontweight="bold", color="#212529", ha="left", va="center", transform=fig.transFigure, zorder=3)
-        fig.text(bx + 0.095, by, f"({ROLE_LABELS_EN[role]})", fontsize=9, style="italic", color="#6C757D", ha="left", va="center", transform=fig.transFigure, zorder=3)
+        #fig.text(bx + 0.095, by, f"({ROLE_LABELS_EN[role]})", fontsize=9, style="italic", color="#6C757D", ha="left", va="center", transform=fig.transFigure, zorder=3)
 
         # ── 平台标题与数据标签 ──
         for ci, variant in enumerate(variants):
@@ -254,13 +228,13 @@ def generate_combined_figure(rows, output_base, variants=None):
             y_space = 0.06
             for li, (lbl1, val1, lbl2, val2) in enumerate(ann_lines):
                 cur_y = start_y - li * y_space
-                ax.text(0.42, cur_y, f"{lbl1} =", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
-                ax.text(0.45, cur_y, val1, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
+                ax.text(0.28, cur_y, f"{lbl1} =", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
+                ax.text(0.31, cur_y, val1, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
                 if lbl2 is not None:
                     ax.text(0.80, cur_y, f"{lbl2} =", fontsize=7.5, color="#ADB5BD", ha="right", va="center", transform=ax.transAxes, zorder=3)
                     ax.text(0.83, cur_y, val2, fontsize=7.5, fontweight="bold", color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
 
-        # ── 渲染上移后的紧凑黄色叙事框 ──
+        # ── 黄色叙事框 ──
         if narrative:
             fig.text(
                 card_left + 0.04, 
@@ -281,11 +255,11 @@ def generate_combined_figure(rows, output_base, variants=None):
                 )
             )
 
-    # ── 4. 全局底部页脚（Footnote） ────────────────────────
+    # ── 4. 全局底部页脚（Footnote - 纯大白底） ────────────────────────
     fig.text(
-        0.5, 0.03, FOOTNOTE_TEXT,
+        0.5, 0.020, FOOTNOTE_TEXT,
         fontsize=8.5, color="#6C757D", style="italic",
-        ha="center", va="bottom", transform=fig.transFigure, zorder=3,
+        ha="center", va="bottom", transform=fig.transFigure, zorder=5,
     )
 
     return _save(fig, output_base)
