@@ -175,6 +175,12 @@
 
 ## 变更记录
 
+### 2026-07-18 - #15-A 三案例纵向拼接总图
+
+- 新增 `experiments/socialmedia/stitch_combined_case.py`：将 stable/degraded/conflict 三张独立案例图从上到下纵向拼接为一张总图，仅最下方保留一条「数据来源」灰底注释。
+- 输出：`docs/figures/socialmedia/socialmedia_case_combined.png`（2987×3584，RGBA），三段各保留【行为】/【关键】黄色叙事框。
+- 实现方式：PIL 裁剪前三图中前两张的底部 80px（覆盖 footer），第三张保留完整 footer，垂直拼合。
+
 ### 2026-07-17 - #15-A 案例图中文化 + 红框 bbox 叠加 + 独立叙事图
 
 - `plot_case_evidence.py` 升级：`--roles` 参数、Microsoft YaHei 中文字体、中文标注 + 英文平台标题、案例级【行为】/【关键】叙事框（黄色）、底部中文解释边界声明、左侧标签贴近网格、底部留白收紧。
