@@ -187,10 +187,11 @@ def generate_combined_figure(rows, output_base, variants=None):
         narrative = ROLE_NARRATIVES.get(role, "")
         if narrative:
             narr_height = 0.035 if "\n" in narrative else 0.024
-            narr_top = labels_absolute_bottom - 0.005
+            # 叙事框顶部必须在标注文字底部之下，预留足够间距
+            narr_top = labels_absolute_bottom - 0.04
             narr_bottom = narr_top - narr_height
         else:
-            narr_bottom = labels_absolute_bottom - 0.010
+            narr_bottom = labels_absolute_bottom - 0.02
 
         card_left = fb.x0 - 0.04
         card_right = lb.x1 + 0.04

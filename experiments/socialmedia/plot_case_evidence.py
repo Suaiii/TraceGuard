@@ -1,8 +1,16 @@
-"""Generate report-grade case evidence plates with interpretation boundaries.
+"""Generate report-grade case evidence plates — academic premium style.
 
 #15-A deliverable: three classes of cases (stable / degraded / conflict) with
 explanatory annotations and mandatory disclaimers that bboxes are engineering
 evidence only, not pixel-precise ground truth.
+
+Visual style matches plot_case_combined.py:
+- Card background (#F8F9FA) with subtle #DEE2E6 border
+- Horizontal badge (colored dot + Chinese + English italic)
+- Bold Arial platform headers
+- Plain-text data annotations: muted labels (#ADB5BD), values bold (#212529)
+- Narrative box with #FFF3CD fill and #FFC107 border
+- No footnote (generated per-case, unlike the combined figure)
 """
 
 import argparse
@@ -13,6 +21,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch
+import numpy as np
 from PIL import Image
 
 plt.rcParams["font.family"] = "sans-serif"
@@ -22,18 +32,21 @@ plt.rcParams["svg.fonttype"] = "none"
 plt.rcParams["pdf.fonttype"] = 42
 
 ROLES = ["stable", "degraded", "conflict"]
-ROLE_LABELS = {
-    "stable": "稳定案例",
-    "degraded": "衰减案例",
-    "conflict": "冲突案例",
-}
-ROLE_TITLES_CN = {
-    "stable": "稳定案例 (Stable)",
-    "degraded": "衰减案例 (Degraded)",
-    "conflict": "冲突案例 (Conflict)",
+ROLE_LABELS_CN = {"stable": "稳定案例", "degraded": "衰减案例", "conflict": "冲突案例"}
+ROLE_LABELS_EN = {"stable": "Stable", "degraded": "Degraded", "conflict": "Conflict"}
+ROLE_BADGE_COLORS = {
+    "stable": "#198754",
+    "degraded": "#DC3545",
+    "conflict": "#FD7E14",
 }
 
-# ---- Case-level behavioral narratives (#15-A) ----
+VARIANT_LABELS = {
+    "original": "Original",
+    "facebook": "Facebook",
+    "wechat": "WeChat",
+    "weibo": "Weibo",
+}
+
 ROLE_NARRATIVES = {
     "stable": (
         "【行为】传播前后伪造概率维持 0.99+，风险等级保持「中」，"
@@ -52,17 +65,6 @@ ROLE_NARRATIVES = {
     ),
 }
 
-VARIANT_LABELS = {
-    "original": "Original",
-    "facebook": "Facebook",
-    "wechat": "WeChat",
-    "weibo": "Weibo",
-}
-
-# Risk level colour hints for annotation
-RISK_COLORS = {"low": "#4CAF50", "medium": "#FF9800", "high": "#F44336"}
-
-# ---- Chinese translations for annotation values ----
 _LABEL_CN = {"fake": "伪", "real": "真"}
 _RISK_LEVEL_CN = {"low": "低", "medium": "中", "high": "高"}
 _TAMPER_CN = {
@@ -72,42 +74,13 @@ _TAMPER_CN = {
 }
 
 
-def _save(fig, output_base):
-    output_base = Path(output_base)
-    output_base.parent.mkdir(parents=True, exist_ok=True)
-    paths = []
-    for extension, kwargs in (
-        ("svg", {}),
-        ("pdf", {}),
-        ("png", {"dpi": 300}),
-    ):
-        path = output_base.with_suffix(f".{extension}")
-        fig.savefig(path, bbox_inches="tight", facecolor="white", **kwargs)
-        if extension == "svg":
-            svg = path.read_text(encoding="utf-8")
-            path.write_text(
-                "\n".join(line.rstrip() for line in svg.splitlines()) + "\n",
-                encoding="utf-8",
-            )
-        paths.append(path)
-    plt.close(fig)
-    return paths
-
-
+# ── Helpers ───────────────────────────────────────────────────
 def _format_fp(val):
-    """Format fake_prob consistently: 3 decimals for sub-0.1, 4 otherwise."""
-    v = float(val)
-    if v < 0.001:
-        return f"{v:.4f}"
-    elif v < 0.1:
-        return f"{v:.4f}"
-    else:
-        return f"{v:.4f}"
+    return f"{float(val):.4f}"
 
 
-def _annotation_text(record):
-    """Build rich multi-line Chinese annotation from case record."""
-    lines = []
+def _annotation_lines(record):
+    """Return structured annotation lines: (label, value, label2, value2) tuples."""
     label = record.get("label", "")
     label_cn = _LABEL_CN.get(label, label)
     fp = _format_fp(record["fake_prob"])
@@ -117,16 +90,34 @@ def _annotation_text(record):
     bbox = record.get("bbox_count", "0")
     tamper = record.get("tamper_type", "")
     tamper_cn = _TAMPER_CN.get(tamper, tamper)
+    return [
+        ("判定", f"{label_cn}", "伪造概率", f"{fp}"),
+        ("风险分", f"{risk}({risk_level_cn})", "可疑区域", f"{bbox}"),
+        ("篡改类型", f"{tamper_cn}", None, None),
+    ]
 
-    lines.append(f"判定={label_cn}  伪造概率={fp}")
-    lines.append(f"风险分={risk}({risk_level_cn})  可疑区域={bbox}")
-    lines.append(f"篡改类型={tamper_cn}")
 
-    return "\n".join(lines)
+def _save(fig, output_base):
+    output_base = Path(output_base)
+    output_base.parent.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for ext, kw in (("png", {"dpi": 300}), ("svg", {}), ("pdf", {})):
+        p = output_base.with_suffix(f".{ext}")
+        fig.savefig(p, bbox_inches="tight", facecolor="white", pad_inches=0.20, **kw)
+        if ext == "svg":
+            svg = p.read_text(encoding="utf-8")
+            p.write_text(
+                "\n".join(line.rstrip() for line in svg.splitlines()) + "\n",
+                encoding="utf-8",
+            )
+        paths.append(p)
+    plt.close(fig)
+    return paths
 
 
+# ── Main drawing ──────────────────────────────────────────────
 def generate_case_figure(rows, output_base, variants=None, roles=None):
-    """Render case evidence grid with interpretation boundaries.
+    """Render case evidence figure with academic premium card style.
 
     Parameters
     ----------
@@ -140,6 +131,8 @@ def generate_case_figure(rows, output_base, variants=None, roles=None):
     roles : list[str] or None
         Which roles to render.  Default: all — stable, degraded, conflict.
     """
+    plt.close("all")
+
     if variants is None:
         variants = ["original", "facebook", "wechat", "weibo"]
     if roles is None:
@@ -148,38 +141,36 @@ def generate_case_figure(rows, output_base, variants=None, roles=None):
     lookup = {(row["role"], row["variant"]): row for row in rows}
 
     n_roles = len(roles)
-    n_variants = len(variants)
+    n_vars = len(variants)
 
-    # When showing a single role, add narrative box below the image row
-    single_role = n_roles == 1
-    narrative_extra = 0.7 if single_role else 0.0
-    narrative_y = 0.13 if single_role else 0.105
-    footer_bottom = 0.04 if single_role else 0.015
+    # ── Layout ──────────────────────────────────────────────
+    fig_width = n_vars * 3.1 + 1.5
+    fig_height = n_roles * 4.7 + 1.2
+    fig = plt.figure(figsize=(fig_width, fig_height), facecolor="white")
 
-    # Tight layout: each cell ~2.2 x 2.0 inches
-    fig_width = n_variants * 2.4 + 0.8
-    fig_height = n_roles * 2.6 + 1.6 + narrative_extra
-    fig, axes = plt.subplots(
-        n_roles, n_variants, figsize=(fig_width, fig_height),
-        gridspec_kw={"hspace": 0.42, "wspace": 0.06,
-                     "top": 0.94, "bottom": 0.22, "left": 0.08, "right": 0.98},
+    from matplotlib import gridspec
+    gs = gridspec.GridSpec(
+        n_roles, n_vars, figure=fig,
+        hspace=0.55, wspace=0.15,
+        top=0.92, bottom=0.06, left=0.08, right=0.96,
     )
-    if n_roles == 1 and n_variants == 1:
-        axes = [[axes]]
-    elif n_roles == 1:
-        axes = [axes]
-    elif n_variants == 1:
-        axes = [[ax] for ax in axes]
 
-    for row_index, role in enumerate(roles):
-        for col_index, variant in enumerate(variants):
-            ax = axes[row_index][col_index]
+    # ── Render image subplots ───────────────────────────────
+    all_axes = []
+    for ri in range(n_roles):
+        row_axes = []
+        for ci in range(n_vars):
+            ax = fig.add_subplot(gs[ri, ci])
+            row_axes.append(ax)
+        all_axes.append(row_axes)
+
+    for ri, role in enumerate(roles):
+        for ci, variant in enumerate(variants):
+            ax = all_axes[ri][ci]
             key = (role, variant)
             if key not in lookup:
-                ax.text(0.5, 0.5, "N/A", transform=ax.transAxes,
-                        ha="center", va="center", fontsize=10, color="#999")
-                ax.set_xticks([])
-                ax.set_yticks([])
+                ax.text(0.5, 0.5, "N/A", transform=ax.transAxes, ha="center", va="center", color="#999")
+                ax.set_axis_off()
                 continue
 
             record = lookup[key]
@@ -188,65 +179,114 @@ def generate_case_figure(rows, output_base, variants=None, roles=None):
                 with Image.open(img_path) as img:
                     ax.imshow(img.convert("RGB"))
             else:
-                ax.text(0.5, 0.5, f"missing:\n{img_path}", transform=ax.transAxes,
-                        ha="center", va="center", fontsize=6, color="#999")
+                ax.text(0.5, 0.5, f"Missing:\n{img_path.name}", transform=ax.transAxes,
+                        ha="center", va="center", fontsize=8, color="#999")
 
             ax.set_xticks([])
             ax.set_yticks([])
             for spine in ax.spines.values():
-                spine.set_color("#B8B8B8")
-                spine.set_linewidth(0.6)
+                spine.set_visible(False)
+            ax.set_zorder(10)
 
-            # Rich annotation below
-            ann = _annotation_text(record)
-            ax.text(0.5, -0.18, ann, transform=ax.transAxes,
-                    ha="center", va="top", fontsize=5.5,
-                    fontfamily="Microsoft YaHei",
-                    bbox=dict(boxstyle="round,pad=0.3", facecolor="#F5F5F5",
-                              edgecolor="#DDD", alpha=0.9))
+    fig.canvas.draw()
 
-            # Variant header (top row)
-            if row_index == 0:
-                ax.text(
-                    0.5, 1.03, VARIANT_LABELS.get(variant, variant),
-                    transform=ax.transAxes, ha="center", va="bottom",
-                    fontsize=9, fontweight="bold",
-                )
+    # ── Card backgrounds, badges, annotations, narratives ───
+    for ri, role in enumerate(roles):
+        fb = all_axes[ri][0].get_position()
+        lb = all_axes[ri][-1].get_position()
 
-            # Role label (leftmost column)
-            if col_index == 0:
-                ax.text(
-                    -0.12, 0.5, ROLE_LABELS[role],
-                    transform=ax.transAxes, ha="right", va="center",
-                    rotation=90, fontsize=9, fontweight="bold",
-                )
+        # Calculate card boundaries
+        card_left = fb.x0 - 0.04
+        card_right = lb.x1 + 0.04
+        card_top = fb.y1 + 0.1
 
-    # ---- Case-level behavioral narrative (single-role only) ----
-    if single_role:
-        narrative = ROLE_NARRATIVES.get(roles[0], "")
+        # Annotation / narrative area
+        narrative = ROLE_NARRATIVES.get(role, "")
+        labels_relative_bottom = -0.22
+        labels_absolute_bottom = fb.y0 + labels_relative_bottom * fb.height
+
+        if narrative:
+            narr_height = 0.038 if "\n" in narrative else 0.026
+            # 叙事框顶部必须在标注文字底部之下，预留足够间距
+            narr_top = labels_absolute_bottom - 0.04
+            narr_bottom = narr_top - narr_height
+        else:
+            narr_bottom = labels_absolute_bottom - 0.02
+
+        if ri == n_roles - 1:
+            card_bottom = max(0.07, narr_bottom - 0.025)
+        else:
+            card_bottom = narr_bottom - 0.025
+
+        # Card background
+        card = FancyBboxPatch(
+            (card_left, card_bottom), card_right - card_left, card_top - card_bottom,
+            boxstyle="round,pad=0.01",
+            facecolor="#F8F9FA", edgecolor="#DEE2E6", linewidth=0.8,
+            transform=fig.transFigure, zorder=-1,
+        )
+        fig.patches.append(card)
+
+        # ── Badge（卡片上方，独占一行） ──────────────────────
+        badge_color = ROLE_BADGE_COLORS[role]
+        bx = card_left + 0.02
+        by = card_top - 0.05
+        fig.text(bx, by, "●", fontsize=12, color=badge_color, ha="left", va="center",
+                 transform=fig.transFigure, zorder=3)
+        fig.text(bx + 0.015, by, ROLE_LABELS_CN[role], fontsize=16, fontweight="bold",
+                 color="#212529", ha="left", va="center", transform=fig.transFigure, zorder=3)
+
+        # ── Platform headers + data annotations ─────────────
+        for ci, variant in enumerate(variants):
+            ax = all_axes[ri][ci]
+            ax.text(0.5, 1.06, VARIANT_LABELS.get(variant, variant), fontsize=13,
+                    fontweight="bold", fontfamily="Arial", color="#212529",
+                    ha="center", va="bottom", transform=ax.transAxes, zorder=3)
+
+            key = (role, variant)
+            if key not in lookup:
+                continue
+            ann_lines = _annotation_lines(lookup[key])
+
+            start_y = -0.10
+            y_space = 0.06
+            for li, (lbl1, val1, lbl2, val2) in enumerate(ann_lines):
+                cur_y = start_y - li * y_space
+                ax.text(0.42, cur_y, f"{lbl1} =", fontsize=7.5, color="#ADB5BD",
+                        ha="right", va="center", transform=ax.transAxes, zorder=3)
+                ax.text(0.45, cur_y, val1, fontsize=7.5, fontweight="bold",
+                        color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
+                if lbl2 is not None:
+                    ax.text(0.80, cur_y, f"{lbl2} =", fontsize=7.5, color="#ADB5BD",
+                            ha="right", va="center", transform=ax.transAxes, zorder=3)
+                    ax.text(0.83, cur_y, val2, fontsize=7.5, fontweight="bold",
+                            color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
+
+        # ── Narrative box ────────────────────────────────────
         if narrative:
             fig.text(
-                0.5, narrative_y, narrative,
-                ha="center", va="center", fontsize=7.0,
-                fontfamily="Microsoft YaHei", color="#222222",
-                bbox=dict(boxstyle="round,pad=0.5", facecolor="#FFF8E1",
-                          edgecolor="#FF9800", alpha=0.95, linewidth=1.2),
+                card_left + 0.04,
+                narr_bottom + narr_height / 2,
+                narrative,
+                fontsize=8.5,
+                color="#495057",
+                ha="left",
+                va="center",
+                linespacing=1.4,
+                transform=fig.transFigure,
+                zorder=3,
+                bbox=dict(
+                    boxstyle="round,pad=0.4",
+                    facecolor="#FFF3CD",
+                    edgecolor="#FFC107",
+                    linewidth=0.6,
+                ),
             )
-
-    # ---- Interpretation boundary footer ----
-    footer = (
-        "数据来源：case_summary.csv / case_classification/all.csv（真实系统输出）。"
-        "可疑区域计数与篡改类型为工程定位证据，不等同于像素级真值标注。"
-        "像素级定位指标见 experiments/localization/verified_results/。"
-    )
-    fig.text(0.5, footer_bottom, footer, ha="center", va="bottom", fontsize=6.5,
-             color="#666666", style="italic",
-             bbox=dict(boxstyle="round,pad=0.4", facecolor="#FAFAFA",
-                       edgecolor="#CCCCCC", alpha=0.85))
 
     return _save(fig, output_base)
 
 
+# ── CLI ───────────────────────────────────────────────────────
 def _read_rows(path):
     with Path(path).open(newline="", encoding="utf-8-sig") as handle:
         return list(csv.DictReader(handle))
