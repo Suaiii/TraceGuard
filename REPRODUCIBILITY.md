@@ -32,7 +32,11 @@
 | Wukong      | 50.3%        | 63.6%          | **+13.3%** |
 | **Average** | **49.60%**   | **59.55%**     | **+9.96%** |
 
-> MMD 在所有 8 个生成器上均有正向贡献，平均 Fake Recall 提升 9.96 个百分点。BigGAN 提升最大(+21.6%)，ADM(+11.7%)和Wukong(+13.3%)提升显著。原始 CSV: `eval_results.csv` (with MMD) | `eval_results_no_mmd.csv` (without MMD)
+> MK-MMD 使八生成器平均 Fake Recall 从 49.59% 提升至 59.55%（绝对提升 +9.96 pp，相对提升 +20.08%）。BigGAN 提升最大(+21.6%)，ADM(+11.7%)和Wukong(+13.3%)提升显著。
+> 
+> **控制变量说明**：消融两臂为两次独立训练（with-MMD: `checkpoints/best.pth`，no-MMD: `checkpoints_no_mmd/best.pth`），两臂共享同一数据划分（seed=42, 85:15 StratifiedShuffleSplit）与完全一致的超参配置（唯一差异：MMD 权重β=0）。两臂 Real Recall 分别为 99.80% 与 99.60%，+9.96pp 的提升包含训练随机性贡献，不可全部归因于 MK-MMD 本身。no-MMD checkpoint 存储于 AutoDL 云实例 `checkpoints_no_mmd/best.pth`，未随仓库发布。
+> 
+> 原始 CSV: `experiments/crossdomain/verified_results/eval_results.csv` (with MMD) | `experiments/crossdomain/verified_results/eval_results_no_mmd.csv` (without MMD)
 
 ## 数据划分
 
@@ -100,5 +104,5 @@ python eval.py \
     --source_root ./models/train \
     --genimage_root ./models/Genimage
 
-# 结果见 checkpoints/eval_results.csv 或运行 eval.py 的输出
+# 结果见 experiments/crossdomain/verified_results/eval_results.csv
 ```
