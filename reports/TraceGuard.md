@@ -80,13 +80,13 @@ TraceGuard 采用模块化流水线设计。系统接收单张输入图像并完
 
 MK\-MMD 采用 5 个不同带宽的高斯核进行线性组合：
 
-$ k(x, y) = \sum_{u=1}^{5} \exp\left(-\frac{|x - y|^2}{2\sigma_u^2}\right)$
+$$k(x, y) = \sum_{u=1}^{5} \exp\left(-\frac{\lVert x - y\rVert^2}{2\sigma_u^2}\right)$$
 
 其中 \(\sigma_u\) 采用几何级数分布：\(\sigma_u = 2^{u-3} \cdot \bar{d}\)，\(\bar{d}\) 为批次内样本对的平均欧氏距离。5 个核分别捕获不同尺度的分布差异，使得域对齐对源域与目标域之间的复杂分布偏移具有更强的适应能力。
 
 经验 MMD 距离的计算采用 V\-统计量（V\-statistic）估计器：
 
-$ \widehat{MMD}^2 = \frac{1}{n_s^2}\sum_{i,j} k(x_i^s, x_j^s) + \frac{1}{n_t^2}\sum_{i,j} k(x_i^t, x_j^t) - \frac{2}{n_s n_t}\sum_{i,j} k(x_i^s, x_j^t)$
+$$\widehat{MMD}^2 = \frac{1}{n_s^2}\sum_{i,j} k(x_i^s, x_j^s) + \frac{1}{n_t^2}\sum_{i,j} k(x_i^t, x_j^t) - \frac{2}{n_s n_t}\sum_{i,j} k(x_i^s, x_j^t)$$
 
 该实现参考 Transfer\-Learning\-Library 中的 DAN（Deep Adaptation Networks）模块\[6\]，并根据本任务的数据规模和模型结构进行了适配。
 
@@ -94,7 +94,7 @@ $ \widehat{MMD}^2 = \frac{1}{n_s^2}\sum_{i,j} k(x_i^s, x_j^s) + \frac{1}{n_t^2}\
 
 训练阶段采用双流（Two\-Stream）输入架构：每个训练 batch 同时送入源域图像（含 real/fake 标签）和目标域图像（无标签）。训练目标为联合损失函数：
 
-$ \mathcal{L}_{total} = \mathcal{L}_{cls} + \beta \cdot \mathcal{L}_{MMD} $
+$$\mathcal{L}_{\mathrm{total}} = \mathcal{L}_{\mathrm{cls}} + \beta \cdot \mathcal{L}_{\mathrm{MMD}}$$
 
 其中 $\mathcal{L}_{cls}$ 为源域交叉熵损失（带标签平滑 0.1），$\mathcal{L}_{MMD}$ 为源域与目标域 256 维瓶颈特征的 MK\-MMD 距离。平衡因子 \(\beta\) 采用渐进调度策略：训练初期设 \(\beta = 0\) 让分类器充分学习源域判别特征；在训练过程中 \(\beta\) 线性增长至目标值 \(\beta_{max} = 1.0\)，逐步增加域对齐的强度。
 
@@ -135,7 +135,7 @@ $ \mathcal{L}_{total} = \mathcal{L}_{cls} + \beta \cdot \mathcal{L}_{MMD} $
 
 升级方案在 MambaOut backbone 的 stage2 输出（384 通道 × 14×14 = 196 个空间格点）上实施 Grad\-CAM\[7\]。注册 forward hook 捕获激活 $A ∈ R^{384×14×14}$，同时注册 backward hook 捕获梯度 $G ∈ R^{384×14×14}$。对 fake 类 logit 反向传播，取梯度空间均值作为通道权重，计算类激活图得到 \[14, 14\] 的热力矩阵：
 
-$w_c = \frac{1}{Z}\sum_{i,j} G_{c,i,j}, \quad L_{\text{CAM}} = \text{ReLU}\left(\sum_{c} w_c A_c\right)$
+$$w_c = \frac{1}{Z}\sum_{i,j} G_{c,i,j}, \quad L_{\mathrm{CAM}} = \mathrm{ReLU}\left(\sum_{c} w_c A_c\right)$$
 
 其中$A_c \in \mathbb{R}^{14 \times 14}$为第 $c$个通道的激活图，$G_c$为对应梯度，$Z = 14 \times 14$，再上采样到原图尺寸，并将数值归一化到 \[0, 1\]。空间格点从 4 个提升到 196 个，为展示模型对局部纹理和残差模式的响应提供更细粒度的分类证据，但不把该响应解释为像素级篡改真值。
 
