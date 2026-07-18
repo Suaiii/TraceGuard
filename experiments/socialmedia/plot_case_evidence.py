@@ -252,9 +252,9 @@ def generate_case_figure(rows, output_base, variants=None, roles=None):
             y_space = 0.06
             for li, (lbl1, val1, lbl2, val2) in enumerate(ann_lines):
                 cur_y = start_y - li * y_space
-                ax.text(0.42, cur_y, f"{lbl1} =", fontsize=7.5, color="#ADB5BD",
+                ax.text(0.28, cur_y, f"{lbl1} =", fontsize=7.5, color="#ADB5BD",
                         ha="right", va="center", transform=ax.transAxes, zorder=3)
-                ax.text(0.45, cur_y, val1, fontsize=7.5, fontweight="bold",
+                ax.text(0.31, cur_y, val1, fontsize=7.5, fontweight="bold",
                         color="#212529", ha="left", va="center", transform=ax.transAxes, zorder=3)
                 if lbl2 is not None:
                     ax.text(0.80, cur_y, f"{lbl2} =", fontsize=7.5, color="#ADB5BD",
