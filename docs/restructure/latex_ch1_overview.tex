@@ -15,12 +15,41 @@
 \usepackage{hyperref}
 \usepackage{cleveref}
 
-\geometry{a4paper, margin=2.5cm}
+% ===== 官方《作品报告模板.docx》版式对齐 =====
+% 页边距取自模板 sectPr：上下 2.54cm、左 2.86cm、右 2.59cm
+\geometry{a4paper, top=2.54cm, bottom=2.54cm, left=2.86cm, right=2.59cm}
 \graphicspath{{figures/}}
 
+% 模板填写说明第 2 条：除标题外，所有内容必须为宋体、小四号字、1.5 倍行距
+\linespread{1.5}
+\renewcommand{\baselinestretch}{1.5}
+
+% 章标题：黑体三号居中，形如“第一章 作品概述”（模板样式）
+\ctexset{
+  section = {
+    format     = \heiti\zihao{3}\centering,
+    name       = {第,章},
+    number     = \chinese{section},
+    aftername  = \quad,
+    beforeskip = 1.2\baselineskip,
+    afterskip  = 1\baselineskip,
+  },
+  subsection = {
+    format    = \heiti\zihao{4}\raggedright,
+    aftername = \quad,
+  },
+  subsubsection = {
+    format    = \heiti\zihao{-4}\raggedright,
+    aftername = \quad,
+  },
+}
+
 % 表、图按章节编号（3.1, 3.2, ... 与正文原有编号习惯一致）
+% 注：章号显示为中文“第三章”，但表图仍用阿拉伯数字 3.1，故此处显式取 \arabic
 \counterwithin{table}{section}
 \counterwithin{figure}{section}
+\renewcommand{\thetable}{\arabic{section}.\arabic{table}}
+\renewcommand{\thefigure}{\arabic{section}.\arabic{figure}}
 
 % 可点击交叉引用的链接配色，与正文黑色区分，便于识别为可点击项
 \definecolor{linkblue}{RGB}{0,90,181}
@@ -51,39 +80,65 @@
 \begin{document}
 \sloppy
 
+% ===================== 封面（严格按官方《作品报告模板.docx》）=====================
+% 模板封面仅四个字段：作品名称 / 作品类型 / 电子邮箱 / 提交日期。
+% 模板无“组长/组员/学校”栏，且填写说明第 5 条要求避免出现学校、院系、指导教师等
+% 泄露身份的信息，故原封面的组长、组员、学校三行已删除。
+% 作品名称是带标签的填空字段，TraceGuard 随值出现在首位（老师反馈：作品名不能放下方）。
 \begin{titlepage}
- \centering
- \vspace*{2cm}
- {\Large 2026第二届大学生人工智能安全竞赛}\\[2cm]
+  \centering
+  \vspace*{1.5cm}
 
-```
-{\Huge\bfseries 面向社交媒体传播链末端的可解释AIGC图像审核平台}\\[0.5cm]
-{\Large\bfseries TraceGuard}\\[5cm]
+  % 黑体无粗体字形，不加 \bfseries（否则 xelatex 报 TU/SimHei/b/n undefined）
+  {\heiti\zihao{2} 2026第二届大学生人工智能安全竞赛\par}
+  \vspace{0.9cm}
+  {\heiti\zihao{2} 作品报告\par}
 
-\begin{tabular}{rl}
-    \textbf{组长：} & 朱羿帅 \\[0.3cm]
-    \textbf{组员：} & 张潇、贺杰 \\[0.3cm]
-    \textbf{完成时间：} & 2026.07.20 \\[0.3cm]
-    \textbf{学校：} & 上海交通大学 \\
-\end{tabular}
+  \vspace{4.5cm}
 
-\vfill
-```
+  {\heiti\zihao{3}
+  \begin{tabular}{@{}l@{}l@{}}
+    作品名称： & \underline{\makebox[9.2cm][l]{TraceGuard：面向社交媒体传播场景的}} \\[0.55cm]
+               & \underline{\makebox[9.2cm][l]{可解释 AIGC 图像审核平台}}           \\[0.9cm]
+    作品类型： & \underline{\makebox[9.2cm][l]{开放式自由命题}}                      \\[0.9cm]
+    电子邮箱： & \underline{\makebox[9.2cm][l]{traceguard.team@example.com}}        \\[0.9cm]
+    提交日期： & \underline{\makebox[9.2cm][l]{2026 年 \hspace{1em} 月 \hspace{1em} 日}} \\
+  \end{tabular}}
+  % ⚠ 待确认：电子邮箱须为中性团队邮箱（不得含姓名/学校标识）；提交日期按实际提交填写。
 
+  \vfill
 \end{titlepage}
 
-\tableofcontents
+% ===================== 填写说明（模板注明“本页不删除”）=====================
+\thispagestyle{empty}
+\begin{center}
+  {\heiti\zihao{3} 填写说明}
+\end{center}
+\vspace{0.5\baselineskip}
+\begin{enumerate}[label=\arabic*., leftmargin=2em, itemsep=0.3\baselineskip]
+  \item 所有参赛项目必须为一个基本完整的设计。作品报告书旨在能够清晰准确地阐述（或图示）该参赛队的参赛项目（或方案）。
+  \item 作品报告采用 A4 纸撰写。除标题外，所有内容必需为宋体、小四号字、1.5 倍行距。
+  \item 作品报告中各项目说明文字部分仅供参考，作品报告书撰写完毕后，请删除所有说明文字。(本页不删除)
+  \item 作品报告模板里已经列的内容仅供参考，作者可以在此基础上增加内容或对文档结构进行微调。
+  \item 为保证网评的公平、公正，作品报告中应避免出现作者所在学校、院系和指导教师等泄露身份的信息。
+\end{enumerate}
+\newpage
+
+% 目录页：模板为“目　　录”黑体三号居中
+\renewcommand{\contentsname}{目\hspace{2em}录}
+{\let\clearpage\relax \tableofcontents}
 \newpage
 
 % ===================== 摘要 =====================
+% 无编号标题沿用章标题样式（黑体三号居中）
 \section*{摘要}
 \addcontentsline{toc}{section}{摘要}
 
-TraceGuard 是面向社交媒体传播链末端的可解释 AIGC 图像审核平台。系统集成跨域检测、Grad-CAM、局部定位、五维风险融合与报告导出，并以“全局判断、局部证据、融合结论”三层合同保证 Web、API、CLI 结论一致；证据冲突或退化时转人工，不静默改写全局标签。
+TraceGuard 是面向社交媒体传播场景的可解释 AIGC 图像审核平台，专门处理经平台转码压缩后元数据与标识均被剥离的“传播后裸图”。系统集成跨域检测、Grad-CAM、局部定位、五维风险融合与报告导出，并以“全局判断、局部证据、融合结论”三层合同保证 Web、API、CLI 结论一致；证据冲突或退化时转人工，不静默改写全局标签。
 
 针对可绕过生成端对齐并进入假新闻传播的超监管高危内容\cite{mu2025exda}，检测器在未见域的 9 个生成器上取得 98.00\% 总体 Fake Recall（公开释出子集，见\cref{tab:table36}）。八生成器盲测 Real Recall 为 99.80\%。系统已在 RTX 4060 Laptop GPU 完成真实 Web 闭环，短时并发烟测中位延迟为 0.520 秒。
 
-8000 组同图成对实验显示，Facebook 传播使 Fake Recall 从 59.55\% 降至 21.675\%，平均伪造概率下降 0.3162；确定性扰动进一步确认 JPEG 是主要证据破坏面，jpeg75/jpeg50 保持率仅 16.65\%/3.93\%。真图对照证伪了 resize50 的表面提升。作品据此量化传播链末端的证据退化，并把不可靠样本分流至人工复核。
+8000 组同图成对实验显示，Facebook 传播使 Fake Recall 从 59.55\% 降至 21.675\%，平均伪造概率下降 0.3162；确定性扰动进一步确认 JPEG 是主要证据破坏面，jpeg75/jpeg50 保持率仅 16.65\%/3.93\%。真图对照证伪了 resize50 的表面提升。作品据此量化传播后裸图的证据退化，并把不可靠样本分流至人工复核。
 
 \textbf{关键词：}AIGC 内容安全；伪造检测；跨域泛化；可解释取证；篡改定位；风险融合
 
@@ -126,6 +181,7 @@ AIGC 图像检测已成为人工智能安全与多媒体取证领域的研究热
   \label{tab:related_compare}
   \small
   \setlength{\tabcolsep}{4pt}
+  \resizebox{\textwidth}{!}{%
   \begin{tabular}{lccccc}
     \toprule
     方法/基准 & 跨生成器泛化 & 传播链同图评测 & 超监管内容 & 解释证据入流程 & 人工复核闭环 \\
@@ -137,7 +193,8 @@ AIGC 图像检测已成为人工智能安全与多媒体取证领域的研究热
     ExDA/ExImage\cite{mu2025exda}      & --- & $\triangle$ & \checkmark & --- & --- \\
     \textbf{TraceGuard（本作品）}       & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
     \bottomrule
-  \end{tabular}
+  \end{tabular}%
+  }
 \end{table}
 
 
@@ -145,32 +202,10 @@ AIGC 图像检测已成为人工智能安全与多媒体取证领域的研究热
  \centering
  \includegraphics[width=\linewidth]{figures/image.png}
  \caption{深度伪造已成全球性安全风险（左：AI 伪造“特朗普被捕”图像；中：Obama/Jordan Peele 深伪演示视频；右：俄乌冲突中的泽连斯基深伪视频）。}
- \label{fig:threat_chain}
+ \label{fig:realworld_cases}   % 原为 fig:threat_chain，与图 1.1 标签重复会使 \cref 指错，已改名
 \end{figure}
 
 
-
-\begin{table}[htbp]
- \centering
- \caption{代表性工作与本作品的能力对比 (\checkmark~支持；$\triangle$~部分提及；---~未提及)}
- \label{tab:related_compare}
-
-% 用 \resizebox{\textwidth}{!}{ ... } 包裹 tabular
- \resizebox{\textwidth}{!}{%
- \begin{tabular}{lccccc}
- \toprule
- 方法/基准 & 跨生成器泛化 & 传播链同图评测 & 超监管内容 & 解释证据入流程 & 人工复核闭环 \\
- \midrule
- CNNSpot\cite{wang2020cnn} & $\triangle$ & --- & --- & --- & --- \\
- UnivFD\cite{ojha2023towards} & \checkmark & --- & --- & --- & --- \\
- Grad-CAM 归因\cite{selvaraju2017gradcam} & --- & --- & --- & $\triangle$ & --- \\
- GenImage 基准\cite{zhu2023genimage} & $\triangle$ & --- & --- & --- & --- \\
- ExDA/ExImage\cite{mu2025exda} & --- & $\triangle$ & \checkmark & --- & --- \\
- \textbf{TraceGuard (本作品)} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
- \bottomrule
- \end{tabular}%
- }
-\end{table}
 
 \subsection{作品定位与核心特色}
 
@@ -807,7 +842,7 @@ MK-MMD 域自适应使检测器习得域不变特征表示（见\ref{sec:innovat
 
 系统在架构层面强制实施三层输出合同：全局 \texttt{label} 与 \texttt{fake\_prob} 仅由 Detector 产生（唯一权威来源），Grad-CAM 热力图与局部定位作为并行证据分支独立运行，风险融合模块汇总各方信息给出分级和处置建议，但不改写全局标签。全局判定与局部定位之间构建四象限证据分歧保留机制——当全局判真但局部检出异常区域（\texttt{local\_tamper}），或全局判伪但无可疑热点（\texttt{full\_aigc}）时，两类证据并行输出、保留分歧，触发人工复核，而非由任一路径静默覆盖另一路。留出集复核 F1 为 $0.9877$，高风险样本 F1 为 $1.0$，表明该分流机制在高风险样本上做到零遗漏的前提下，有效控制了人工复核总量。需要说明的是，本文阈值仅适用于当前单一数据来源，不替代生产环境配置，也不外推至其他数据域。
 
-\subsection{平台的自我诊断能力：传播链末端证据退化的系统度量}
+\subsection{平台的自我诊断能力：传播后证据退化的系统度量}
 
 传统跨截面评测无法区分内容差异与平台处理各自对检测性能的影响。本文采用同图成对协议——同一 \texttt{sample\_id} 的 Original 与平台传播版本成对比较（8000 组 $\times$ 4 条件），消除内容差异作为混淆变量，实现对平台处理效应的因果度量。结果显示，Facebook 传播使 Fake Recall 从 $59.55\%$ 降至 $21.675\%$，平均伪造概率下降 $0.3162$。
 
