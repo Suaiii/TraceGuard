@@ -142,3 +142,14 @@ best.pth
 *.docx
 *.doc
 tmp_*
+
+# --- LaTeX build artifacts (Overleaf 主稿在 docs/restructure/，本地编译会产生一堆中间件) ---
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.out
+docs/restructure/*.pdf
