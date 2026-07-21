@@ -1,0 +1,920 @@
+\documentclass[UTF8, a4paper, 12pt]{ctexart}
+
+% ===================== 基本宏包 =====================
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{geometry}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\geometry{a4paper, margin=2.5cm}
+\graphicspath{{figures/}}
+
+% 表、图按章节编号（3.1, 3.2, ... 与正文原有编号习惯一致）
+\counterwithin{table}{section}
+\counterwithin{figure}{section}
+
+% 可点击交叉引用的链接配色，与正文黑色区分，便于识别为可点击项
+\definecolor{linkblue}{RGB}{0,90,181}
+\hypersetup{
+ colorlinks=true,
+ linkcolor=linkblue,
+ citecolor=linkblue,
+ urlcolor=linkblue,
+ linktoc=all,
+ pdftitle={TraceGuard},
+}
+
+% cleveref：中文表/图自动加前缀，形如"表 3.1""图 2.1"均为可点击超链接
+\crefname{table}{表}{表}
+\Crefname{table}{表}{表}
+\crefname{figure}{图}{图}
+\Crefname{figure}{图}{图}
+
+\captionsetup{font=small, labelfont=bf}
+
+% 表格内自动换行的列类型
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\title{\textbf{TraceGuard}}
+\author{}
+\date{}
+
+\begin{document}
+\sloppy
+
+\begin{titlepage}
+ \centering
+ \vspace*{2cm}
+ {\Large 2026第二届大学生人工智能安全竞赛}\\[2cm]
+
+```
+{\Huge\bfseries 面向社交媒体传播链末端的可解释AIGC图像审核平台}\\[0.5cm]
+{\Large\bfseries TraceGuard}\\[5cm]
+
+\begin{tabular}{rl}
+    \textbf{组长：} & 朱羿帅 \\[0.3cm]
+    \textbf{组员：} & 张潇、贺杰 \\[0.3cm]
+    \textbf{完成时间：} & 2026.07.20 \\[0.3cm]
+    \textbf{学校：} & 上海交通大学 \\
+\end{tabular}
+
+\vfill
+```
+
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ===================== 摘要 =====================
+\section*{摘要}
+\addcontentsline{toc}{section}{摘要}
+
+TraceGuard 是面向社交媒体传播链末端的可解释 AIGC 图像审核平台。系统集成跨域检测、Grad-CAM、局部定位、五维风险融合与报告导出，并以“全局判断、局部证据、融合结论”三层合同保证 Web、API、CLI 结论一致；证据冲突或退化时转人工，不静默改写全局标签。
+
+针对可绕过生成端对齐并进入假新闻传播的超监管高危内容\cite{mu2025exda}，检测器在未见域的 9 个生成器上取得 98.00\% 总体 Fake Recall（公开释出子集，见\cref{tab:table36}）。八生成器盲测 Real Recall 为 99.80\%。系统已在 RTX 4060 Laptop GPU 完成真实 Web 闭环，短时并发烟测中位延迟为 0.520 秒。
+
+8000 组同图成对实验显示，Facebook 传播使 Fake Recall 从 59.55\% 降至 21.675\%，平均伪造概率下降 0.3162；确定性扰动进一步确认 JPEG 是主要证据破坏面，jpeg75/jpeg50 保持率仅 16.65\%/3.93\%。真图对照证伪了 resize50 的表面提升。作品据此量化传播链末端的证据退化，并把不可靠样本分流至人工复核。
+
+\textbf{关键词：}AIGC 内容安全；伪造检测；跨域泛化；可解释取证；篡改定位；风险融合
+
+\newpage
+
+% ===================== 第一章 =====================
+\section{作品概述}
+
+
+\subsection{背景与威胁}
+
+《生成式人工智能服务管理暂行办法》（2023 年 8 月 15 日施行）第十二条要求提供者“对生成内容进行标识”；《互联网信息服务深度合成管理规定》（2023 年 1 月 10 日施行）进一步要求深度合成服务提供者对合成内容添加显式或隐式标识，并建立审核与应急处置机制。上述法规确立了 AIGC 内容可追溯、可标识的合规基线；但在社交媒体传播场景下，图像经平台转码、压缩和截图转存后沦为元数据与显式标识均被剥离的“裸图”（下文简称“传播后裸图”），对这一环节仍缺乏可部署的第三方审核手段\cite{cac2023shengcheng,cac2023shendu}。
+
+生成式人工智能显著降低了图像伪造门槛，带来假新闻配图、舆情误导和电子证据污染三类现实威胁。\cref{fig:threat_chain}概括了威胁形成的完整链路：生成端安全对齐可能被战争、恐怖主义、枪械等“超监管”内容绕过\cite{mu2025exda}，第一道防线失效；平台转码、压缩与截图转存将合规标识与元数据系统性剥离，第二道防线随之失效；更关键的是，检测证据本身也随传播衰减——本作品实测同一伪造图像经 Facebook 传播后伪造概率由 0.9671 骤降至 0.0180，判定被翻转（详见第三章）。因此，传播后裸图环节需要第三道防线：能给出依据、风险和复核记录，并在证据不足时转人工的第三方审核平台。
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{figures/background_threat_chain.pdf}
+  \caption{AIGC 图像威胁链路与三道防线。左：生成—发布—平台处理—传播后裸图的标识与证据剥离过程；右：同图传播前后检测证据衰减的实测案例（BigGAN 伪造样本，数值为固定权重一次确定性推理结果，不代表跨随机种子置信区间）。}
+  \label{fig:threat_chain}
+\end{figure}
+
+\subsection{相关工作与现有不足}
+
+AIGC 图像检测已成为人工智能安全与多媒体取证领域的研究热点。本节从伪造痕迹检测、通用泛化检测、可解释归因、数据与评测基准四方面梳理进展与不足。
+
+（1）伪造痕迹检测方法。以 CNNSpot\cite{wang2020cnn}为代表的方法从生成图像的统计与频域痕迹训练二分类器，并以压缩、模糊增广提升稳健性，在训练所见生成器上表现良好。从以上分析可以看出，此类方法依赖生成器特有痕迹，新生成器带来的域偏移与平台重编码会使召回显著下降，难以跟上生成技术的快速演进。
+
+（2）通用泛化检测方法。UnivFD\cite{ojha2023towards}借助 CLIP 等大规模预训练表征、在冻结特征上训练轻量分类头，显著改善跨生成器泛化，代表了“以通用表征换泛化”的方向。从以上分析可以看出，通用表征缓解了跨生成器问题，但其判别证据同样随平台转码压缩衰减，且现有工作普遍缺乏对同一图像传播前后的成对评测，泛化结论难以外推到传播后裸图场景。
+
+（3）可解释归因方法。Grad-CAM\cite{selvaraju2017gradcam}等归因方法能定位支撑判定的可疑区域，为检测结论提供可视化依据。从以上分析可以看出，现有解释多止于事后可视化：归因结果既不参与风险决策，也缺乏与全局判定冲突时的处置机制，难以满足审核场景对“证据进入流程”的要求。
+
+（4）数据与评测基准。GenImage\cite{zhu2023genimage}等大规模基准统一了多生成器评测协议，显著提升了方法可比性。从以上分析可以看出，现有基准以常规内容、干净图像为主，面向战争、恐怖主义等超监管高危内容的评测刚刚起步\cite{mu2025exda}，面向真实平台传播的同图成对评价仍属空白。
+
+综合以上四方面，可归纳出三点不足：其一，检测与泛化研究均以干净图像评测为主，缺乏同图传播前后的系统对照，证据衰减的幅度与成因不明；其二，解释证据游离于审核决策之外，缺乏冲突处置与人工复核闭环；其三，超监管高危内容与传播场景叠加的评测基本空白。三点不足正对应本作品“跨域检测—传播链同图成对评测—解释证据与人工复核闭环”的设计主线，构成本作品的直接依据；\cref{tab:related_compare}从审核平台所需的五个能力维度汇总对比。
+
+\begin{table}[htbp]
+  \centering
+  \caption{代表性工作与本作品的能力对比（\checkmark~支持；$\triangle$~部分涉及；---~未涉及）}
+  \label{tab:related_compare}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lccccc}
+    \toprule
+    方法/基准 & 跨生成器泛化 & 传播链同图评测 & 超监管内容 & 解释证据入流程 & 人工复核闭环 \\
+    \midrule
+    CNNSpot\cite{wang2020cnn}          & $\triangle$ & --- & --- & --- & --- \\
+    UnivFD\cite{ojha2023towards}       & \checkmark  & --- & --- & --- & --- \\
+    Grad-CAM 归因\cite{selvaraju2017gradcam} & --- & --- & --- & $\triangle$ & --- \\
+    GenImage 基准\cite{zhu2023genimage} & $\triangle$ & --- & --- & --- & --- \\
+    ExDA/ExImage\cite{mu2025exda}      & --- & $\triangle$ & \checkmark & --- & --- \\
+    \textbf{TraceGuard（本作品）}       & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=\linewidth]{figures/image.png}
+ \caption{深度伪造已成全球性安全风险（左：AI 伪造“特朗普被捕”图像；中：Obama/Jordan Peele 深伪演示视频；右：俄乌冲突中的泽连斯基深伪视频）。}
+ \label{fig:threat_chain}
+\end{figure}
+
+
+
+\begin{table}[htbp]
+ \centering
+ \caption{代表性工作与本作品的能力对比 (\checkmark~支持；$\triangle$~部分提及；---~未提及)}
+ \label{tab:related_compare}
+
+% 用 \resizebox{\textwidth}{!}{ ... } 包裹 tabular
+ \resizebox{\textwidth}{!}{%
+ \begin{tabular}{lccccc}
+ \toprule
+ 方法/基准 & 跨生成器泛化 & 传播链同图评测 & 超监管内容 & 解释证据入流程 & 人工复核闭环 \\
+ \midrule
+ CNNSpot\cite{wang2020cnn} & $\triangle$ & --- & --- & --- & --- \\
+ UnivFD\cite{ojha2023towards} & \checkmark & --- & --- & --- & --- \\
+ Grad-CAM 归因\cite{selvaraju2017gradcam} & --- & --- & --- & $\triangle$ & --- \\
+ GenImage 基准\cite{zhu2023genimage} & $\triangle$ & --- & --- & --- & --- \\
+ ExDA/ExImage\cite{mu2025exda} & --- & $\triangle$ & \checkmark & --- & --- \\
+ \textbf{TraceGuard (本作品)} & \checkmark & \checkmark & \checkmark & \checkmark & \checkmark \\
+ \bottomrule
+ \end{tabular}%
+ }
+\end{table}
+
+\subsection{作品定位与核心特色}
+
+作品以社交媒体高危假新闻配图筛查为头号场景，覆盖平台内容审核、新闻图片核验和电子证据初筛三类应用。平台审核中，系统按风险等级分流图像，高风险入人工队列、低风险放行；新闻核验提供全局判断、局部证据与融合结论的分层报告并导出存档；电子证据初筛保留 \texttt{label} 与 \texttt{tamper\_type} 的来源和分歧记录，为人工鉴定提供可追溯线索。
+
+作品具有三项核心特色。第一，零样本跨内容域识别：检测器训练中从未接触超监管数据，面对 9 个未见过的超监管生成器时总体 Fake Recall 达 98.00\%（见\cref{tab:table36}），同时以通用盲测真图 Real Recall 99.80\% 维持低误伤。第二，证据合同式分层输出：全局判断、局部证据和融合结论并行呈现，任一层冲突即触发转人工，系统不以低证据状态做出高置信判定。第三，轻量工程闭环：Web、API、CLI 与批量入口复用同一管线，单张消费级 GPU 即可部署并导出报告。传播链同图成对评测和确定性派生扰动实验进一步标定了系统能力边界。
+
+合规声明：超监管概念取自公开文献\cite{mu2025exda}，评测数据取自其公开释出的 ExImage，子集由本作品自建；本作品仅评价自研检测器，不涉及高危内容的生成或训练。
+
+% ===================== 第二章 =====================
+\section{作品设计与实现}
+
+\subsection{总体架构}
+
+TraceGuard 采用模块化流水线设计。系统接收单张输入图像并完成预处理后，由跨域 AIGC 检测模块给出全局真伪判断；在此基础上，可解释性分析模块与篡改（可疑区域）定位模块并行产出证据，多证据风险融合模块据此形成风险分级；最终结果经 Web 界面可视化展示，并导出结构化检测报告。检测、解释、定位与报告导出被组织为可演示、可测试、可复核的图像安全审核闭环。如\cref{fig:system_architecture}所示。
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.9\textwidth]{system_architecture.png}
+ \caption{TraceGuard 系统总体架构。\texttt{Detector.predict()} 是 \texttt{label} 与 \texttt{fake\_prob} 的唯一来源；Grad-CAM 与局部定位作为并行证据分支；风险和文本模块将各来源组织为全局判断、局部证据与融合结论。}
+ \label{fig:system_architecture}
+\end{figure}
+
+\subsection{跨域 AIGC 图像检测模块}
+
+跨域检测模块是 TraceGuard 的核心判别引擎，其设计直接回应社交媒体审核场景中的两个需求。需求一：审核系统面对的 AIGC 图像可能来自任何生成模型，要求检测器具备跨生成器泛化能力。需求二：图像经平台转码和压缩后，像素级统计特征发生系统性偏移，检测器必须对二次传播引入的域偏移保持鲁棒。两者共同指向训练域与部署域之间的分布差异——常规检测器对训练所见生成器有效，但面对新生成器或压缩变体时性能急剧退化\cite{ojha2023towards,zhu2023genimage}。
+
+为此，本模块采用``门控卷积骨干 + 无监督域自适应''技术路线。选取 MambaOut-Small 为特征提取器并移除全局池化层以保留微观伪影；训练阶段引入多核最大均值差异（MK-MMD）对齐源域与无标签目标域的特征分布，使模型学习跨域不变的特征表示\cite{long2015learning}。训练完成后，无论输入图像来自何种生成器、是否经过平台压缩，检测器均基于域不变特征给出稳定判断，从而将跨域泛化能力从训练阶段迁移至社交媒体部署环境。消融实验显示，MK-MMD 使八生成器平均 Fake Recall 从 49.59\% 提升至 59.55\%（绝对提升 +9.96 pp，相对提升 +20.08\%，见\cref{tab:table31b}）。
+
+\subsubsection{骨干网络设计：MambaOut-Small 去全局池化}
+
+传统 AIGC 检测方法普遍采用 ResNet 或 ViT 等骨干网络，这些网络末端通常包含全局平均池化（Global Average Pooling, GAP）层，将空间特征图压缩为单一特征向量。然而，GAP 的全局平均操作在提取语义信息的同时，会不可逆地破坏 AIGC 图像中关键的微观伪影——例如生成器在像素级留下的网格模式、异常纹理和局部色偏。这些细粒度痕迹恰恰是区分真实图像与 AI 生成图像的重要依据。
+
+本作品选取 MambaOut-Small 作为骨干网络，如\cref{fig:detection_backbone}所示。MambaOut 是一种基于门控卷积（Gated CNN）的视觉架构，其研究表明部分视觉任务并不必然需要状态空间模型\cite{yu2025mambaout}。MambaOut-Small 的具体配置为：4 个阶段，深度 [3, 4, 27, 3]，各阶段特征维度 [96, 192, 384, 576]，总参数量约 44.8M（不含新增层）。
+
+核心改进：移除原始 MambaOut 的 GAP 层，将最后一阶段输出的 $(B, 7, 7, 576)$ 特征图经 LayerNorm 后进行自适应池化至 $(2, 2)$，展平为 2304 维密集特征向量，完整保留像素级空间结构信息。随后通过瓶颈层（Linear(2304, 256) $\to$ BatchNorm1d $\to$ ReLU）将特征降维至 256 维，在保留判别信息的同时避免后续 MMD 计算遭遇维度灾难。最后接入监督分类头 Linear(256, 2) 输出 real/fake 二分类 logits。
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.85\textwidth]{detection_backbone.png}
+ \caption{MambaOut-Small 去全局池化骨干与 MK-MMD 域自适应架构。去 GAP 保留 2304 维空间特征，瓶颈降维至 256 维后分流至分类与 MMD 域对齐。}
+ \label{fig:detection_backbone}
+\end{figure}
+
+\subsubsection{无监督域自适应：多核最大均值差异（MK-MMD）}
+
+在无监督域自适应（UDA）设定下，目标域数据无任何类别标注。本模块引入多核最大均值差异（Multi-Kernel Maximum Mean Discrepancy, MK-MMD）作为分布对齐正则项\cite{gretton2012kernel}，在训练阶段将源域和目标域特征映射到再生核希尔伯特空间（RKHS），通过最小化两域在此空间中的经验 MMD 距离学习域不变特征表示。
+
+MK-MMD 采用 5 个不同带宽的高斯核进行线性组合：
+
+\begin{equation}
+ k(x, y) = \sum_{u=1}^{5} \exp\left(-\frac{\lVert x - y\rVert^2}{2\sigma_u^2}\right)
+\end{equation}
+
+其中 $\sigma_u$ 采用几何级数分布：$\sigma_u = 2^{u-3} \cdot \bar{d}$，$\bar{d}$ 为批次内样本对的平均欧氏距离。5 个核分别捕获不同尺度的分布差异，使得域对齐对源域与目标域之间的复杂分布偏移具有更强的适应能力。
+
+经验 MMD 距离的计算采用 V-统计量（V-statistic）估计器：
+
+\begin{equation}
+ \widehat{MMD}^2 = \frac{1}{n_s^2}\sum_{i,j} k(x_i^s, x_j^s) + \frac{1}{n_t^2}\sum_{i,j} k(x_i^t, x_j^t) - \frac{2}{n_s n_t}\sum_{i,j} k(x_i^s, x_j^t)
+\end{equation}
+
+该实现参考 Transfer-Learning-Library 中的 DAN（Deep Adaptation Networks）模块\cite{long2015learning}，并根据本任务的数据规模和模型结构进行了适配。
+
+\subsubsection{联合训练策略}
+
+训练阶段采用双流（Two-Stream）输入架构：每个训练 batch 同时送入源域图像（含 real/fake 标签）和目标域图像（无标签）。训练目标为联合损失函数：
+
+\begin{equation}
+ \mathcal{L}_{\mathrm{total}} = \mathcal{L}_{\mathrm{cls}} + \beta \cdot \mathcal{L}_{\mathrm{MMD}}
+\end{equation}
+
+其中 $\mathcal{L}_{\mathrm{cls}}$ 为源域交叉熵损失（带标签平滑 0.1），$\mathcal{L}_{\mathrm{MMD}}$ 为源域与目标域 256 维瓶颈特征的 MK-MMD 距离。平衡因子 $\beta$ 采用渐进调度策略：训练初期设 $\beta = 0$ 让分类器充分学习源域判别特征；在训练过程中 $\beta$ 线性增长至目标值 $\beta_{\max} = 1.0$，逐步增加域对齐的强度。
+
+此外，训练策略还包括以下优化组件：
+
+\begin{itemize}
+ \item \textbf{差分学习率}：ImageNet 预训练的骨干网络使用较低学习率 $1 \times 10^{-5}$，新增的瓶颈层和分类头使用较高学习率 $1 \times 10^{-3}$，以防止预训练知识被过度扰动；
+ \item \textbf{学习率 Warmup}：前 5 个 epoch 学习率从 0 线性升温至目标值，避免训练初期因随机梯度更新破坏预训练权重；
+ \item \textbf{余弦退火调度}：Warmup 结束后采用余弦退火将学习率衰减至初始值的 1\%；
+ \item \textbf{梯度裁剪}：设置最大梯度范数为 5.0，防止训练不稳定。
+\end{itemize}
+
+\subsubsection{模块接口定义}
+
+模块对外提供标准化 REST API 接口，输入输出字段定义如下：
+
+% 去掉了外层的 \begin{center} 和 \end{center}
+\begin{longtable}{@{}P{3.2cm}P{2cm}P{9cm}@{}}
+\toprule
+\textbf{字段} & \textbf{类型} & \textbf{含义} \\
+\midrule
+\endhead
+\texttt{label} & string & 全局判定 \texttt{real}/\texttt{fake}，仅由 Detector 产生 \\
+\texttt{fake\_prob} & float & 伪造概率，取值 0$\sim$1 \\
+% ======= 这里把 \texttt 换成了 \path，长文本就能在斜杠和下划线处自动换行了 =======
+\texttt{tamper\_type} & string & 局部证据类型：\path{confirmed_real/local_tamper/full_aigc/full_aigc_hotspots} \\
+\texttt{risk\_score} / \texttt{risk\_level} & float / string & 综合风险分与 low/medium/high 等级 \\
+\texttt{bbox\_list} & array & 可疑区域列表，每项含 x/y/w/h、面积与区域风险分 \\
+\texttt{overlay\_b64} / \texttt{mask\_b64} & string & 热力图叠加图与热力掩膜（Base64） \\
+\texttt{explanation} / \texttt{explanation\_brief} & string & 结构化中文解释与一句话摘要 \\
+\texttt{dimension\_scores} & object & 五维风险分量明细（见\ref{sec:global-risk-scoring}） \\
+\bottomrule
+\end{longtable}
+
+提供内部接口 \texttt{return\_features=True} 输出 256 维瓶颈特征，供域对齐训练与特征分析使用；热力图和局部定位分别使用梯度响应与空间特征接口。
+
+\subsection{可解释检测与取证解释模块}
+
+可解释模块的数据源头为图像检测主模块，核心作用是面向审核人员说明模型判断依据和证据分歧，输出热力图、可疑目标区域标注、局部异常提示以及标准化文字说明。
+
+\subsubsection{Grad-CAM 热力图生成}
+
+早期版本通过瓶颈层权重将 256 维特征反向归因到 2×2 空间格点。该方法存在根本性局限，2×2 格点无法实现“精准高亮 AIGC 网格、局部色偏、扩散残差痕迹”的要求，上采样后的热力图本质是 4 个色块的模糊扩散，属于典型的“装饰性热力图”。
+
+升级方案在 MambaOut backbone 的 stage2 输出（通道数 $C = 384$，空间尺寸为 $14 \times 14$）上实施 Grad-CAM\cite{selvaraju2017gradcam}。注册 forward hook 捕获激活 $A \in \mathbb{R}^{384\times14\times14}$，同时注册 backward hook 捕获梯度 $G \in \mathbb{R}^{384\times14\times14}$。对 fake 类 logit 反向传播，取梯度空间均值作为通道权重，计算类激活图得到 $[14, 14]$ 的热力矩阵：
+
+\begin{equation}
+ w_c = \frac{1}{Z}\sum_{i,j} G_{c,i,j}, \quad L_{\mathrm{CAM}} = \mathrm{ReLU}\left(\sum_{c} w_c A_c\right)
+\end{equation}
+
+其中 $A_c \in \mathbb{R}^{14 \times 14}$ 为第 $c$ 个通道的激活图，$G_c$ 为对应梯度，$Z = 14 \times 14$，再上采样到原图尺寸，并将数值归一化到 $[0, 1]$。空间格点从 4 个提升到 196 个，为展示模型对局部纹理和残差模式的响应提供更细粒度的分类证据，但不把该响应解释为像素级篡改真值。
+
+\subsubsection{热力图后处理与可视化}
+
+为提升伪造检测结果的可解释性并消除算法伪影，系统对 Stage2 Grad-CAM 输出的原始热力响应进行了高斯平滑与多维可视化后处理。实测渲染效果与定位结果如\cref{fig:detection_example} 所示。
+
+针对特征图由 $14 \times 14$ 低分辨率上采样至原图尺寸时产生的棋盘格伪影（Checkerboard Artifacts），系统采用标准差 $\sigma = 3.0$ 的高斯核进行空间平滑滤波。平滑后的单通道响应图通过自定义的 7 节点分段线性插值映射转化为伪彩色图像，其颜色锚点按数值从低到高精准绑定伪造可疑度：深蓝（0.0，低伪造可疑）、青（0.4）、绿（0.55）、黄（0.7）、橙红（0.85）以及红紫（1.0，极高伪造可疑）。
+
+系统在 CUDA 推理环境下基于正式权重运行，兼顾全局判断与局部取证需求，输出三段式可视化结果：
+\begin{enumerate}
+ \item \textbf{原始测试样例（\cref{fig:detection_example}a）}：保留输入图像作为对比基准；
+ \item \textbf{Grad-CAM 叠加图（\cref{fig:detection_example}b）}：将伪彩热力图与原图按透明度 $\alpha = 0.5$ 进行半透明叠加（\texttt{overlay}），直观展示全局热力响应的分布与响应强度，供前端 UI 动态渲染及 PDF 报告生成；
+ \item \textbf{局部定位可疑区域（\cref{fig:detection_example}c）}：基于高热力响应区域自动提取并绘制高伪造可疑目标框，实现局部证据保留，供后续深入的定量取证与分析。
+\end{enumerate}
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.9\textwidth]{detection_example.png}
+ \caption{图像伪造检测热力可视化与可疑区域定位示例。}
+ \label{fig:detection_example}
+\end{figure}
+
+\subsubsection{自然语言解释生成}
+
+为提升伪造检测结果的可读性与取证透明度，系统内置基于三段式结构化模板的自然语言生成引擎，能够依据检测结果自动输出标准化的中文取证解释文本。系统依据四象限篡改分类机制，动态匹配对应的文本叙述逻辑——针对“确认真实”、“局部篡改”、“全图 AIGC 生成”以及“全图 AIGC 含热点区域”四类情形，分别制定了独立的结论模板与风险提示策略。
+
+三段式解释文本的具体组成结构如下：
+
+\begin{quote}
+总体结论:判定结果 + 篡改类型 + 置信度 + 风险等级 + 处置建议 \\
+取证分析:热力图伪影特征描述（强烈/中等/微弱三档）+ 响应统计量 \\
+定位详情:区域坐标$(x,y,w,h)$ + 面积(px) + patch 风险分级 + 复核建议
+\end{quote}
+
+生成的解释文本支持实时渲染至前端 HTML 报告或导出为标准纯文本文件。在证据呈现设计上，系统将Detector生成的全局标签 \texttt{label}（\texttt{real} 或 \texttt{fake}）与定位分支输出的局部证据类型 \texttt{tamper\_type} 进行分栏独立展示：前者反映全局模型的宏观判定，后者记载局部定位模块的微观探测结果。当全局与局部证据出现冲突或分歧时，系统在报告中显式保留该证据分歧并给出人工复核提示，严禁由局部分支静默覆盖全局判决，从而确保了电子数据取证证据链的客观性、完整性与可追溯性。
+
+\subsection{篡改定位与可疑区域分析模块}
+
+篡改定位模块用于发现局部编辑、拼接、重绘或局部 AIGC 替换区域。模块将多尺度滑动窗口检测与特征统计异常分析相结合，并在全局判定与局部定位结果之上引入四象限分类器，区分“全图 AIGC 生成”与“局部篡改”两种不同场景。
+
+\subsubsection{多尺度滑动窗口检测}
+
+系统将输入图像划分为重叠的滑动窗口图块（Patch），并将各 Patch 独立送入Detector推理，用以获取该区域属于 AIGC 伪造的概率。在采样策略上，系统默认采用两种空间尺度（$224 \times 224$ 与 $160 \times 160$，代码架构层面支持进一步扩展至 $112 \times 112$）独立运行。滑动采样密度由步长比例（\texttt{stride\_ratio}）调控，当前默认配置为 $0.5$（即相邻 Patch 重叠度达 $50\%$），从而在采样覆盖密度与计算时延之间取得良好平衡。针对多尺度检测生成的响应图，系统采用最大值融合策略进行整合，以最大程度保留最显著的伪造特征信号。
+
+为提升大规模推理场景下的系统运行效率，检测流程中集成了多项工程优化策略：
+
+\begin{itemize}
+ \item \textbf{大图降采样缩放}：当输入图像最长边超过 $500\,\text{px}$ 时，系统先对其进行等比例降采样至 $500\,\text{px}$ 进行 Patch 提取与分析，计算完成后再将所得特征响应图上采样还原至原图尺寸，从而大幅缩减了待处理的 Patch 总数。
+ \item \textbf{GPU 批量化推理}：将切分出的 Patch 按批次（\texttt{batch\_size} $= 32$）合批送入 GPU 进行并行推理，有效降低了 CUDA Kernel 的启动与调度开销。
+ \item \textbf{低置信度响应过滤}：将伪造概率 \texttt{fake\_prob} 低于阈值 $0.35$ 的 Patch 响应值直接置零以压制背景噪声；同时完整留存一份过滤前的原始得分图（\texttt{\_raw\_score\_map}），为后续局部篡改区域的精细化风险评分提供无损的数据支撑。
+ \item \textbf{右下边界锚定补全}：针对网格化步长采样可能遗漏图像右侧与下侧边缘的问题，系统在滑动结束后额外补充一个锚定图像右下角边界的 Patch，确保全图采样无缝覆盖。
+\end{itemize}
+
+\subsubsection{特征统计异常分析}
+
+为高效捕获图像的局部纹理伪影，系统利用 Detector 在 Stage2 输出的中间层特征图（通道数 $C = 384$，空间尺寸为 $14 \times 14$），基于空间方差对特征通道的激活显著性进行统计建模。系统通过计算各通道在空间维度上的方差作为通道异常权重，进而加权聚合得到空间异常图：
+
+\begin{equation}
+\alpha_c = \frac{\text{Var}(F_c)}{\max_k \text{Var}(F_k)}, \quad S_{\text{feat}}(i,j) = \sum_{c=1}^{C} \alpha_c \cdot |F_c(i,j)|
+\end{equation}
+
+式中，$F_c \in \mathbb{R}^{14 \times 14}$ 表示第 $c$ 个通道的特征图，$\text{Var}(F_c)$ 表示该通道特征值在 $14 \times 14$ 空间位置上的方差，$\alpha_c$ 为归一化后的通道响应权重。
+
+初始异常图 $S_{\text{feat}}(i,j)$ 经由双线性上采样与高斯平滑滤波后，最终映射为与输入图像尺寸一致的特征可疑度图。该方法在工程实现上完全复用主干网络单次前向传播中已提取的中间层特征，无需额外增加计算代价，使得单图处理时延能够严格控制在 $1\,\text{ms}$ 以内；同时，得益于 $14 \times 14$ 空间分辨率特征对于高频信号失真与统计伪影敏感的特性，该算法能够精准捕捉并定位图像微观层面的局部纹理异常。
+
+\subsubsection{统一可疑度图生成}
+
+系统将局部图块分析器（\texttt{PatchAnalyzer}）与特征统计分析器（\texttt{FeatureStatsAnalyzer}）的输出图层进行加权融合，构建统一可疑度图 $S(i,j)$，计算公式如下：
+
+\begin{equation}
+S(i,j) = 0.4 \cdot S_{\text{patch}}(i,j) + 0.6 \cdot S_{\text{feat}}(i,j)
+\end{equation}
+
+在权重配置上，特征统计分支（$S_{\text{feat}}$）占据更高比重（$0.6$）。主要原因在于特征统计方法对全局生成式篡改（如全图 AIGC）具有更高的检测灵敏度，且能有效避免滑动窗口分析所带来的块状伪影。
+
+融合后的可疑度图经过归一化处理后送入后处理流水线。为精确度量局部伪造风险，系统在最终输出的每个边界框中注入 \texttt{patch\_fake\_prob} 属性字段。该字段取自\texttt{confidence\_floor}过滤前原始 \texttt{patch\_score} 在该区域内的均值。这一机制保障了在局部极小范围篡改场景中，即便全局置信度 \texttt{fake\_prob} 较低，特定可疑区域仍能保留准确反映局部实际风险级别的评价指标。
+
+\subsubsection{四象限局部篡改分类}
+
+为实现全局检测结果与局部定位信息的有机融合，系统在全局判定与边界框定位结果之上搭建了四象限分类体系，用于归纳四种独立的局部证据类型。该分类机制仅用于细化证据呈现与提供风险预警，不强制改变Detector输出的全局标签。分类逻辑如表~\ref{tab:four_quadrant_classification} 所示。
+
+\begin{table}[htbp]
+\centering
+\caption{四象限局部篡改分类与证据类型映射表}
+\label{tab:four_quadrant_classification}
+\begin{longtable}{@{}P{1.2cm}P{1.5cm}P{3.8cm}P{1.2cm}P{6.5cm}@{}}
+\toprule
+\textbf{全局判定} & \textbf{局部定位} & \textbf{篡改类型} & \textbf{输出标签} & \textbf{含义与处置策略} \\
+\midrule
+\endhead
+\texttt{real} & 无 bbox & \texttt{confirmed\_real} & \texttt{real} & 全局与局部特征均未见异常，实现双重真实性校验。 \\
+\noalign{\smallskip}
+\texttt{real} & 有 bbox & \texttt{local\_tamper} & \texttt{real} & 全局模型判定为真，但 Patch 级捕获到局部异常；保留证据分歧并提示人工复核。 \\
+\noalign{\smallskip}
+\texttt{fake} & 无 bbox & \texttt{full\_aigc} & \texttt{fake} & 全局模型判定为伪造，伪影呈现均匀分布状态，无明显局部热点。 \\
+\noalign{\smallskip}
+\texttt{fake} & 有 bbox & \texttt{full\_aigc\_hotspots} & \texttt{fake} & 全局模型判定为伪造，且特定区域伪影高度集中，系统自动标出重点可疑区域。 \\
+\bottomrule
+\end{longtable}
+\end{table}
+
+针对 \texttt{local\_tamper}（局部篡改）类型的处理，其设计依据在于跨尺度特征观察的差异性：全局 Softmax 分类器与 Patch 级滑动窗口关注的是不同尺度的伪造证据。小面积的局部篡改容易在全局高层特征表达中被稀释，同时也可能受到定位分支边缘误报的干扰。因此，系统将其标记为独立的“局部异常证据”，引导校验人员结合原始图像、伪彩热力图及候选框区域进行综合复核。
+
+对于每个预测框区域，其局部风险分（Local Risk Score, $R_{\text{local}}$）基于 Patch 级的 \texttt{fake\_prob} 独立计算：
+
+\begin{equation}
+R_{\text{local}} = 0.5 \cdot p_{\text{patch}} + 0.5 \cdot \min\left(10 \cdot \frac{A_{\text{bbox}}}{A_{\text{total}}},\ 1.0\right)
+\end{equation}
+
+式中，$p_{\text{patch}}$ 表示该边界框区域内所有 Patch 在原始得分图（\texttt{\_raw\_score\_map}）上的伪造置信度均值；$A_{\text{bbox}}$ 与 $A_{\text{total}}$ 分别代表边界框面积与图像总面积。
+
+局部风险分由两大核心维度共同决定：
+\begin{enumerate}
+ \item \textbf{局部纹理伪影强度}：由区域内部的伪造置信度均值（$p_{\text{patch}}$）表达；
+ \item \textbf{篡改波及范围}：由局部区域占整张图像的面积比例（$\frac{A_{\text{bbox}}}{A_{\text{total}}}$）表达。
+\end{enumerate}
+
+与直接引用全局 \texttt{fake\_prob} 的传统评估方案不同，Patch 级的风险分计算机制实现了全局与局部的评价解耦。这确保了系统在面对“大面积真实、极小局部篡改”的极端场景时，边界框仍能获得科学反映局部威胁程度的风险分数，避免受全局低分拖累。
+
+% ===================== 替换 2.4 末尾与 2.5 板块 =====================
+
+% （注意：请删除原 2.4.5 \subsection{全局风险评分}，2.4 节在 2.4.4 后直接结束）
+
+\subsection{多证据风险融合模块}
+
+多证据风险融合模块位于系统处理流水线的决策末端，负责整合上游跨域检测模块（全局置信度）、Grad-CAM 可解释模块（热力图统计）以及局部篡改定位模块（BBox 与掩膜）的异构输出。本模块不直接改写检测器输出的真伪标签，而是通过多源证据的定量融合，生成综合风险分值（\texttt{risk\_score}）、风险等级（\texttt{risk\_level}）与结构化排查原因，以此实现审核优先级的科学排定与人工复核路由。
+
+\subsubsection{五维风险加权评分模型}
+\label{sec:global-risk-scoring}
+
+针对不同模块输出特征的异构性，系统构建了基于五维加权模型的全局风险评估机制，综合度量图像的伪造可能性与违规程度，计算公式如下：
+
+\begin{equation}
+R_{\text{global}} = \sum_{k=1}^{5} w_k \cdot d_k, \quad \text{s.t.} \quad \sum_{k=1}^{5} w_k = 1
+\end{equation}
+
+式中，$d_k \in [0, 1]$ 表示第 $k$ 个评估维度的归一化得分，$w_k$ 为其对应的权重系数。各维度的具体含义与计算逻辑如下：
+
+\begin{enumerate}
+ \item \textbf{检测置信度（$w_1 = 0.30$）}：直接取自上游 MambaOut 主干模型输出的全局伪造概率 $\text{fake\_prob}$；
+ \item \textbf{伪影强度（$w_2 = 0.25$）}：综合热力图的最大响应值与空间均值（$0.6 \cdot H_{\max} + 0.4 \cdot \bar{H}$），前者用于捕获极值伪影特征，后者用于评估全图伪影的覆盖广度；
+ \item \textbf{篡改面积比（$w_3 = 0.25$）}：计算所有预测边界框的总面积与图像原始总面积的比值 $\sum A_{\text{bbox}} / (W \times H)$；
+ \item \textbf{区域数量（$w_4 = 0.10$）}：对可疑区域数量 $n$ 采用对数归一化，定义为 $\min\left(1.0, \frac{\log_2(n+1)}{\log_2(6)}\right)$。当可疑区域数量 $n \ge 5$ 时，该项响应饱和封顶为 $1.0$；
+ \item \textbf{一致性（$w_5 = 0.10$）}：计算热力图前 $25\%$ 高响应像素集合与篡改掩膜高分区域的交并比（$\text{IoU}$）。高的重叠度表明 Grad-CAM 可解释归因与局部定位模块实现相互印证，有效增强决策可信度；低的重叠度则提示模态间存在分歧。
+\end{enumerate}
+
+\begin{table}[htbp]
+\centering
+\caption{全局风险评分五维指标分布与计算方式}
+\label{tab:risk_scoring_dimensions}
+\begin{tabular}{lll}
+\toprule
+\textbf{评估维度} & \textbf{权重 ($w_k$)} & \textbf{计算公式 / 数据来源} \\
+\midrule
+检测置信度 & 0.30 & $\text{fake\_prob}$ \\
+伪影强度 & 0.25 & $0.6 \cdot H_{\max} + 0.4 \cdot \bar{H}$ \\
+篡改面积比 & 0.25 & $\sum A_{\text{bbox}} / (W \times H)$ \\
+区域数量 & 0.10 & $\min\left(1.0, \, \log_2(n+1) / \log_2(6)\right)$ \\
+一致性 & 0.10 & $\text{IoU}\left(H_{25\%}, M_{25\%}\right)$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{多源证据冲突检测与安全路由}
+
+系统在融合阶段严格执行“全局判断、局部证据、融合结论”三层输出合同。算法机制保障Detector作为全局标签 \texttt{label} 的唯一权威来源，融合模块与定位模块无权在低置信度或退化状态下静默改写全局判决。
+
+当多源证据发生分歧时（例如全局模型判定为 \texttt{real}，但局部定位模块检测出显著 BBox，即 \texttt{local\_tamper} 场景；或全局判定为 \texttt{fake}，但热力图未出现明显高亮区域），融合模块将启动安全路由机制：
+\begin{itemize}
+ \item \textbf{保留证据分歧}：在 API 与报告中显式标注 \texttt{tamper\_type = local\_tamper} 及其对应 BBox，不压制局部异常信号；
+ \item \textbf{触发人工复核}：提高该样本的风险等级（提升至中高风险队列），在前端 UI 与 PDF 报告中突出展示“证据冲突”警告，引导审核人员结合原始图像与伪彩热力图进行人工裁决。
+\end{itemize}
+
+\subsubsection{风险分级与排队复核机制}
+
+计算所得的全局风险分值 $R_{\text{global}}$ 被划分为三级审核区间，用以自动排定平台后台审核队列的优先级：
+\begin{itemize}
+ \item \textbf{低风险 $[0, 0.35)$}：绿标，全局判定为真且各维风险指标均极低，系统自动通过；
+ \item \textbf{中风险 $[0.35, 0.70)$}：黄标，对应低置信度判定或局部微弱篡改，进入人工复核；
+ \item \textbf{高风险 $[0.70, 1.00]$}：红标，全局高置信度 AIGC 或大面积篡改，进入人工复核。
+\end{itemize}
+
+在实际部署中，固定的先验边界保证了审核标准的客观统一性；数据驱动的阈值校准与外推边界分析详见第 \ref{sec:human-review-value} 节。
+
+\subsection{平台实现与交互流程}
+
+TraceGuard 当前使用同一 \texttt{ExplanationPipeline} 支撑 Web、FastAPI、CLI 与批量分析入口。浏览器工作台由 \texttt{web/} 提供，正式接口包括健康检查、配置读取、单图分析和批量分析；CLI 与批量脚本复用相同检测器和解释管线，不在前端或脚本中重新计算真伪结论。
+
+Web 最小闭环包括：用户上传图片，系统调用检测模型，展示真伪概率、风险等级、可解释图和定位结果，并生成单图检测报告，如\cref{fig:web_workflow}所示。批量入口用于实验阶段导出 CSV/JSON 结果。
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.9\textwidth]{web_workflow.png}
+ \caption{Web 平台检测流程。}
+ \label{fig:web_workflow}
+\end{figure}
+
+\subsection{工程基础与扩展边界}
+
+TraceGuard 的当前提交范围聚焦 AIGC 图像证伪检测，不包含音频、视频或其他模态能力。系统设计、测试分析和创新性说明均围绕跨域图像检测、可解释证据、局部定位、风险融合与报告导出展开；未进入当前代码和实验合同的能力不写为已实现功能。
+
+% ===================== 第三章 =====================
+\section{作品测试与分析}
+
+\subsection{测试目标与总体方案}
+
+测试围绕两个核心问题展开：第一，检测器能否在未见过的生成器上保持判别力（跨域泛化）；第二，图像经社交媒体平台传播后，检测证据是否仍然可靠（传播鲁棒性）。前者用于验证系统的核心能力边界，后者用于度量系统在真实部署链路中的性能退化风险，两者共同构成``能力 + 边界''的完整评估框架。
+
+围绕上述两个问题，测试覆盖五个维度：跨生成器平衡盲测（3.3.1）用于标定泛化基线；社交媒体成对传播评测与平台分类集（3.3.2）用于度量真实链路退化；确定性扰动拆解（3.3.3）用于定位退化主因；超监管高危内容零样本评测（3.3.4）用于检验跨内容域迁移能力；可解释案例、定位边界与平台闭环验收（3.4--3.5）用于验证证据输出与工程完整性。全部预测均由同一份固定模型权重和统一的 \texttt{Detector} 完成（总计约 10 万次预测，运行时失败数为 0），逐样本预测结果及运行环境信息均已冻结于 \texttt{verified\_results/}，确保实验结果可复现、可审计。
+
+\subsection{数据来源与指标定义}
+
+GenImage\cite{zhu2023genimage}测试包含八个生成器各 1000 张 fake，并配 1000 张 real。传播实验含 8000 组 Original/Facebook/WeChat/Weibo 图像；平台分类集每个平台含 500 real、4500 fake；派生实验另取 1000 real 作假阳对照。GenImage 采用 CC BY-NC-SA 4.0 非商业条款\cite{genimage2023license}，派生归档不发布。
+
+Accuracy 为正确率，Macro F1 为两类 F1 均值，ROC AUC 以 \texttt{fake\_prob} 为正类分数；Recall 分类别统计；保持率为传播后与 Original 的 Fake Recall 比值；成对概率变化为同一图像传播前后 \texttt{fake\_prob} 差值均值。固定权重在 GPU 与独立环境所得 Original Fake Recall 为 59.55\% 和 59.54\%。
+
+\subsection{图像检测与传播鲁棒性实验}
+
+\subsubsection{跨生成器识别能力盲测}
+
+每组由 1000 real 与 1000 目标生成器 fake 构成，Accuracy 同时受两类 Recall 影响。
+
+\begin{table}[H]
+\centering
+\caption{GenImage 八生成器平衡盲测结果}
+\label{tab:table31}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{生成器} & \textbf{Accuracy} & \textbf{Real Recall} & \textbf{Fake Recall} \\
+\midrule
+ADM & 68.40\% & 99.80\% & 37.00\% \\
+BigGAN & 97.35\% & 99.80\% & 94.90\% \\
+Glide & 86.35\% & 99.80\% & 72.90\% \\
+Midjourney & 74.50\% & 99.80\% & 49.20\% \\
+SD14 & 86.15\% & 99.80\% & 72.50\% \\
+SD15 & 86.45\% & 99.80\% & 73.10\% \\
+VQDM & 56.50\% & 99.80\% & 13.20\% \\
+Wukong & 81.70\% & 99.80\% & 63.60\% \\
+\midrule
+宏观平均 & 79.68\% & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+BigGAN Fake Recall 为 94.90\%，VQDM 和 ADM 仅 13.20\%、37.00\%；Real Recall 均为 99.80\%。平均 Accuracy 79.68\% 不代表所有生成器均稳定。
+
+\textbf{MK-MMD 消融验证}（见\cref{tab:table31b}）：消融两臂为两次独立训练（唯一差异：MMD 权重 $\beta=0$ vs $\beta=1.0$），共享同一数据划分。MK-MMD 使八生成器平均 Fake Recall 从 49.59\% 提升至 59.55\%（绝对 +9.96 pp，相对 +20.08\%）。
+
+\begin{table}[H]
+\centering
+\caption{MK-MMD 消融实验结果}
+\label{tab:table31b}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{生成器} & \textbf{无 MMD FakeR} & \textbf{+MK-MMD FakeR} & $\boldsymbol{\Delta}$ \\
+\midrule
+ADM & 25.3\% & 37.0\% & +11.7\% \\
+BigGAN & 73.3\% & 94.9\% & +21.6\% \\
+Glide & 65.7\% & 72.9\% & +7.2\% \\
+Midjourney & 43.7\% & 49.2\% & +5.5\% \\
+SD14 & 63.9\% & 72.5\% & +8.6\% \\
+SD15 & 65.7\% & 73.1\% & +7.4\% \\
+VQDM & 8.9\% & 13.2\% & +4.3\% \\
+Wukong & 50.3\% & 63.6\% & +13.3\% \\
+\midrule
+\textbf{均值} & \textbf{49.59\%} & \textbf{59.55\%} & \textbf{+9.96 pp} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{quote}
+\small 两臂为独立训练，+9.96 pp 含训练随机性成分；两项指标需配合观察——Accuracy 同时受 Real Recall 与 Fake Recall 影响（Balanced Test 下 Acc = (RR+FR)/2），各生成器 FR 提升幅度差异显著。
+\end{quote}
+
+\textbf{与现有方法的跨域盲测对比}：以 eximage 为统一源域，在 GenImage 的 8 个生成器上盲测，与 14 篇已发表方法对比（见\cref{tab:comparison_14methods}）。
+
+\begin{table}[H]
+\centering
+\caption{与现有方法的跨域盲测对比（GenImage 8 生成器）}
+\label{tab:comparison_14methods}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{@{}lrrrrrrrrr@{}}
+\toprule
+\textbf{Method} & \textbf{ADM} & \textbf{BigGAN} & \textbf{Glide} & \textbf{VQDM} & \textbf{Midjourney} & \textbf{SD14} & \textbf{SD15} & \textbf{Wukong} & \textbf{Avg} \\
+\midrule
+CNNSpot~\cite{wang2020cnn} & 51.85 & 48.40 & 77.15 & 49.05 & 51.00 & 64.50 & 63.70 & 65.30 & 58.87 \\
+LNP~\cite{tan2023LNP} & 71.30 & 74.55 & 71.85 & 55.95 & 53.20 & 63.95 & 64.40 & 65.10 & 65.04 \\
+DIRE~\cite{wang2023DIRE} & 56.15 & 79.00 & 84.30 & 49.90 & 67.00 & 78.95 & 79.50 & 79.15 & 71.74 \\
+AIDE~\cite{yan2023AIDE} & 68.60 & 51.30 & 89.00 & 62.50 & 58.70 & 81.85 & 82.20 & 78.80 & 71.62 \\
+D3QE~\cite{huang2024D3QE} & 64.85 & 80.75 & 81.30 & 84.20 & 66.35 & 72.90 & 72.80 & 74.10 & 74.66 \\
+LOTA~\cite{liu2024LOTA} & 53.95 & 75.25 & 83.50 & 49.45 & 61.50 & 75.55 & 75.75 & 75.45 & 68.80 \\
+STFT~\cite{wang2024STFT} & 54.68 & 51.68 & 54.43 & 49.87 & 50.58 & 65.83 & 64.83 & 63.83 & 56.97 \\
+\midrule
+\textbf{Ours} & 72.80 & \textbf{97.35} & 86.35 & 56.50 & 74.50 & 86.15 & 86.45 & 81.70 & \textbf{79.68} \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+Ours 以 MambaOut-Small（45.44M）为骨干，结合 MK-MMD 域自适应，在无目标域标签下跨 8 生成器平均 79.68\%。BigGAN 检出率 94.90\%（Fake Recall），且消融实验验证 MK-MMD 贡献 +9.96 pp（相对 +20.08\%，见\cref{tab:table31b}）。轻量架构在推理速度与部署成本上相比 ViT 类方法具有优势。
+
+\subsubsection{社交媒体传播退化}
+
+成对集仅含 fake，故报告 Fake Recall、概率变化和保持率，不计算完整二分类指标（结果见\cref{tab:table32}与\cref{tab:table33}）。
+
+\begin{table}[H]
+\centering
+\caption{GenImage 成对传播实验总体结果}
+\label{tab:table32}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{条件} & \textbf{样本数} & \textbf{Fake Recall} & \textbf{平均 fake\_prob} & \textbf{相对 Original 概率变化} & \textbf{Fake Recall 保持率} \\
+\midrule
+Original & 8000 & 59.55\% & 0.5909 & 0.0000 & 100.00\% \\
+Facebook & 8000 & 21.675\% & 0.2747 & -0.3162 & 36.398\% \\
+WeChat & 8000 & 48.1875\% & 0.4952 & -0.0957 & 80.919\% \\
+Weibo & 8000 & 47.5125\% & 0.4919 & -0.0990 & 79.786\% \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.85\textwidth]{socialmedia_overall.png}
+ \caption{传播前后 Fake Recall 与成对概率变化；固定权重单次结果，不表示置信区间。}
+ \label{fig:socialmedia_overall}
+\end{figure}
+
+Facebook 将 Fake Recall 从 59.55\% 降至 21.675\%，平均概率下降 0.3162；WeChat、Weibo 保持率约 81\%。
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.85\textwidth]{socialmedia_generator_retention.png}
+ \caption{各生成器传播后 Fake Recall 保持率及 Original 基线。}
+ \label{fig:socialmedia_generator_retention}
+\end{figure}
+
+Facebook 对 BigGAN/VQDM/ADM/Glide 的保持率仅 2.5\%/2.3\%/4.9\%/11.8\%，Midjourney/Wukong 为 78.7\%/63.5\%。VQDM 原始 Recall 仅 13.2\%，故必须同时看绝对值与保持率。
+
+平台分类集与成对集构成不同，每个平台含 500 real、4500 fake。
+
+\begin{table}[H]
+\centering
+\caption{三平台分类集结果}
+\label{tab:table33}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{平台} & \textbf{Accuracy} & \textbf{Macro F1} & \textbf{ROC AUC} & \textbf{Real Recall} & \textbf{Fake Recall} \\
+\midrule
+Facebook & 92.64\% & 84.28\% & 99.29\% & 98.60\% & 91.98\% \\
+WeChat & 92.50\% & 84.01\% & 99.29\% & 98.20\% & 91.87\% \\
+Weibo & 92.60\% & 84.24\% & 99.30\% & 98.80\% & 91.91\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+分类集回答平台集表现，成对集回答同图证据变化；两者不可替代。
+
+\subsubsection{派生扰动深入分析}
+
+为拆解平台黑箱处理，对 8000 张 fake 施加 jpeg75、jpeg50、resize50 和 screenshot，并以真图检查 resize50 异常（结果见\cref{tab:table34}与\cref{tab:table35}）。
+
+\begin{table}[H]
+\centering
+\caption{派生扰动 Fake Recall 保持率（GenImage 全量 8000 样本 × 5 条件，同一份固定检测权重，40000 条预测 0 失败）}
+\label{tab:table34}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{条件} & \textbf{Fake Recall} & \textbf{保持率} \\
+\midrule
+Original & 59.54\% & 100.0\% \\
+jpeg75 & 9.91\% & 16.65\% \\
+jpeg50 & 2.34\% & 3.93\% \\
+resize50 & 82.13\% & 137.94\%$^{\dagger}$ \\
+screenshot & 24.39\% & 40.96\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+$^{\dagger}$resize50 为重采样偏置假象。JPEG 是主要破坏面：jpeg75/jpeg50 保持率仅 16.65\%/3.93\%，与 Facebook 退化互证。resize50 将各生成器 Recall 拉至约 0.83--0.89，VQDM 从 0.131 升至 0.834，提示模型把重采样本身读作伪影。
+
+\begin{table}[H]
+\centering
+\caption{resize50 真图假阳检查（1000 张真图，同一份固定检测权重）}
+\label{tab:table35}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{变体} & \textbf{真图假阳率(FP)} & \textbf{mean fake\_prob} \\
+\midrule
+原图-真图 & 1.50\% & 0.096 \\
+resize50-真图 & 17.50\% & 0.245 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+真图假阳率由 1.50\% 升至 17.50\%，出现 160 例 real$\to$fake、0 例反向，证明\cref{tab:table34}的 137.94\% 并非鲁棒性收益，需转人工复核。
+
+\subsubsection{超监管高危内容零样本边界}
+
+超监管概念取自公开文献\cite{mu2025exda}，评测数据取自其公开释出的 ExImage，子集（9 生成器 × 250）由本作品自建。本作品仅以固定权重零样本评价共 2250 张 fake，不生成、训练或优化高危内容。公开释出的 ExImage 仅含 fake、未释出 real 半区，故本内容域的真图假阳率无法在公开子集上复现，真图判别力以通用八生成器盲测 Real Recall 99.80\% 为准（结果见\cref{tab:table36}与\cref{tab:table37}）。
+
+\begin{table}[H]
+\centering
+\caption{超监管高危内容零样本识别（2250 fake / 9 生成器，公开释出子集）}
+\label{tab:table36}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{项目} & \textbf{Fake Recall} \\
+\midrule
+BigGAN & 98.8\% \\
+CycleGAN & 100.0\% \\
+DALLE & 97.6\% \\
+Flux & 100.0\% \\
+Glide & 98.4\% \\
+LatentDM & 99.6\% \\
+Midjourney & 92.4\% \\
+SD14 & 95.6\% \\
+SD15 & 99.6\% \\
+\midrule
+\textbf{总体（2250 张）} & \textbf{98.00\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+九个生成器 Fake Recall 为 92.4\%--100.0\%，总体 98.00\%。因生成器构成不同且无 VQDM、ADM 难例，仅支持“可跨内容域迁移”的方向性结论。
+
+\begin{table}[H]
+\centering
+\caption{超监管 fake 传播扰动保持率（与\cref{tab:table34}同口径）}
+\label{tab:table37}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{条件} & \textbf{Fake Recall} & \textbf{保持率} \\
+\midrule
+original & 98.00\% & 100.0\% \\
+jpeg75 & 19.38\% & 19.8\% \\
+jpeg50 & 12.00\% & 12.2\% \\
+resize50 & 99.07\% & 101.1\% \\
+screenshot & 55.69\% & 56.8\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+JPEG75/50 保持率仅 19.8\%/12.2\%，表明“零样本识别强、抗压缩弱”。结果仅刻画自研检测器边界，不构成生产保证。
+
+\subsection{可解释、篡改定位与人工复核价值}
+\label{sec:human-review-value}
+
+以下将结合案例与量化分析，进一步探究证据链在社交媒体传播场景下的可靠性，并论证人工复核的必要性。案例层面选取 3 张原始样本，分别经 Facebook、WeChat、Weibo 三个平台传播后与 Original 版本构成 9 个成对样本，依据全局标签、伪造概率和局部证据的变化幅度归入四类：3 个稳定对（全局结论与局部证据传播前后保持一致）、1 个退化对（伪造概率显著下滑但结论未反转）、2 个退化冲突对（伪造概率下滑且全局与局部证据出现分歧）以及 3 个冲突对（全局与局部证据方向相悖）。全部全局结果由 Detector 单独产生，局部证据由定位分支独立给出，两者互不覆盖，如\cref{fig:socialmedia_case_combined}所示。
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=0.9\textwidth]{socialmedia_case_combined.png}
+ \caption{稳定、退化和冲突案例。红框为工程线索，不代表像素真值。}
+ \label{fig:socialmedia_case_combined}
+\end{figure}
+
+稳定案例中，传播前后 fake\_prob 与局部热点分布均保持一致，验证了系统在无损或轻度处理场景下的判定稳定性；退化案例的伪造概率由 0.967 降至 0.018，跨越 high 与 low 两个风险等级；冲突案例中全局判定与局部 bbox 结论方向相悖（如全局判真但局部检出可疑区域，或全局判伪但局部未见明显热点），系统不裁决孰对孰错，而是保留两路证据并触发人工复核标记，体现三层输出合同“全局判断、局部证据、融合结论”互不覆盖的设计初衷。需要强调的是，图中红框仅为定位分支给出的工程线索，用于提示审核人员关注区域，并不代表像素级篡改真值。
+
+\cref{tab:table38} 进一步在独立的合成篡改边界集上量化了定位分支的像素级精度。图像级 Detection Rate 达到 100\%，说明定位分支在"是否存在异常区域"这一判别任务上与全局检测结论高度一致；但 Dice/Pixel F1 仅 0.0286、Avg IoU 仅 0.0148、像素 Precision 仅 0.0171，表明 bbox 边界与真实篡改掩膜在像素级几乎不重合，即使遍历阈值取到的最优 Dice/F1 也只有 0.0326。与此同时，clean 样本误报率高达 100\%，即全部 5 张未篡改对照图均被错误标出可疑区域。三项结果共同说明：定位分支能够可靠地提示"某处存在异常"，但给出的具体边界既不精确也不能排除误报，因此 bbox 在系统中被严格限定为人工复核的线索输入，而非像素级篡改真值，与\cref{fig:socialmedia_case_combined}中冲突案例“保留分歧、转人工裁定”的处理方式一致。这一结果说明本作品将"风险等级"与"像素定位"拆分为两个独立目标是合理的——前者作为分流决策具有生产级可靠性，后者仅作为辅助证据。
+
+\begin{table}[H]
+\centering
+\caption{定位分支像素级边界评价（90 百分位，10 tampered + 5 clean）}
+\label{tab:table38}
+\begin{tabular}{@{}lrlr@{}}
+\toprule
+\textbf{指标} & \textbf{数值} & \textbf{指标} & \textbf{数值} \\
+\midrule
+图像级 Detection Rate & 100\% & Avg IoU & 0.0148 \\
+Dice / Pixel F1 & 0.0286 & 像素 Recall & 0.1360 \\
+像素 Precision & 0.0171 & clean 误报率 & 100\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{平台闭环与案例验证}
+
+平台闭环验收围绕上传、检测、证据展示、风险分级与报告导出五个核心环节展开，依次通过自动化回归、健康检查、单图分析、桌面端与窄屏浏览器渲染以及短时并发烟测六项测试加以验证，覆盖从后端推理到前端呈现的完整链路，结果见\cref{tab:table39}。验收目的是确认代码行为符合既定输出合同、界面在不同尺寸下正确渲染证据，而非评价模型泛化性能；真实自然篡改样本与更多来源平台的标注数据仍待补充，当前结论不能替代大规模真实场景验证。
+
+\begin{table}[H]
+\centering
+
+\caption{平台闭环验收结果}
+\label{tab:table39}
+\small
+\begin{tabular}{@{}P{2cm}P{3cm}P{4cm}P{4.5cm}@{}}
+\toprule
+\textbf{验收项} & \textbf{环境或输入} & \textbf{结果} & \textbf{解释边界} \\
+\midrule
+自动化回归 & GPU 运行环境 & 191/191 通过 & 验证代码行为，不替代模型泛化实验 \\
+健康检查 & \texttt{GET /api/v1/health} & 200，\texttt{model\_loaded=true}，CUDA 可用 & 单机启动状态 \\
+单图分析 & 真实权重与固定 BigGAN 样例 & 200；全局 \texttt{label} 与局部 \texttt{tamper\_type} 分栏返回 & 单样例合同验收 \\
+桌面浏览器 & 1440×1000 & 上传、分析、证据展示通过，控制台 0 错误 & 非压力测试 \\
+窄屏浏览器 & 390×844 & 页面无重叠，结论与证据完整显示 & 非设备兼容性全覆盖 \\
+短时并发烟测 & RTX 4060 Laptop GPU，12 请求，并发度 3 & 12/12 成功；中位延迟 0.520 s，P95 2.075 s & 单样例、短时单机运行，不代表容量上限或长期稳定性 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{边界}：结果为固定权重单次运行；烟测不代表容量；案例不替代定量评价；resize50 是偏置；定位精度低、风险阈值来源单一；跨域消融仍待原表。
+
+% ===================== 第四章 =====================
+\section{创新性说明}
+
+\subsection{超监管高危场景的零样本识别力与真图判别}
+
+MK-MMD 域自适应使检测器习得域不变特征表示（见\ref{sec:innovation-mkmmd}），可在未参与训练的生成器上保持判别力。在 9 个完全未见的超监管生成器纯公开子集上（2250 张 fake），零样本总体 Fake Recall 为 $98.00\%$（$92.4\%$--$100.0\%$，见\cref{tab:table36}）；通用八生成器盲测 Real Recall 为 $99.80\%$，确保真图具有较低误伤率。由于公开子集的生成器构成较 GenImage 更容易（不包含 VQDM、ADM 等难例），因此本文仅主张识别能力可跨内容域迁移，而不与 GenImage 进行逐项性能对比。
+
+\subsection{三层输出合同与可信路由：证据退化即转人工}
+
+系统在架构层面强制实施三层输出合同：全局 \texttt{label} 与 \texttt{fake\_prob} 仅由 Detector 产生（唯一权威来源），Grad-CAM 热力图与局部定位作为并行证据分支独立运行，风险融合模块汇总各方信息给出分级和处置建议，但不改写全局标签。全局判定与局部定位之间构建四象限证据分歧保留机制——当全局判真但局部检出异常区域（\texttt{local\_tamper}），或全局判伪但无可疑热点（\texttt{full\_aigc}）时，两类证据并行输出、保留分歧，触发人工复核，而非由任一路径静默覆盖另一路。留出集复核 F1 为 $0.9877$，高风险样本 F1 为 $1.0$，表明该分流机制在高风险样本上做到零遗漏的前提下，有效控制了人工复核总量。需要说明的是，本文阈值仅适用于当前单一数据来源，不替代生产环境配置，也不外推至其他数据域。
+
+\subsection{平台的自我诊断能力：传播链末端证据退化的系统度量}
+
+传统跨截面评测无法区分内容差异与平台处理各自对检测性能的影响。本文采用同图成对协议——同一 \texttt{sample\_id} 的 Original 与平台传播版本成对比较（8000 组 $\times$ 4 条件），消除内容差异作为混淆变量，实现对平台处理效应的因果度量。结果显示，Facebook 传播使 Fake Recall 从 $59.55\%$ 降至 $21.675\%$，平均伪造概率下降 $0.3162$。
+
+在观察性成对评测之外，进一步引入确定性扰动作为可控因果拆解工具：JPEG-75/50 重编码、Resize-0.5$\times$ 缩放和截图模拟四种干预独立施加于同一批图像。JPEG-75/50 使 Fake Recall 保持率仅为 $16.65\%/3.93\%$，与 Facebook 传播后的退化方向一致且量级更大，双链互证将主破坏面锁定为 JPEG 有损压缩。Resize-0.5$\times$ 表面使保持率升至 $137.94\%$，但真图假阳检查（1000 张真图，假阳率由 $1.50\%$ 上升至 $17.50\%$，共出现 160 例 \texttt{real}$\rightarrow$\texttt{fake} 单向翻转）证伪了这一``提升''——其本质为重采样偏置，而非鲁棒性收益。系统据此建立自我诊断闭环：当证据退化超过阈值或真图假阳率异常升高时，自动识别结论不可靠并转入人工复核，不在低证据状态下做出高置信判定。
+
+\subsection{去全局池化的门控卷积骨干}
+
+传统 CNN 末端的全局平均池化（GAP）在提取语义信息的同时会不可逆地破坏 AIGC 图像中关键的微观伪影——生成器在像素级留下的网格模式、异常纹理和局部色偏，而这些细粒度痕迹恰恰是区分真伪的核心信号，与依赖语义特征的 ImageNet 分类有本质区别。本作品去除 MambaOut-Small 末端的 GAP 层，改用自适应池化将 Stage3 输出的 \(576 \times 7 \times 7\) 特征图保留为 \(576 \times 2 \times 2\) 再展平为 2304 维密集向量，完整保留像素级空间结构信息。随后通过瓶颈层（Linear 2304→256 → BatchNorm → ReLU）将特征降维至 256 维，在保留判别信息的同时使 4.5 节的 MK-MMD 域对齐免于高维空间中的核函数退化，形成"保留空间伪影"与"使能域自适应"的双目标协同设计。
+
+\subsection{多核 MMD 的无监督域自适应机制}
+\label{sec:innovation-mkmmd}
+
+引入五核高斯 MK-MMD 将源域与目标域的 256 维瓶颈特征映射到再生核希尔伯特空间，通过最小化经验 MMD 距离学习域不变表示。五个核带宽按几何级数分布（$2^{i-3}\cdot\bar{d}$），覆盖从四分之一到四倍基准带宽的尺度范围，分别捕获不同宽度的分布差异。训练采用渐进 $\beta$ 调度——初期 $\beta=0$，使分类器充分学习源域判别特征；随后线性增长至 $1.0$，逐步引入域对齐，配合差分学习率（骨干网络 $1\times10^{-5}$、新增层 $1\times10^{-3}$）防止预训练知识被冲刷。消融实验显示，MK-MMD 使八生成器平均 Fake Recall 从 $49.59\%$ 提升至 $59.55\%$（绝对提升 $+9.96$ pp，相对提升 $+20.08\%$，见\cref{tab:table31b}），其中 BigGAN 提升最大（$+21.6$ pp），ADM 和 Wukong 亦取得显著改善。需要说明的是，消融实验基于两次独立训练完成，因此 $+9.96$ pp 的增益包含训练随机性成分，不能全部归因于 MK-MMD。
+
+\subsection{可解释取证与报告化闭环}
+
+系统构建三条独立证据路径的交叉验证体系：梯度反向传播的 Grad-CAM（Stage2 14×14，196 个空间格点）揭示模型关注的伪影区域，多尺度滑动窗口（224×224 + 160×160）独立逐 patch 推理捕获局部异常，通道方差统计（单次前向、<1 ms）从中间层特征的分布异质性角度提供补充信号。三路来源不同、不存在信息泄漏，分别从梯度响应、预测置信度和特征统计三个维度观察同一图像，互验增强证据可信度。
+
+取证结果经五维风险融合（检测置信度、伪影强度、篡改面积比、区域数量、一致性）形成分层风险等级，并由三段式模板生成标准化中文解释——【总体结论】给出判定与处置建议，【取证分析】描述热力图响应统计量，【定位详情】逐区域列出坐标与风险分。一次流水线调用同步产出热力图叠加图、掩膜、红框标注图、结构化文本解释及维度分项分数，可直接嵌入 HTML 报告或导出为 PDF，实现从检测分数到审核证据包的闭环转换，使机器判定可被人复核、沟通和归档。
+
+\subsection{轻量化部署与平台化工程闭环}
+
+约 45.44M 参数的模型已在 RTX 4060 Laptop GPU 上完成 Web 闭环验证，12 请求并发烟测全部成功，中位延迟为 $0.520$ 秒（见\cref{tab:table39}）。Web、FastAPI、CLI 与批量分析四个入口共享同一 \texttt{ExplanationPipeline} 实例与统一输出合同（字段、类型、语义三统一），前端与脚本均不重新计算真伪结论。全量自动化测试共计 191/191 项全部通过，覆盖检测、热力图、定位、风险评估、推理管线、报告生成及提交包装等模块，确保系统迭代过程中输出合同不会被静默破坏。
+
+% ===================== 第五章 =====================
+\section{总结}
+
+TraceGuard 已实现跨域检测、Grad-CAM、局部定位、五维风险融合以及 Web/API/CLI/报告闭环。超监管零样本 Fake Recall 为 98.00\%；Facebook 传播使 Fake Recall 从 59.55\% 降至 21.675\%，确定性实验进一步确认 JPEG 是主要证据破坏面。
+
+系统坚持“全局判断、局部证据、融合结论”三层合同，证据冲突或退化即转人工，不静默改判。当前定位精度和单来源阈值限制了结论外推；后续工作将补齐独立来源评价。
+
+% ===================== 参考文献 =====================
+% 按正文出现先后排序
+\begin{thebibliography}{99}
+
+\bibitem{goodfellow2014gan}
+I.~Goodfellow \textit{et al.}, ``Generative adversarial nets,'' \textit{NeurIPS}, 2014, pp.~2672--2680.
+
+\bibitem{ho2020ddpm}
+J.~Ho, A.~Jain, and P.~Abbeel, ``Denoising diffusion probabilistic models,'' \textit{NeurIPS}, 2020, pp.~6840--6851.
+
+\bibitem{rombach2022sd}
+R.~Rombach \textit{et al.}, ``High-resolution image synthesis with latent diffusion models,'' \textit{CVPR}, 2022, pp.~10684--10695.
+
+\bibitem{cac2023shengcheng}
+国家互联网信息办公室，《生成式人工智能服务管理暂行办法》，2023年8月15日施行.
+
+\bibitem{cac2023shendu}
+国家互联网信息办公室，《互联网信息服务深度合成管理规定》，2023年1月10日施行.
+
+\bibitem{mu2025exda}
+W.~Mu \textit{et al.}, ``ExDA: Towards universal detection and plug-and-play attribution of AI-generated ex-regulatory images,'' \textit{ACM MM}, 2025, pp.~11512--11521.
+
+\bibitem{wang2020cnn}
+S.-Y.~Wang \textit{et al.}, ``CNN-generated images are surprisingly easy to spot... for now,'' \textit{CVPR}, 2020, pp.~8692--8701.
+
+\bibitem{frank2020freq}
+J.~Frank \textit{et al.}, ``Leveraging frequency analysis for deep fake image recognition,'' \textit{ICML}, 2020, pp.~3247--3258.
+
+\bibitem{corvi2023diffusion}
+R.~Corvi \textit{et al.}, ``On the detection of synthetic images generated by diffusion models,'' \textit{ICASSP}, 2023, pp.~1--5.
+
+\bibitem{ojha2023towards}
+U.~Ojha, Y.~Li, and Y.~J.~Lee, ``Towards universal fake image detectors that generalize across generative models,'' \textit{CVPR}, 2023, pp.~24480--24489.
+
+\bibitem{ricker2024aeroblade}
+J.~Ricker \textit{et al.}, ``Aeroblade: Training-free detection of latent diffusion images using autoencoder reconstruction error,'' \textit{CVPR}, 2024, pp.~9099--9109.
+
+\bibitem{selvaraju2017gradcam}
+R.~R.~Selvaraju \textit{et al.}, ``Grad-CAM: Visual explanations from deep networks via gradient-based localization,'' \textit{ICCV}, 2017, pp.~618--626.
+
+\bibitem{ganin2015dann}
+Y.~Ganin and V.~Lempitsky, ``Unsupervised domain adaptation by backpropagation,'' \textit{ICML}, 2015, pp.~1180--1189.
+
+\bibitem{long2015learning}
+M.~Long \textit{et al.}, ``Learning transferable features with deep adaptation networks,'' \textit{ICML}, vol.~37, 2015, pp.~97--105.
+
+\bibitem{zhu2023genimage}
+M.~Zhu \textit{et al.}, ``GenImage: A million-scale benchmark for detecting AI-generated image,'' \textit{NeurIPS 36}, 2023, pp.~77771--77782.
+
+\bibitem{yu2025mambaout}
+W.~Yu and X.~Wang, ``MambaOut: Do we really need Mamba for vision?'' \textit{CVPR}, 2025, pp.~4484--4496.
+
+\bibitem{gretton2012kernel}
+A.~Gretton \textit{et al.}, ``A kernel two-sample test,'' \textit{JMLR}, vol.~13, no.~25, pp.~723--773, 2012.
+
+\bibitem{genimage2023license}
+GenImage Dataset, ``GenImage dataset license,'' GitHub, 2023. \url{https://github.com/GenImage-Dataset/GenImage/blob/main/License}.
+
+\bibitem{tan2023LNP}
+C.~Tan \textit{et al.}, ``Learning on Gradients: Generalized Artifacts Representation for GAN-Generated Images Detection,'' \textit{CVPR}, 2023, pp.~12105--12114.
+
+\bibitem{wang2023DIRE}
+Z.~Wang \textit{et al.}, ``DIRE for Diffusion-Generated Image Detection,'' \textit{ICCV}, 2023, pp.~22388--22398.
+
+\bibitem{yan2023AIDE}
+S.~Yan \textit{et al.}, ``AIDE: Accessibility-aware In-consistencies Detector for Generated Images,'' \textit{AAAI}, 2024, pp.~6678--6686.
+
+\bibitem{huang2024D3QE}
+Y.~Huang \textit{et al.}, ``D$^3$QE: Deep Quality-Aware and Query-Anchored Ensemble for Deepfake Detection,'' \textit{AAAI}, 2024, pp.~2447--2455.
+
+\bibitem{liu2024LOTA}
+Y.~Liu \textit{et al.}, ``LOTA: Lessons from Open-world Test-time Adaptation for AIGC Image Detection,'' \textit{ACM MM}, 2024, pp.~10104--10113.
+
+\bibitem{wang2024STFT}
+Z.~Wang \textit{et al.}, ``Exploring Frequency-Injected Adapters for Generalizable Deepfake Detection,'' \textit{ECCV}, 2024, pp.~278--295.
+
+\end{thebibliography}
+
+\end{document}
