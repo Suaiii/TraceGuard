@@ -89,21 +89,27 @@
   \centering
   \vspace*{1.5cm}
 
-  % 黑体无粗体字形，不加 \bfseries（否则 xelatex 报 TU/SimHei/b/n undefined）
-  {\heiti\zihao{2} 2026第二届大学生人工智能安全竞赛\par}
-  \vspace{0.9cm}
+  % 标题部分（黑体无粗体字形，不加 \bfseries 避免 font warning）
+  {\heiti\zihao{2} 2026 第二届大学生人工智能安全竞赛\par}
+  \vspace{0.8cm}
   {\heiti\zihao{2} 作品报告\par}
 
-  \vspace{4.5cm}
+  \vspace{4.0cm}
 
+  % 统一设置下划线宽度，方便后续调整
+  \newcommand{\ulwidth}{9.2cm}
+
+  % 信息表格
   {\heiti\zihao{3}
-  \begin{tabular}{@{}l@{}l@{}}
-    作品名称： & \underline{\makebox[9.2cm][l]{TraceGuard：面向社交媒体传播场景的}} \\[0.55cm]
-               & \underline{\makebox[9.2cm][l]{可解释 AIGC 图像审核平台}}           \\[0.9cm]
-    作品类型： & \underline{\makebox[9.2cm][l]{开放式自由命题}}                      \\[0.9cm]
-    电子邮箱： & \underline{\makebox[9.2cm][l]{traceguard.team@example.com}}        \\[0.9cm]
-    提交日期： & \underline{\makebox[9.2cm][l]{2026 年 \hspace{1em} 月 \hspace{1em} 日}} \\
+  \renewcommand{\arraystretch}{1.5} % 优雅控制行高，替代手动加 \\[0.9cm]
+  \begin{tabular}{@{} l @{\quad} l @{}}
+    作品名称： & \underline{\makebox[\ulwidth][l]{TraceGuard：面向社交媒体传播场景的}} \\
+               & \underline{\makebox[\ulwidth][l]{可解释 AIGC 图像审核平台}} \\[0.3cm]
+    作品类型： & \underline{\makebox[\ulwidth][l]{开放式自由命题}} \\
+    电子邮箱： & \underline{\makebox[\ulwidth][l]{Suaiiiiii9292@Gmail.com}} \\
+    提交日期： & \underline{\makebox[\ulwidth][l]{2026 年 \makebox[1.5cm]{} 月 \makebox[1.5cm]{} 日}} \\
   \end{tabular}}
+
   % ⚠ 待确认：电子邮箱须为中性团队邮箱（不得含姓名/学校标识）；提交日期按实际提交填写。
 
   \vfill
@@ -140,13 +146,12 @@ TraceGuard 是面向社交媒体传播场景的可解释 AIGC 图像审核平台
 
 8000 组同图成对实验显示，Facebook 传播使 Fake Recall 从 59.55\% 降至 21.675\%，平均伪造概率下降 0.3162；确定性扰动进一步确认 JPEG 是主要证据破坏面，jpeg75/jpeg50 保持率仅 16.65\%/3.93\%。真图对照证伪了 resize50 的表面提升。作品据此量化传播后裸图的证据退化，并把不可靠样本分流至人工复核。
 
-\textbf{关键词：}AIGC 内容安全；伪造检测；跨域泛化；可解释取证；篡改定位；风险融合
+\textbf{关键词：}AIGC 内容安全；伪造检测；跨域泛化；可解释取证；篡改定位
 
 \newpage
 
 % ===================== 第一章 =====================
 \section{作品概述}
-
 
 \subsection{背景与威胁}
 
@@ -157,7 +162,7 @@ TraceGuard 是面向社交媒体传播场景的可解释 AIGC 图像审核平台
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\linewidth]{background_threat_chain.pdf}
-  \caption{AIGC 图像威胁链路与三道防线。图像沿“生成—发布—平台转码压缩—传播后裸图”逐级流转，合规标识与生成元数据在此过程中被系统性剥离；前两道防线依次失效，传播后环节需要第三道防线。}
+  \caption{AIGC 图像威胁链路与三道防线。}
   \label{fig:threat_chain}
 \end{figure}
 
@@ -166,7 +171,7 @@ TraceGuard 是面向社交媒体传播场景的可解释 AIGC 图像审核平台
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.9\linewidth]{background_evidence_decay.pdf}
-  \caption{同一伪造图像传播前后的检测输出对比（BigGAN 伪造样本）。数值为固定权重的一次确定性推理结果，不代表跨随机种子置信区间。}
+  \caption{同一伪造图像传播前后的检测输出对比（BigGAN 伪造样本）。}
   \label{fig:evidence_decay}
 \end{figure}
 
@@ -234,7 +239,7 @@ TraceGuard 采用模块化流水线设计。系统接收单张输入图像并完
 \begin{figure}[H]
  \centering
  \includegraphics[width=0.9\textwidth]{system_architecture.png}
- \caption{TraceGuard 系统总体架构。\texttt{Detector.predict()} 是 \texttt{label} 与 \texttt{fake\_prob} 的唯一来源；Grad-CAM 与局部定位作为并行证据分支；风险和文本模块将各来源组织为全局判断、局部证据与融合结论。}
+ \caption{TraceGuard 系统总体架构。}
  \label{fig:system_architecture}
 \end{figure}
 
@@ -255,7 +260,7 @@ TraceGuard 采用模块化流水线设计。系统接收单张输入图像并完
 \begin{figure}[H]
  \centering
  \includegraphics[width=0.85\textwidth]{detection_backbone.png}
- \caption{MambaOut-Small 去全局池化骨干与 MK-MMD 域自适应架构。去 GAP 保留 2304 维空间特征，瓶颈降维至 256 维后分流至分类与 MMD 域对齐。}
+ \caption{MambaOut-Small 去全局池化骨干与 MK-MMD 域自适应架构。}
  \label{fig:detection_backbone}
 \end{figure}
 
@@ -509,7 +514,7 @@ R_{\text{global}} = \sum_{k=1}^{5} w_k \cdot d_k, \quad \text{s.t.} \quad \sum_{
  \item \textbf{触发人工复核}：提高该样本的风险等级（提升至中高风险队列），在前端 UI 与 PDF 报告中突出展示“证据冲突”警告，引导审核人员结合原始图像与伪彩热力图进行人工裁决。
 \end{itemize}
 
-\subsubsection{风险分级与排队复核机制}
+\subsubsection{风险分级与复核机制}
 
 计算所得的全局风险分值 $R_{\text{global}}$ 被划分为三级审核区间，用以自动排定平台后台审核队列的优先级：
 \begin{itemize}
