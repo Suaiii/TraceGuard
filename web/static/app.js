@@ -101,9 +101,9 @@ const text = {
   batchFailed: "\u6279\u91cf\u5206\u6790\u5931\u8d25",
   expandLabel: "\u5c55\u5f00 \u25bc",
   collapseLabel: "\u6536\u8d77 \u25b2",
-  soVerdictLabel: "AIGC \u8d85\u76d1\u7ba1\u9ad8\u5371",
+  soVerdictLabel: "\u9ad8\u7f6e\u4fe1\u4f2a\u9020",
   soReviewText: "\u8be5\u56fe\u50cf\u5728\u4f2a\u9020\u6982\u7387\u548c\u7efc\u5408\u98ce\u9669\u4e24\u4e2a\u7ef4\u5ea6\u5747\u8fbe\u5230\u6700\u9ad8\u8b66\u6212\u7ea7\u522b\u3002\u5efa\u8bae\uff1a(1) \u5bf9\u7167\u539f\u59cb\u6765\u6e90\u6838\u5b9e\u56fe\u50cf\u771f\u5b9e\u6027\uff1b(2) \u68c0\u67e5\u5143\u6570\u636e\u4e2d\u7684\u7f16\u8f91\u75d5\u8ff9\uff1b(3) \u4ea4\u53c9\u9a8c\u8bc1\u4f20\u64ad\u94fe\u8def\u4e2d\u5176\u4ed6\u526f\u672c\u7684\u68c0\u6d4b\u7ed3\u679c\u3002\u5982\u786e\u8ba4\u4e3a AIGC \u4f2a\u9020\uff0c\u5e94\u7acb\u5373\u6807\u8bb0\u5e76\u9650\u5236\u4f20\u64ad\u3002",
-  soCardReview: "\u8d85\u76d1\u7ba1\u9ad8\u5371\uff1a\u4f2a\u9020\u6982\u7387\u226590%\u4e14\u9ad8\u98ce\u9669\uff0c\u5efa\u8bae\u4eba\u5de5\u590d\u6838\u3002",
+  soCardReview: "\u9ad8\u7f6e\u4fe1\u4f2a\u9020\uff1a\u4f2a\u9020\u6982\u7387\u226590%\u4e14\u7efc\u5408\u98ce\u9669\u4e3a\u9ad8\uff0c\u5efa\u8bae\u52a0\u6025\u4eba\u5de5\u590d\u6838\u3002",
   dimLabels: {
     artifact_intensity: "\u4f2a\u9020\u75d5\u8ff9\u5f3a\u5ea6",
     tamper_area: "\u7be1\u6539\u533a\u57df\u5360\u6bd4",
@@ -125,6 +125,33 @@ function asPercent(value) {
   return `${Math.round(Number(value || 0) * 100)}%`;
 }
 
+var prefersReducedMotion =
+  window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Restart a one-shot CSS animation bound to className (remove -> reflow -> add)
+function replayAnimation(elem, className) {
+  elem.classList.remove(className);
+  void elem.offsetWidth;
+  elem.classList.add(className);
+}
+
+// Count a 0..1 ratio up to its target over ~400ms, rendered via asPercent
+function animateCount(elem, target) {
+  if (prefersReducedMotion) {
+    elem.textContent = asPercent(target);
+    return;
+  }
+  var startTime = null;
+  function step(now) {
+    if (startTime === null) startTime = now;
+    var p = Math.min((now - startTime) / 400, 1);
+    var eased = 1 - Math.pow(1 - p, 3);
+    elem.textContent = asPercent(target * eased);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
 function imageSrc(b64) {
   return b64 ? `data:image/png;base64,${b64}` : "";
 }
@@ -141,7 +168,14 @@ function fileToBase64(file) {
   });
 }
 
-function isSuperOversight(data) {
+// 判据：高置信伪造 + 高综合风险 → 加急人工复核。
+//
+// 注意（措辞红线，勿改回）：本系统只判断"是否 AIGC 生成"，管线输出中没有任何
+// 内容类别字段，因此**不能**据此声称检测到"超监管内容"（战争/恐怖主义/枪械等
+// 语义类别）——那需要内容分类器，本作品没有，报告 1.4 合规声明也明确只做检测器
+// 评测。CSS 类名与 id 仍沿用 super-oversight/so- 前缀是为了不动样式表，仅为历史
+// 命名，不代表系统具备超监管内容识别能力。
+function isHighConfidenceFake(data) {
   return data.label === "fake" && Number(data.fake_prob || 0) >= 0.9 && data.risk_level === "high";
 }
 
@@ -160,6 +194,7 @@ function renderDimensionBars(scores, container, compact) {
     { key: "consistency",       label: text.dimLabels.consistency },
   ];
 
+  var fills = [];
   dims.forEach(function (dim) {
     var value = Math.min(Math.max(Number(scores[dim.key] || 0), 0), 1);
     var pct = asPercent(value);
@@ -176,8 +211,10 @@ function renderDimensionBars(scores, container, compact) {
 
     var fill = document.createElement("span");
     fill.className = "dim-bar-fill";
-    fill.style.width = pct;
+    // start at 0 so the width transition plays once mounted
+    fill.style.width = prefersReducedMotion ? pct : "0";
     fill.style.background = dimBarColor(value);
+    fills.push([fill, pct]);
 
     track.appendChild(fill);
 
@@ -190,6 +227,14 @@ function renderDimensionBars(scores, container, compact) {
     row.appendChild(val);
     container.appendChild(row);
   });
+
+  if (!prefersReducedMotion) {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        fills.forEach(function (pair) { pair[0].style.width = pair[1]; });
+      });
+    });
+  }
 }
 
 function setFile(file) {
@@ -217,6 +262,7 @@ async function loadHealth() {
 async function analyze() {
   if (!state.file) return;
   el.analyzeButton.disabled = true;
+  el.analyzeButton.classList.add("loading");
   el.analyzeButton.textContent = text.analyzing;
   el.exportSingleButton.style.display = "none";
 
@@ -247,6 +293,7 @@ async function analyze() {
     el.detailText.textContent = `${text.failed}: ${error.message}`;
   } finally {
     el.analyzeButton.disabled = false;
+    el.analyzeButton.classList.remove("loading");
     el.analyzeButton.textContent = text.analyze;
   }
 }
@@ -258,8 +305,9 @@ function renderResult(data) {
   const bboxCount = Array.isArray(data.bbox_list) ? data.bbox_list.length : 0;
 
   el.verdictBlock.className = `verdict ${label}`;
+  replayAnimation(el.verdictBlock, "updated");
   el.labelText.textContent = text.label[label] || label;
-  el.probText.textContent = asPercent(fakeProb);
+  animateCount(el.probText, fakeProb);
   el.fakeProbText.textContent = asPercent(fakeProb);
   el.fakeProbBar.style.width = asPercent(fakeProb);
   el.riskText.textContent = `${asPercent(riskScore)} - ${data.risk_level}`;
@@ -272,7 +320,7 @@ function renderResult(data) {
   el.latencyText.textContent = `${Math.round(data.elapsed_ms || 0)} ms`;
   el.detailText.textContent = data.explanation || text.noDetail;
 
-  if (isSuperOversight(data)) {
+  if (isHighConfidenceFake(data)) {
     el.superOversightBanner.style.display = "";
     el.reviewSuggestion.style.display = "";
     el.reviewText.textContent = text.soReviewText;
@@ -307,6 +355,7 @@ function renderEvidence() {
   const b64 = state.result[keyMap[state.activeView]];
   if (b64) {
     el.evidenceImage.src = imageSrc(b64);
+    replayAnimation(el.evidenceImage, "swap");
     el.emptyEvidence.classList.add("hidden");
   } else {
     el.evidenceImage.removeAttribute("src");
@@ -378,6 +427,7 @@ function renderFileList() {
   state.files.forEach(function (file, index) {
     var card = document.createElement("div");
     card.className = "file-card";
+    card.style.setProperty("--i", String(index));
 
     var img = document.createElement("img");
     img.src = URL.createObjectURL(file);
@@ -411,6 +461,7 @@ async function submitBatch() {
   if (state.files.length === 0) return;
 
   el.batchAnalyzeButton.disabled = true;
+  el.batchAnalyzeButton.classList.add("loading");
   el.batchAnalyzeButton.textContent = text.batchConvert;
   el.exportBatchButton.style.display = "none";
   el.batchEmptyState.textContent = "正在分析中...";
@@ -453,6 +504,7 @@ async function submitBatch() {
     el.batchStats.style.display = "none";
   } finally {
     el.batchAnalyzeButton.disabled = false;
+    el.batchAnalyzeButton.classList.remove("loading");
     el.batchAnalyzeButton.textContent = text.batchAnalyze;
   }
 }
@@ -480,9 +532,10 @@ function createResultCard(result, index) {
   var card = document.createElement("article");
   var label = result.label || "error";
   card.className = "result-card " + label;
-  var isSO = isSuperOversight(result);
+  var isSO = isHighConfidenceFake(result);
   if (isSO) card.classList.add("super-oversight");
   card.dataset.index = String(index);
+  card.style.setProperty("--i", String(index));
 
   var file = state.files[index];
   var fileName = file ? file.name : ("图片 " + (index + 1));
@@ -513,7 +566,7 @@ function createResultCard(result, index) {
   if (isSO) {
     var soBadge = document.createElement("span");
     soBadge.className = "so-badge";
-    soBadge.textContent = "超监管";
+    soBadge.textContent = "高置信伪造";
     meta.appendChild(soBadge);
   }
   head.appendChild(thumb);
@@ -680,6 +733,7 @@ function switchMiniEvidence(cardIndex, view) {
   var b64 = result[keyMap[view]];
   if (b64) {
     img.src = imageSrc(b64);
+    replayAnimation(img, "swap");
   }
 }
 

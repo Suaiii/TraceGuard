@@ -11,87 +11,90 @@
     <main class="shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">TraceGuard</p>
+          <p class="eyebrow">TraceGuard · Image Forensics</p>
           <h1>TraceGuard 图像取证平台</h1>
         </div>
         <div class="status" id="serviceStatus">
           <span class="status-dot"></span>
-          <span>&#36830;&#25509;&#20013;</span>
+          <span>连接中</span>
         </div>
       </header>
 
       <nav class="mode-bar" id="modeBar">
-        <button class="mode-tab active" data-mode="single" type="button">单图检测</button>
-        <button class="mode-tab" data-mode="multi" type="button">多图检测</button>
+        <button class="mode-tab active" data-mode="single" type="button"><i>01</i>单图检测</button>
+        <button class="mode-tab" data-mode="multi" type="button"><i>02</i>批量检测</button>
       </nav>
 
       <section class="workspace" id="singleWorkspace">
         <section class="upload-panel">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Input</p>
-              <h2>&#24453;&#26680;&#39564;&#22270;&#20687;</h2>
+              <p class="eyebrow">01 — Input</p>
+              <h2>待核验图像</h2>
             </div>
-            <button class="icon-button" id="sampleButton" type="button" title="&#20351;&#29992;&#26412;&#22320;&#26679;&#20363;">&#8599;</button>
+            <button class="icon-button" id="sampleButton" type="button" title="使用本地样例">↗</button>
           </div>
 
           <label class="dropzone" id="dropzone">
             <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" />
-            <span class="upload-mark">&#8593;</span>
-            <span class="drop-title">&#25302;&#20837;&#22270;&#29255;&#25110;&#28857;&#20987;&#19978;&#20256;</span>
-            <span class="drop-meta">PNG / JPG / WEBP, &#21333;&#22270;&#26816;&#27979;</span>
+            <span class="upload-mark">↑</span>
+            <span class="drop-title">拖入图片或点击上传</span>
+            <span class="drop-meta">PNG / JPG / WEBP · 单图检测</span>
           </label>
 
           <figure class="preview-frame">
             <img id="previewImage" alt="input preview" />
-            <figcaption id="previewCaption">&#23578;&#26410;&#36873;&#25321;&#22270;&#20687;</figcaption>
+            <figcaption id="previewCaption">尚未选择图像</figcaption>
           </figure>
 
           <div class="option-row">
             <label class="toggle">
               <input id="localizationToggle" type="checkbox" checked />
-              <span>&#21487;&#30097;&#21306;&#22495;&#23450;&#20301;</span>
+              <span>可疑区域定位</span>
             </label>
             <label class="range-label">
-              <span>&#28909;&#21147;&#21472;&#21152;&#24378;&#24230;</span>
+              <span>热力叠加强度</span>
               <input id="alphaRange" type="range" min="0.2" max="0.8" value="0.5" step="0.05" />
             </label>
           </div>
 
           <button class="primary-action" id="analyzeButton" type="button" disabled>
-            &#24320;&#22987;&#26816;&#27979;
+            开始检测
           </button>
         </section>
 
         <section class="result-panel">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Decision</p>
-              <h2>&#26816;&#27979;&#32467;&#35770;</h2>
+              <p class="eyebrow">02 — Decision</p>
+              <h2>检测结论</h2>
             </div>
             <span class="latency" id="latencyText">-- ms</span>
           </div>
 
           <div class="verdict" id="verdictBlock">
-            <span class="verdict-label" id="labelText">&#31561;&#24453;&#36755;&#20837;</span>
+            <span class="verdict-label" id="labelText">等待输入</span>
             <strong id="probText">--%</strong>
           </div>
 
           <div class="super-oversight-banner" id="superOversightBanner" style="display:none">
-            <span class="so-icon">&#9888;</span>
+            <span class="so-icon">⚠</span>
             <div class="so-content">
-              <strong>&#36229;&#30417;&#31649;&#39640;&#21361; AIGC &#20869;&#23481;</strong>
-              <p>&#35813;&#22270;&#20687;&#35302;&#21457;&#36229;&#30417;&#31649;&#35686;&#25253;&#8212;&#8212;&#20266;&#36896;&#27010;&#29575;&#26497;&#39640;&#19988;&#32508;&#21512;&#39118;&#38505;&#20026;&#39640;&#39118;&#38505;&#31561;&#32423;&#65292;&#24314;&#35758;&#20248;&#20808;&#22788;&#29702;&#12290;</p>
+              <!-- 措辞红线：本系统只判断"是否 AIGC 生成"，没有内容类别分类器，
+                   因此不得声称检测到"超监管内容"（战争/恐怖主义/枪械等语义类别）。
+                   此处仅陈述系统真正给得出的结论：高置信伪造 + 高综合风险。 -->
+              <strong>高置信伪造 · 建议加急复核</strong>
+              <p>该图像伪造概率极高且综合风险为高风险等级，建议优先安排人工复核。</p>
               <div class="so-stats">
-                <span class="so-stat">&#20266;&#36896;&#27010;&#29575;&#65306;<b id="soFakeProbVal">--</b></span>
-                <span class="so-stat">&#32508;&#21512;&#39118;&#38505;&#65306;<b id="soRiskScoreVal">--</b></span>
+                <span class="so-stat">伪造概率：<b id="soFakeProbVal">--</b></span>
+                <span class="so-stat">综合风险：<b id="soRiskScoreVal">--</b></span>
               </div>
             </div>
           </div>
 
           <div class="meter-group">
             <div class="meter-head">
-              <span>&#20266;&#36896;&#27010;&#29575;</span>
+              <span>伪造概率</span>
               <b id="fakeProbText">--</b>
             </div>
             <div class="meter"><span id="fakeProbBar"></span></div>
@@ -99,7 +102,7 @@
 
           <div class="meter-group">
             <div class="meter-head">
-              <span>&#32508;&#21512;&#39118;&#38505;</span>
+              <span>综合风险</span>
               <b id="riskText">--</b>
             </div>
             <div class="meter risk"><span id="riskBar"></span></div>
@@ -108,28 +111,28 @@
           <div class="evidence-grid">
             <article>
               <span id="bboxCount">0</span>
-              <p>&#21487;&#30097;&#21306;&#22495;</p>
+              <p>可疑区域</p>
             </article>
             <article>
               <span id="riskLevel">--</span>
-              <p>&#39118;&#38505;&#31561;&#32423;</p>
+              <p>风险等级</p>
             </article>
             <article>
               <span id="methodText">--</span>
-              <p>&#35299;&#37322;&#26041;&#27861;</p>
+              <p>解释方法</p>
             </article>
             <article>
               <span id="tamperType">--</span>
-              <p>&#23616;&#37096;&#35777;&#25454;</p>
+              <p>局部证据</p>
             </article>
           </div>
 
           <div class="dimension-viz" id="dimensionViz" style="display:none">
             <div class="dim-head">
-              <h3>&#39118;&#38505;&#32500;&#24230;&#20998;&#26512;</h3>
+              <h3>风险维度分析</h3>
               <span class="dim-score-badge">
-                <span class="badge-icon">&#9888;</span>
-                <span>&#32508;&#21512;&#20998;&#65306;</span>
+                <span class="badge-icon">⚠</span>
+                <span>综合分：</span>
                 <span class="badge-val" id="soTotalScore">--</span>
               </span>
             </div>
@@ -138,32 +141,38 @@
 
           <div class="explanation" id="explanationBlock">
             <div class="review-suggestion" id="reviewSuggestion" style="display:none">
-              <strong>&#128269; &#20154;&#24037;&#22797;&#26680;&#24314;&#35758;</strong>
+              <strong>人工复核建议</strong>
               <p id="reviewText"></p>
             </div>
-            <h3>&#35299;&#37322;&#25688;&#35201;</h3>
-            <p id="briefText">&#19978;&#20256;&#19968;&#24352;&#22270;&#29255;&#21518;&#65292;&#31995;&#32479;&#20250;&#32473;&#20986;&#20840;&#23616;&#30495;&#20266;&#21028;&#26029;&#12289;&#23616;&#37096;&#35777;&#25454;&#21644;&#21487;&#22797;&#26680;&#35299;&#37322;&#12290;</p>
+            <h3>解释摘要</h3>
+            <p id="briefText">上传一张图片后，系统会给出全局真伪判断、局部证据和可复核解释。</p>
           </div>
 
-          <button class="export-button" id="exportSingleButton" type="button" style="display:none">&#128196; &#23548;&#20986;&#25253;&#21578;</button>
+          <button class="export-button" id="exportSingleButton" type="button" style="display:none">导出检测报告 →</button>
         </section>
 
         <section class="evidence-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">03 — Evidence</p>
+              <h2>证据视图</h2>
+            </div>
+          </div>
           <div class="tabs" role="tablist">
-            <button class="tab active" data-view="overlay" type="button">&#28909;&#21147;&#21472;&#21152;</button>
-            <button class="tab" data-view="mask" type="button">&#28909;&#21147;&#25513;&#33180;</button>
-            <button class="tab" data-view="bbox" type="button">&#21306;&#22495;&#26631;&#27880;</button>
-            <button class="tab" data-view="tamper" type="button">&#31713;&#25913;&#25513;&#33180;</button>
+            <button class="tab active" data-view="overlay" type="button">热力叠加</button>
+            <button class="tab" data-view="mask" type="button">热力掩膜</button>
+            <button class="tab" data-view="bbox" type="button">区域标注</button>
+            <button class="tab" data-view="tamper" type="button">篡改掩膜</button>
           </div>
 
           <div class="evidence-view">
             <img id="evidenceImage" alt="evidence image" />
-            <div class="empty-state" id="emptyEvidence">&#26816;&#27979;&#21518;&#26174;&#31034;&#35777;&#25454;&#22270;</div>
+            <div class="empty-state" id="emptyEvidence">检测后显示证据图</div>
           </div>
 
           <div class="detail-box">
-            <h3>&#35814;&#32454;&#35299;&#37322;</h3>
-            <pre id="detailText">&#31561;&#24453;&#20998;&#26512;&#32467;&#26524;&#12290;</pre>
+            <h3>详细解释</h3>
+            <pre id="detailText">等待分析结果。</pre>
           </div>
         </section>
       </section>
@@ -172,7 +181,7 @@
         <section class="upload-panel">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Input</p>
+              <p class="eyebrow">01 — Input</p>
               <h2>批量上传</h2>
             </div>
             <span class="file-count-display" id="multiFileCount">0 / 20</span>
@@ -180,60 +189,60 @@
 
           <label class="dropzone" id="multiDropzone">
             <input id="multiFileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple />
-            <span class="upload-mark">&#8593;</span>
+            <span class="upload-mark">↑</span>
             <span class="drop-title">拖入多张图片或点击上传</span>
-            <span class="drop-meta">PNG / JPG / WEBP, 最多 20 张</span>
+            <span class="drop-meta">PNG / JPG / WEBP · 最多 20 张</span>
           </label>
 
           <div class="file-grid" id="fileGrid"></div>
 
-          <button class="clear-files-button" id="clearFilesButton" type="button" style="display:none">&#28165;&#31354;&#25152;&#26377;&#22270;&#29255;</button>
+          <button class="clear-files-button" id="clearFilesButton" type="button" style="display:none">清空所有图片 ×</button>
 
           <div class="option-row">
             <label class="toggle">
               <input id="multiLocalizationToggle" type="checkbox" checked />
-              <span>&#21487;&#30097;&#21306;&#22495;&#23450;&#20301;</span>
+              <span>可疑区域定位</span>
             </label>
             <label class="range-label">
-              <span>&#28909;&#21147;&#21472;&#21152;&#24378;&#24230;</span>
+              <span>热力叠加强度</span>
               <input id="multiAlphaRange" type="range" min="0.2" max="0.8" value="0.5" step="0.05" />
             </label>
           </div>
 
           <button class="primary-action" id="batchAnalyzeButton" type="button" disabled>
-            &#24320;&#22987;&#25209;&#37327;&#26816;&#27979;
+            开始批量检测
           </button>
         </section>
 
         <section class="result-panel batch-result-panel">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">Results</p>
-              <h2>&#25209;&#37327;&#26816;&#27979;&#32467;&#26524;</h2>
+              <p class="eyebrow">02 — Results</p>
+              <h2>批量检测结果</h2>
             </div>
             <span class="latency" id="batchLatencyText">-- ms</span>
           </div>
 
           <div class="batch-stats" id="batchStats" style="display:none">
             <div class="batch-stat-item">
-              <span>&#25104;&#21151;</span>
+              <span>成功</span>
               <b id="batchSuccessCount">0</b>
             </div>
             <div class="batch-stat-item">
-              <span>&#22833;&#36133;</span>
+              <span>失败</span>
               <b id="batchErrorCount">0</b>
             </div>
             <div class="batch-stat-item">
-              <span>&#24635;&#32791;&#26102;</span>
+              <span>总耗时</span>
               <b id="batchTotalTime">0</b> <span>ms</span>
             </div>
           </div>
 
           <div class="result-grid" id="resultGrid">
-            <div class="batch-empty" id="batchEmptyState">&#19978;&#20256;&#22270;&#29255;&#24182;&#24320;&#22987;&#26816;&#27979;&#21518;&#26174;&#31034;&#32467;&#26524;</div>
+            <div class="batch-empty" id="batchEmptyState">上传图片并开始检测后显示结果</div>
           </div>
 
-          <button class="export-button" id="exportBatchButton" type="button" style="display:none">&#128196; &#25209;&#37327;&#23548;&#20986;&#25253;&#21578;</button>
+          <button class="export-button" id="exportBatchButton" type="button" style="display:none">批量导出报告 →</button>
         </section>
       </section>
 
@@ -242,20 +251,20 @@
         <div class="preview-overlay" id="previewOverlay"></div>
         <div class="preview-container">
           <div class="preview-head">
-            <span class="preview-head-icon">&#25253;&#21578;&#39044;&#35272;</span>
-            <button class="preview-close" id="previewClose" type="button" title="&#20851;&#38381;">&times;</button>
+            <span class="preview-head-icon">报告预览</span>
+            <button class="preview-close" id="previewClose" type="button" title="关闭">×</button>
           </div>
           <div class="preview-body">
             <div class="preview-loading" id="previewLoading">
               <div class="preview-spinner"></div>
-              <span>&#27491;&#22312;&#29983;&#25104;&#25253;&#21578;...</span>
+              <span>正在生成报告...</span>
             </div>
             <iframe id="previewFrame" sandbox="allow-same-origin" scrolling="no" style="display:none"></iframe>
           </div>
           <div class="preview-actions">
             <span class="preview-status" id="previewStatus"></span>
-            <button class="preview-cancel" id="previewCancel" type="button">&#20851;&#38381;</button>
-            <button class="preview-download" id="previewDownload" type="button">&#19979;&#36733; PDF</button>
+            <button class="preview-cancel" id="previewCancel" type="button">关闭</button>
+            <button class="preview-download" id="previewDownload" type="button">下载 PDF</button>
           </div>
         </div>
       </div>
