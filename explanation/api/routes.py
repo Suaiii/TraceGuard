@@ -33,6 +33,7 @@ from .schemas import (
     ConfigResponse,
     ReportRequest,
     ReportPreviewResponse,
+    PdfRequest,
     BBoxItem,
     DimensionScores,
     Metadata,
@@ -275,66 +276,35 @@ def create_app(
             llm_elapsed_ms=llm_elapsed_ms,
         )
 
-    @app.post("/api/v1/report/download")
-    async def report_download(request: ReportRequest):
-        """返回 PDF 文件下载"""
-        cfg = get_config()
-        output_cfg = cfg.get('output', {})
-        html_title = output_cfg.get('html_title', 'TraceGuard 检测报告')
-
-        gen = ReportGenerator(title=html_title, include_charts=True)
-
-        # LLM 研判
-        agent = None
-        if request.options.include_llm:
-            agent = _get_llm_agent()
-
-        if request.type == 'single':
-            result = request.results[0] if request.results else {}
-            llm_opinion = None
-            if agent:
-                llm_opinion = agent.analyze_single(result)
-            html = gen.generate_single(
-                image_path=result.get('file', ''),
-                result=result,
-                llm_opinion=llm_opinion,
-            )
-        elif request.type == 'batch':
-            llm_opinion = None
-            results_raw = [r for r in request.results]
-            if agent:
-                llm_opinion = agent.analyze_batch(results_raw)
-            html = gen.generate_batch(
-                results=results_raw,
-                llm_opinion=llm_opinion,
-            )
-        else:
-            raise HTTPException(status_code=400, detail=f"unknown report type: {request.type}")
-
-        # HTML → PDF (Playwright Chromium, async)
-        pdf_bytes = None
+    async def _html_to_pdf(html: str) -> bytes:
+        """Playwright Chromium 渲染 HTML → PDF"""
+        import tempfile
+        from playwright.async_api import async_playwright
+        pw = await async_playwright().start()
         try:
-            import tempfile
-            from playwright.async_api import async_playwright
-            pw = await async_playwright().start()
+            browser = await pw.chromium.launch()
+            page = await browser.new_page()
+            with tempfile.NamedTemporaryFile(
+                mode='w', suffix='.html', encoding='utf-8', delete=False
+            ) as f:
+                f.write(html)
+                tmp_path = f.name
             try:
-                browser = await pw.chromium.launch()
-                page = await browser.new_page()
-                # 写临时文件以支持超大 HTML（含多张 base64 图片）
-                with tempfile.NamedTemporaryFile(
-                    mode='w', suffix='.html', encoding='utf-8', delete=False
-                ) as f:
-                    f.write(html)
-                    tmp_path = f.name
-                try:
-                    await page.goto('file:///' + tmp_path.replace('\\', '/'),
-                                    wait_until='networkidle', timeout=60000)
-                    pdf_bytes = await page.pdf(format='A4', print_background=True)
-                finally:
-                    os.unlink(tmp_path)
-                await browser.close()
+                await page.goto('file:///' + tmp_path.replace('\\', '/'),
+                                wait_until='networkidle', timeout=60000)
+                result = await page.pdf(format='A4', print_background=True)
             finally:
-                await pw.stop()
+                os.unlink(tmp_path)
+            await browser.close()
+            return result
+        finally:
+            await pw.stop()
+
+    @app.post("/api/v1/report/pdf")
+    async def report_pdf(request: PdfRequest):
+        """接收已生成的 HTML，直接转 PDF（不重复调 LLM）"""
+        try:
+            pdf_bytes = await _html_to_pdf(request.html)
         except ImportError:
             raise HTTPException(
                 status_code=501,
@@ -348,7 +318,7 @@ def create_app(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": f'attachment; filename="traceguard-report.pdf"',
+                "Content-Disposition": 'attachment; filename="traceguard-report.pdf"',
             },
         )
 

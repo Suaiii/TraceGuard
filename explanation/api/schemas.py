@@ -161,3 +161,8 @@ class ReportPreviewResponse(BaseModel):
     html: str = Field(..., description="完整 HTML 报告")
     llm_generated: bool = Field(False, description="是否成功调用了 LLM")
     llm_elapsed_ms: float = Field(0, description="LLM 调用耗时 (ms)")
+
+
+class PdfRequest(BaseModel):
+    """PDF 导出请求 — 直接传入已生成的 HTML"""
+    html: str = Field(..., description="完整 HTML 报告字符串")

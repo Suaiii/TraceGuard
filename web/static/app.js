@@ -799,10 +799,8 @@ function bindEvents() {
         throw new Error(err.detail || err.message || resp.statusText);
       }
       const data = await resp.json();
+      cachedReportHtml = data.html;
       openPreview(data.html);
-
-      // Store request for download
-      el.previewDownload.dataset.reportType = type;
     } catch (err) {
       alert("报告生成失败：" + err.message);
     } finally {
@@ -811,17 +809,18 @@ function bindEvents() {
     }
   }
 
-  async function downloadReport(type) {
-    const req = buildReportRequest(type);
-    if (!req) {
-      alert("没有可导出的检测结果");
+  var cachedReportHtml = "";
+
+  async function downloadReport() {
+    if (!cachedReportHtml) {
+      alert("请先预览报告再下载");
       return;
     }
     try {
-      const resp = await fetch("/api/v1/report/download", {
+      const resp = await fetch("/api/v1/report/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req),
+        body: JSON.stringify({ html: cachedReportHtml }),
       });
       if (!resp.ok) {
         const err = await resp.json();
@@ -892,10 +891,7 @@ function bindEvents() {
   el.previewCancel.addEventListener("click", closePreview);
   el.previewOverlay.addEventListener("click", closePreview);
 
-  el.previewDownload.addEventListener("click", function () {
-    const type = el.previewDownload.dataset.reportType || "single";
-    downloadReport(type);
-  });
+  el.previewDownload.addEventListener("click", downloadReport);
 
   // ESC to close modal
   document.addEventListener("keydown", function (e) {
