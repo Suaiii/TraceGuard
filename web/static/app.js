@@ -416,10 +416,76 @@ function createResultCard(result, index) {
   var brief = document.createElement("p");
   brief.textContent = result.explanation_brief || text.noBrief;
 
+  // Mini evidence viewer
+  var evidenceB64 = {
+    overlay: result.overlay_b64 || "",
+    mask: result.mask_b64 || "",
+    bbox: result.bbox_image_b64 || "",
+    tamper: result.tamper_overlay_b64 || "",
+  };
+
+  var hasEvidence = evidenceB64.overlay || evidenceB64.mask || evidenceB64.bbox || evidenceB64.tamper;
+
+  var miniEvidence = null;
+  if (hasEvidence) {
+    miniEvidence = document.createElement("div");
+    miniEvidence.className = "mini-evidence";
+
+    var miniTabs = document.createElement("div");
+    miniTabs.className = "mini-tabs";
+
+    var evidenceLabels = {
+      overlay: "热力叠加",
+      mask: "热力掩膜",
+      bbox: "区域标注",
+      tamper: "篡改掩膜",
+    };
+
+    var firstView = null;
+    Object.keys(evidenceLabels).forEach(function (view) {
+      if (evidenceB64[view]) {
+        if (!firstView) firstView = view;
+        var tabBtn = document.createElement("button");
+        tabBtn.className = "mini-tab";
+        tabBtn.type = "button";
+        tabBtn.dataset.view = view;
+        tabBtn.dataset.cardIndex = String(index);
+        tabBtn.textContent = evidenceLabels[view];
+        tabBtn.addEventListener("click", function (evt) {
+          evt.stopPropagation();
+          switchMiniEvidence(index, view);
+        });
+        miniTabs.appendChild(tabBtn);
+      }
+    });
+
+    // Set first available tab as active
+    if (firstView) {
+      var firstTab = miniTabs.querySelector('[data-view="' + firstView + '"]');
+      if (firstTab) firstTab.classList.add("active");
+    }
+
+    var miniView = document.createElement("div");
+    miniView.className = "mini-evidence-view";
+    miniView.dataset.cardIndex = String(index);
+
+    // Set initial image
+    var miniImg = document.createElement("img");
+    miniImg.alt = "";
+    if (firstView && evidenceB64[firstView]) {
+      miniImg.src = imageSrc(evidenceB64[firstView]);
+    }
+    miniView.appendChild(miniImg);
+
+    miniEvidence.appendChild(miniTabs);
+    miniEvidence.appendChild(miniView);
+  }
+
   var pre = document.createElement("pre");
   pre.textContent = result.explanation || text.noDetail;
 
   detail.appendChild(brief);
+  if (miniEvidence) detail.appendChild(miniEvidence);
   detail.appendChild(pre);
 
   card.appendChild(head);
@@ -440,6 +506,39 @@ function makeStat(label, valueHtml) {
   div.appendChild(span);
   div.appendChild(b);
   return div;
+}
+
+function switchMiniEvidence(cardIndex, view) {
+  var card = el.resultGrid.querySelector('[data-index="' + cardIndex + '"]');
+  if (!card) return;
+
+  // Update tab states
+  card.querySelectorAll(".mini-tab").forEach(function (tab) {
+    tab.classList.toggle("active", tab.dataset.view === view);
+  });
+
+  // Update image
+  var miniView = card.querySelector(".mini-evidence-view");
+  if (!miniView) return;
+
+  var img = miniView.querySelector("img");
+  if (!img) return;
+
+  // Find result from batchResults
+  var result = state.batchResults && state.batchResults.results && state.batchResults.results[cardIndex];
+  if (!result) return;
+
+  var keyMap = {
+    overlay: "overlay_b64",
+    mask: "mask_b64",
+    bbox: "bbox_image_b64",
+    tamper: "tamper_overlay_b64",
+  };
+
+  var b64 = result[keyMap[view]];
+  if (b64) {
+    img.src = imageSrc(b64);
+  }
 }
 
 function expandCard(index) {

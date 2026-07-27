@@ -816,6 +816,75 @@ pre {
   font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
 }
 
+/* Mini evidence viewer in result cards */
+
+.mini-evidence {
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mini-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  background: #f8faf5;
+}
+
+.mini-tab {
+  flex: 1;
+  min-height: 30px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--muted);
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.mini-tab:last-child {
+  border-right: 0;
+}
+
+.mini-tab.active {
+  background: var(--night);
+  color: var(--lime);
+  font-weight: 700;
+}
+
+.mini-evidence-view {
+  min-height: 140px;
+  padding: 8px;
+  display: grid;
+  place-items: center;
+  background:
+    linear-gradient(45deg, rgba(14, 38, 48, 0.06) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(14, 38, 48, 0.06) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(14, 38, 48, 0.06) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(14, 38, 48, 0.06) 75%),
+    #eef2e8;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-size: 12px 12px;
+}
+
+.mini-evidence-view img {
+  max-width: 100%;
+  max-height: 260px;
+  display: block;
+}
+
+.mini-evidence-view img:not([src]) {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mini-tab:hover:not(.active) {
+    background: #edf4ef;
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .mode-tab:hover:not(.active) {
     background: #edf4ef;
