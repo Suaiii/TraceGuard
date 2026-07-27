@@ -1,6 +1,6 @@
 # TraceGuard Devlog
 
-更新时间：2026-07-19
+更新时间：2026-07-27
 技术封版目标：2026-07-20
 
 ## 使用规则
@@ -39,6 +39,43 @@
 封版 2026-07-20，提交 2026-08-02。红线：报告/答辩禁现「实验室/导师/同组工作」等身份措辞；报告匿名（无学校/院系/指导教师，封面邮箱中性）；ExImage 与 ExDA 权重/代码不进 Git、不进提交包、不接入系统；超监管只谈"评测自研检测器"，不声称生成/训练/优化；涉敏图只低刺激远景，绝不打开/显示/导出超监管图像。
 
 ## 当前状态
+
+### 2026-07-27 — 分支 `feature/super-oversight`：超监管高危内容前端展示 + 风险权重/面积统一
+
+**背景**：ExImage 测试集在平台实测中大量图片被判定为 fake，但无一触发超监管提示。根因是 `risk_level` 几乎全部落在 medium 带（0.35–0.70），五维风险评分中 `tamper_area` 和 `consistency` 的低方差拖累了 `fake_prob` 的主信号。同时 bbox `area` 字段在代码和报告间存在语义不一致。
+
+**已完成（共 6 commits）**：
+
+1. **超监管高危内容展示（方案 A）**（`dad81fb`）
+   - HTML/CSS/JS：单图 verdict 下方红色脉冲警示横幅 + 解释摘要顶部人工复核建议段落 + 四维度风险可视化条形图
+   - 批量结果卡片：超监管红色边框 + 超监管徽章 + 卡片内维度条与复核提示
+   - 触发条件：`label === "fake" && fake_prob >= 0.9 && risk_level === "high"`
+
+2. **bbox area 语义统一**（`fa485f9`）
+   - `explanation/localization/postprocess.py`：`extract_bboxes` 中 `area` 从连通域像素数（`region.sum()`）改为矩形面积（`w × h`）
+   - 报告 `latex_ch1_overview.tex` 原文即为「边界框总面积」，代码现已对齐
+
+3. **五维风险权重调整**（`77ecfb5`）
+   - `explanation/risk/scorer.py` 默认权重：`fake_prob` 0.30→0.50、`tamper_area` 0.25→0.10、`region_count` 0.10→0.05、`artifact_intensity` 0.25 不变、`consistency` 0.10 不变
+   - `explanation/config.py`：`RiskWeights` dataclass 默认值同步
+   - 效果：ExImage 强假图综合分从 ~0.56 升至 ~0.70，越过 high 门槛
+
+4. **报告权重同步**（`9ac2af8`）
+   - `docs/restructure/latex_ch1_overview.tex` 第 2.4.1 节枚举列表和表头中的五维权重数字全部更新
+
+5. **配置层权重同步**（`7a51993`）
+   - `configs/default.yaml`：`risk.weights` 字段更新
+   - `explanation/config.py`：`load_config()` 函数内联默认字典更新（**此前只改了 RiskWeights dataclass 和 RiskScorer 默认值，未改此处，导致服务器实际加载配置仍为旧权重**）
+
+6. **超监管 UI 增强**（`75babfd`）
+   - 单图模式：verdict 块切换深红黑底 + 白色文字 + 脉冲外发光动画；警示横幅加入左侧红色强调条 + 斜纹底纹 + 伪造概率/综合风险分动态数值；维度分析新增红色综合分徽章
+   - 批量模式：超监管卡片左侧 3px 红色强调条 + 卡片头部淡红背景 + 徽章渐变红底呼吸脉冲动画
+
+**变更文件**：`web/index.html`、`web/static/app.css`、`web/static/app.js`、`explanation/risk/scorer.py`、`explanation/config.py`、`explanation/localization/postprocess.py`、`configs/default.yaml`、`docs/restructure/latex_ch1_overview.tex`、`tests/test_config.py`
+
+**测试**：58/58 通过（test_risk.py 20/20 + test_text.py 17/17 + test_localization.py 21/21），33/33 通过（test_config.py）。`test_risk_calibration.py` 有 pandas/pyarrow 环境 SegFault（预存问题，非本次引入）。
+
+**未合并**：`feature/super-oversight` 仍为独立分支，未合入 `main`。
 
 ### 2026-07-21 - 第一章 v2：定名"社交媒体传播场景" + 相关工作改基金写法
 

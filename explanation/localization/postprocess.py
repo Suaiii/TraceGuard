@@ -111,14 +111,15 @@ def extract_bboxes(mask: np.ndarray, min_area: int = 64) -> list:
     bboxes = []
     for i in range(1, num_features + 1):
         region = (labeled == i)
-        area = region.sum()
-        if area < min_area:
-            continue
 
         # 找到边界
         rows, cols = np.where(region)
         y_min, y_max = rows.min(), rows.max()
         x_min, x_max = cols.min(), cols.max()
+
+        area = int((x_max - x_min + 1) * (y_max - y_min + 1))
+        if area < min_area:
+            continue
 
         bboxes.append({
             'x': int(x_min),

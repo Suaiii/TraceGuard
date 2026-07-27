@@ -480,10 +480,10 @@ R_{\text{global}} = \sum_{k=1}^{5} w_k \cdot d_k, \quad \text{s.t.} \quad \sum_{
 式中，$d_k \in [0, 1]$ 表示第 $k$ 个评估维度的归一化得分，$w_k$ 为其对应的权重系数。各维度的具体含义与计算逻辑如下：
 
 \begin{enumerate}
- \item \textbf{检测置信度（$w_1 = 0.30$）}：直接取自上游 MambaOut 主干模型输出的全局伪造概率 $\text{fake\_prob}$；
+ \item \textbf{检测置信度（$w_1 = 0.50$）}：直接取自上游 MambaOut 主干模型输出的全局伪造概率 $\text{fake\_prob}$；
  \item \textbf{伪影强度（$w_2 = 0.25$）}：综合热力图的最大响应值与空间均值（$0.6 \cdot H_{\max} + 0.4 \cdot \bar{H}$），前者用于捕获极值伪影特征，后者用于评估全图伪影的覆盖广度；
- \item \textbf{篡改面积比（$w_3 = 0.25$）}：计算所有预测边界框的总面积与图像原始总面积的比值 $\sum A_{\text{bbox}} / (W \times H)$；
- \item \textbf{区域数量（$w_4 = 0.10$）}：对可疑区域数量 $n$ 采用对数归一化，定义为 $\min\left(1.0, \frac{\log_2(n+1)}{\log_2(6)}\right)$。当可疑区域数量 $n \ge 5$ 时，该项响应饱和封顶为 $1.0$；
+ \item \textbf{篡改面积比（$w_3 = 0.10$）}：计算所有预测边界框的总面积与图像原始总面积的比值 $\sum A_{\text{bbox}} / (W \times H)$；
+ \item \textbf{区域数量（$w_4 = 0.05$）}：对可疑区域数量 $n$ 采用对数归一化，定义为 $\min\left(1.0, \frac{\log_2(n+1)}{\log_2(6)}\right)$。当可疑区域数量 $n \ge 5$ 时，该项响应饱和封顶为 $1.0$；
  \item \textbf{一致性（$w_5 = 0.10$）}：计算热力图前 $25\%$ 高响应像素集合与篡改掩膜高分区域的交并比（$\text{IoU}$）。高的重叠度表明 Grad-CAM 可解释归因与局部定位模块实现相互印证，有效增强决策可信度；低的重叠度则提示模态间存在分歧。
 \end{enumerate}
 
@@ -495,10 +495,10 @@ R_{\text{global}} = \sum_{k=1}^{5} w_k \cdot d_k, \quad \text{s.t.} \quad \sum_{
 \toprule
 \textbf{评估维度} & \textbf{权重 ($w_k$)} & \textbf{计算公式 / 数据来源} \\
 \midrule
-检测置信度 & 0.30 & $\text{fake\_prob}$ \\
+检测置信度 & 0.50 & $\text{fake\_prob}$ \\
 伪影强度 & 0.25 & $0.6 \cdot H_{\max} + 0.4 \cdot \bar{H}$ \\
-篡改面积比 & 0.25 & $\sum A_{\text{bbox}} / (W \times H)$ \\
-区域数量 & 0.10 & $\min\left(1.0, \, \log_2(n+1) / \log_2(6)\right)$ \\
+篡改面积比 & 0.10 & $\sum A_{\text{bbox}} / (W \times H)$ \\
+区域数量 & 0.05 & $\min\left(1.0, \, \log_2(n+1) / \log_2(6)\right)$ \\
 一致性 & 0.10 & $\text{IoU}\left(H_{25\%}, M_{25\%}\right)$ \\
 \bottomrule
 \end{tabular}

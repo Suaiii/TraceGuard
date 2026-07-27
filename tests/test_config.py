@@ -30,7 +30,7 @@ class TestConfigLoading:
         cfg = load_config('configs/default.yaml')
         assert isinstance(cfg, TraceGuardConfig)
         assert cfg.localization.scales == [224, 160]
-        assert cfg.risk.weights.fake_prob == 0.30
+        assert cfg.risk.weights.fake_prob == 0.50
 
     def test_nonexistent_config_uses_defaults(self):
         """不存在的配置文件回退默认值"""
@@ -95,7 +95,7 @@ class TestRiskWeightsConversion:
         # RiskScorer 使用 .get(key, default) 访问
         assert 'fake_prob_weight' in weights
         assert 'artifact_intensity_weight' in weights
-        assert weights.get('fake_prob_weight', 0) == 0.30
+        assert weights.get('fake_prob_weight', 0) == 0.50
 
 
 class TestConfigEdgeCases:

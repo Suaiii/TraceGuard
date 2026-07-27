@@ -50,6 +50,14 @@ const el = {
   batchErrorCount: document.getElementById("batchErrorCount"),
   batchTotalTime: document.getElementById("batchTotalTime"),
   batchLatencyText: document.getElementById("batchLatencyText"),
+  superOversightBanner: document.getElementById("superOversightBanner"),
+  reviewSuggestion: document.getElementById("reviewSuggestion"),
+  reviewText: document.getElementById("reviewText"),
+  dimensionViz: document.getElementById("dimensionViz"),
+  dimBars: document.getElementById("dimBars"),
+  soFakeProbVal: document.getElementById("soFakeProbVal"),
+  soRiskScoreVal: document.getElementById("soRiskScoreVal"),
+  soTotalScore: document.getElementById("soTotalScore"),
 };
 
 const text = {
@@ -82,6 +90,15 @@ const text = {
   batchFailed: "\u6279\u91cf\u5206\u6790\u5931\u8d25",
   expandLabel: "\u5c55\u5f00 \u25bc",
   collapseLabel: "\u6536\u8d77 \u25b2",
+  soVerdictLabel: "AIGC \u8d85\u76d1\u7ba1\u9ad8\u5371",
+  soReviewText: "\u8be5\u56fe\u50cf\u5728\u4f2a\u9020\u6982\u7387\u548c\u7efc\u5408\u98ce\u9669\u4e24\u4e2a\u7ef4\u5ea6\u5747\u8fbe\u5230\u6700\u9ad8\u8b66\u6212\u7ea7\u522b\u3002\u5efa\u8bae\uff1a(1) \u5bf9\u7167\u539f\u59cb\u6765\u6e90\u6838\u5b9e\u56fe\u50cf\u771f\u5b9e\u6027\uff1b(2) \u68c0\u67e5\u5143\u6570\u636e\u4e2d\u7684\u7f16\u8f91\u75d5\u8ff9\uff1b(3) \u4ea4\u53c9\u9a8c\u8bc1\u4f20\u64ad\u94fe\u8def\u4e2d\u5176\u4ed6\u526f\u672c\u7684\u68c0\u6d4b\u7ed3\u679c\u3002\u5982\u786e\u8ba4\u4e3a AIGC \u4f2a\u9020\uff0c\u5e94\u7acb\u5373\u6807\u8bb0\u5e76\u9650\u5236\u4f20\u64ad\u3002",
+  soCardReview: "\u8d85\u76d1\u7ba1\u9ad8\u5371\uff1a\u4f2a\u9020\u6982\u7387\u226590%\u4e14\u9ad8\u98ce\u9669\uff0c\u5efa\u8bae\u4eba\u5de5\u590d\u6838\u3002",
+  dimLabels: {
+    artifact_intensity: "\u4f2a\u9020\u75d5\u8ff9\u5f3a\u5ea6",
+    tamper_area: "\u7be1\u6539\u533a\u57df\u5360\u6bd4",
+    region_count: "\u53ef\u7591\u533a\u57df\u6570\u91cf",
+    consistency: "\u7279\u5f81\u4e00\u81f4\u6027",
+  },
 };
 
 function setStatus(kind, message) {
@@ -106,6 +123,57 @@ function fileToBase64(file) {
     };
     reader.onerror = reject;
     reader.readAsDataURL(file);
+  });
+}
+
+function isSuperOversight(data) {
+  return data.label === "fake" && Number(data.fake_prob || 0) >= 0.9 && data.risk_level === "high";
+}
+
+function dimBarColor(value) {
+  if (value >= 0.8) return "var(--red)";
+  if (value >= 0.5) return "var(--amber)";
+  return "var(--green)";
+}
+
+function renderDimensionBars(scores, container, compact) {
+  container.innerHTML = "";
+  var dims = [
+    { key: "artifact_intensity", label: text.dimLabels.artifact_intensity },
+    { key: "tamper_area",       label: text.dimLabels.tamper_area },
+    { key: "region_count",      label: text.dimLabels.region_count },
+    { key: "consistency",       label: text.dimLabels.consistency },
+  ];
+
+  dims.forEach(function (dim) {
+    var value = Math.min(Math.max(Number(scores[dim.key] || 0), 0), 1);
+    var pct = asPercent(value);
+
+    var row = document.createElement("div");
+    row.className = compact ? "card-dim-bar" : "dim-bar";
+
+    var label = document.createElement("span");
+    label.className = compact ? "dim-label" : "dim-bar-label";
+    label.textContent = dim.label;
+
+    var track = document.createElement("span");
+    track.className = "dim-bar-track";
+
+    var fill = document.createElement("span");
+    fill.className = "dim-bar-fill";
+    fill.style.width = pct;
+    fill.style.background = dimBarColor(value);
+
+    track.appendChild(fill);
+
+    var val = document.createElement("span");
+    val.className = compact ? "dim-val" : "dim-bar-value";
+    val.textContent = pct;
+
+    row.appendChild(label);
+    row.appendChild(track);
+    row.appendChild(val);
+    container.appendChild(row);
   });
 }
 
@@ -187,6 +255,25 @@ function renderResult(data) {
   el.briefText.textContent = data.explanation_brief || text.noBrief;
   el.latencyText.textContent = `${Math.round(data.elapsed_ms || 0)} ms`;
   el.detailText.textContent = data.explanation || text.noDetail;
+
+  if (isSuperOversight(data)) {
+    el.superOversightBanner.style.display = "";
+    el.reviewSuggestion.style.display = "";
+    el.reviewText.textContent = text.soReviewText;
+    el.dimensionViz.style.display = "";
+    renderDimensionBars(data.dimension_scores || {}, el.dimBars, false);
+    el.verdictBlock.classList.add("super-oversight-active");
+    el.labelText.textContent = text.soVerdictLabel;
+    el.soFakeProbVal.textContent = asPercent(fakeProb);
+    el.soRiskScoreVal.textContent = asPercent(riskScore);
+    el.soTotalScore.textContent = asPercent(riskScore);
+  } else {
+    el.superOversightBanner.style.display = "none";
+    el.reviewSuggestion.style.display = "none";
+    el.dimensionViz.style.display = "none";
+    el.verdictBlock.classList.remove("super-oversight-active");
+    el.labelText.textContent = text.label[label] || label;
+  }
 
   renderEvidence();
 }
@@ -362,6 +449,8 @@ function createResultCard(result, index) {
   var card = document.createElement("article");
   var label = result.label || "error";
   card.className = "result-card " + label;
+  var isSO = isSuperOversight(result);
+  if (isSO) card.classList.add("super-oversight");
   card.dataset.index = String(index);
 
   var file = state.files[index];
@@ -390,6 +479,12 @@ function createResultCard(result, index) {
 
   meta.appendChild(nameEl);
   meta.appendChild(verdict);
+  if (isSO) {
+    var soBadge = document.createElement("span");
+    soBadge.className = "so-badge";
+    soBadge.textContent = "超监管";
+    meta.appendChild(soBadge);
+  }
   head.appendChild(thumb);
   head.appendChild(meta);
 
@@ -490,6 +585,17 @@ function createResultCard(result, index) {
   pre.textContent = result.explanation || text.noDetail;
 
   detail.appendChild(brief);
+  if (isSO) {
+    var cardDimBars = document.createElement("div");
+    cardDimBars.className = "card-dim-bars";
+    renderDimensionBars(result.dimension_scores || {}, cardDimBars, true);
+    detail.appendChild(cardDimBars);
+
+    var cardReview = document.createElement("p");
+    cardReview.className = "card-review";
+    cardReview.textContent = text.soCardReview;
+    detail.appendChild(cardReview);
+  }
   if (miniEvidence) detail.appendChild(miniEvidence);
   detail.appendChild(pre);
 

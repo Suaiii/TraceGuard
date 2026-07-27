@@ -59,10 +59,10 @@ class LocalizationConfig:
 
 @dataclass
 class RiskWeights:
-    fake_prob: float = 0.30
+    fake_prob: float = 0.50
     artifact_intensity: float = 0.25
-    tamper_area: float = 0.25
-    region_count: float = 0.10
+    tamper_area: float = 0.10
+    region_count: float = 0.05
     consistency: float = 0.10
 
 
@@ -177,8 +177,8 @@ def load_config(yaml_path: str = None) -> TraceGuardConfig:
         },
         'risk': {
             'weights': {
-                'fake_prob': 0.30, 'artifact_intensity': 0.25,
-                'tamper_area': 0.25, 'region_count': 0.10, 'consistency': 0.10,
+                'fake_prob': 0.50, 'artifact_intensity': 0.25,
+                'tamper_area': 0.10, 'region_count': 0.05, 'consistency': 0.10,
             },
             'levels': {
                 'low': [0.0, 0.35], 'medium': [0.35, 0.70], 'high': [0.70, 1.00],
