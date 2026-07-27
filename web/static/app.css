@@ -1373,7 +1373,7 @@ pre {
 
 .preview-body iframe {
   display: block;
-  width: 80%;
+  width: 92%;
   flex-shrink: 0;
   border: none;
   background: #fff;
@@ -1384,7 +1384,7 @@ pre {
   margin-top: 28px;
   margin-bottom: 28px;
   overflow: hidden;
-  transform: scale(0.9);
+  transform: scale(0.95);
   transform-origin: top center;
 }
 

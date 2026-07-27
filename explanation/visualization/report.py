@@ -21,7 +21,9 @@ import time
 from datetime import datetime
 from PIL import Image
 
-from .charts import radar_chart, risk_gauge, batch_summary
+from .charts import (radar_chart, risk_gauge, batch_summary,
+                       label_pie_chart, risk_level_bar_chart,
+                       fake_prob_histogram, risk_score_distribution)
 
 
 class ReportGenerator:
@@ -238,7 +240,6 @@ class ReportGenerator:
         success = sum(1 for r in results if r.get('status', 'success') == 'success')
         fake_count = sum(1 for r in results if r.get('label') == 'fake')
         tamper_count = sum(1 for r in results if r.get('tamper_type') == 'local_tamper')
-        real_count = sum(1 for r in results if r.get('label') == 'real')
         high_risk = sum(1 for r in results if r.get('risk_level') == 'high')
         medium_risk = sum(1 for r in results if r.get('risk_level') == 'medium')
         low_risk = sum(1 for r in results if r.get('risk_level') == 'low')
@@ -253,24 +254,40 @@ class ReportGenerator:
         llm = llm_opinion or {}
         llm_overview = llm.get('overview', '')
         llm_priority = llm.get('priority_list', '')
+        llm_review_suggestions = llm.get('review_suggestions', {})
 
-        # 汇总图表
-        summary_b64 = None
+        # ---- 汇总图表 (4 张独立图表并排, 统一尺寸) ----
+        chart_html = ''
         if self.include_charts and results:
-            summary_img = batch_summary(results, size=(800, 640))
-            summary_b64 = self._pil_to_b64(summary_img)
+            chart_size = (520, 440)  # 2x target for retina/crisp rendering
+            pie_img = label_pie_chart(results, size=chart_size)
+            bar_img = risk_level_bar_chart(results, size=chart_size)
+            hist_img = fake_prob_histogram(results, size=chart_size)
+            dist_img = risk_score_distribution(results, size=chart_size)
+            # 统一缩放到相同尺寸，避免不同图表类型因 bbox_inches 产生的尺寸差异
+            pie_img = pie_img.resize(chart_size, Image.LANCZOS)
+            bar_img = bar_img.resize(chart_size, Image.LANCZOS)
+            hist_img = hist_img.resize(chart_size, Image.LANCZOS)
+            dist_img = dist_img.resize(chart_size, Image.LANCZOS)
+            chart_html = f'''<div class="card">
+            <h2>汇总图表</h2>
+            <div class="chart-row-4">
+                <div class="chart-cell">{self._img_tag(self._pil_to_b64(pie_img), '检测结果分布')}<div class="caption">检测结果分布</div></div>
+                <div class="chart-cell">{self._img_tag(self._pil_to_b64(bar_img), '风险等级分布')}<div class="caption">风险等级分布</div></div>
+                <div class="chart-cell">{self._img_tag(self._pil_to_b64(hist_img), '伪造概率直方图')}<div class="caption">伪造概率分布</div></div>
+                <div class="chart-cell">{self._img_tag(self._pil_to_b64(dist_img), '风险分数分布')}<div class="caption">风险分数分布</div></div>
+            </div>
+        </div>'''
 
         if title is None:
             title = f'{self.title} — 批量分析汇总'
 
-        # 逐条结果行
+        # ---- 逐条结果行 (摘要仅三字段) ----
         result_rows = ''
         for i, r in enumerate(results, 1):
             label = r.get('label', '-')
             fake_prob = r.get('fake_prob', 0)
-            risk_score = r.get('risk_score', 0)
             risk_level = r.get('risk_level', '-')
-            explanation_brief = r.get('explanation_brief', '')
             elapsed_ms = r.get('elapsed_ms', 0)
             file_name = os.path.basename(r.get('file', '')) if r.get('file') else f'#{i}'
 
@@ -284,16 +301,18 @@ class ReportGenerator:
             elif risk_level == 'high':
                 row_cls = ' class="row-high-risk"'
 
+            # 摘要: AIGC伪造图 | 置信度95% | 风险high/medium
+            summary_text = f'{LABELS.get(label, label)} | 置信度{int(fake_prob*100)}% | 风险{RISK_LABELS.get(risk_level, risk_level)}'
+
             result_rows += f'''
             <tr{row_cls}>
                 <td class="cell-index">{so_prefix}{i}</td>
                 <td class="cell-file" title="{self._escape_html(file_name)}">{self._escape_html(file_name)}</td>
                 <td class="cell-status {label_cls}">{LABELS.get(label, label)}</td>
                 <td class="cell-num">{fake_prob:.3f}</td>
-                <td class="cell-num">{risk_score:.2f}</td>
                 <td class="cell-status {risk_cls}">{RISK_LABELS.get(risk_level, risk_level)}</td>
                 <td class="cell-num">{elapsed_ms:.0f}ms</td>
-                <td class="cell-brief">{self._escape_html(explanation_brief)}</td>
+                <td class="cell-summary">{self._escape_html(summary_text)}</td>
             </tr>'''
 
         report_id = f"TG-BATCH-{datetime.now().strftime('%Y%m%d%H%M%S')}"
@@ -342,8 +361,8 @@ class ReportGenerator:
 <!-- ========== LLM 研判 ========== -->
 {self._llm_batch_overview_section(llm_overview, llm_priority)}
 
-<!-- ========== Summary Fig ========== -->
-{self._summary_section(summary_b64)}
+<!-- ========== Summary Charts (4 side by side) ========== -->
+{chart_html}
 
 <!-- ========== Result Table ========== -->
 <div class="card">
@@ -355,9 +374,8 @@ class ReportGenerator:
                 <th>#</th>
                 <th>文件名</th>
                 <th>判定</th>
-                <th>fake_prob</th>
-                <th>risk_score</th>
-                <th>风险</th>
+                <th>伪造概率</th>
+                <th>风险等级</th>
                 <th>耗时</th>
                 <th>摘要</th>
             </tr>
@@ -369,8 +387,11 @@ class ReportGenerator:
     </div>
 </div>
 
-<!-- ========== High-Risk Details ========== -->
-{self._high_risk_details_section(results)}
+<!-- ========== High-Risk Details (expanded) ========== -->
+{self._high_risk_details_expanded(results, llm_review_suggestions)}
+
+<!-- ========== All Images Details (excluding high-risk) ========== -->
+{self._all_images_details_section(results)}
 
 <!-- ========== Page Footer ========== -->
 <div class="page-footer">
@@ -748,7 +769,7 @@ class ReportGenerator:
             }
             .result-table td { padding: 7px 8px; border-bottom: 1px solid #F3F4F6; }
             .result-table tbody tr:nth-child(even) { background: #F9FAFB; }
-            .cell-index { width: 36px; text-align: center; color: var(--text-secondary); }
+            .cell-index { width: 52px; text-align: center; color: var(--text-secondary); white-space: nowrap; }
             .cell-file { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .cell-num { text-align: center; font-variant-numeric: tabular-nums; }
             .cell-status { text-align: center; font-weight: 700; font-size: 11px; }
@@ -763,6 +784,47 @@ class ReportGenerator:
             .risk-high-text { color: var(--risk-high); font-weight: 700; }
             .so-summary { color: var(--so-red) !important; font-weight: 700; }
 
+            /* ========== 4-column chart grid ========== */
+            .chart-row-4 {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+                gap: 8px;
+            }
+            .chart-cell {
+                text-align: center;
+            }
+            .chart-cell img {
+                width: 100%;
+                border-radius: var(--radius-sm);
+                border: 1px solid var(--border);
+            }
+            .chart-cell .caption {
+                font-size: 10px;
+                color: var(--text-secondary);
+                margin-top: 4px;
+            }
+
+            /* ========== 4-column image grid ========== */
+            .img-row-4 {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+            .img-cell {
+                text-align: center;
+            }
+            .img-cell img {
+                width: 100%;
+                border-radius: var(--radius-sm);
+                border: 1px solid var(--border);
+            }
+            .img-cell .caption {
+                font-size: 10px;
+                color: var(--text-secondary);
+                margin-top: 3px;
+            }
+
             /* ========== High-risk detail card ========== */
             .high-risk-detail-card {
                 border: 1px solid var(--border);
@@ -771,7 +833,7 @@ class ReportGenerator:
                 border-radius: var(--radius-sm);
                 padding: 16px 18px;
                 margin-bottom: 12px;
-                page-break-inside: avoid;
+                page-break-inside: auto;
             }
             .high-risk-detail-card h3 {
                 font-size: 13px;
@@ -783,12 +845,100 @@ class ReportGenerator:
             .hr-meta-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
             .hr-meta-value { font-weight: 700; font-size: 14px; }
             .hr-thumb { max-width: 180px; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 6px; }
-            .hr-mini-bars { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+            .hr-mini-bars { display: flex; flex-direction: column; gap: 3px; }
             .hr-mini-bar-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
             .hr-mini-bar-label { width: 70px; text-align: right; color: var(--text-secondary); }
             .hr-mini-bar-track { flex: 1; height: 5px; background: #E5E7EB; border-radius: 3px; overflow: hidden; }
-            .hr-mini-bar-fill { height: 100%; border-radius: 3px; }
+            .hr-mini-bar-fill { display: block; height: 100%; border-radius: 3px; }
             .hr-mini-bar-val { width: 36px; text-align: right; font-weight: 700; font-size: 11px; }
+
+            /* ========== HR detail two-col ========== */
+            .hr-detail-two-col {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 10px;
+            }
+            .hr-dim-analysis {
+                background: #F8FAFC;
+                border: 1px solid var(--border);
+                border-radius: var(--radius-sm);
+                padding: 10px 14px;
+            }
+            .hr-dim-analysis h4 {
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--text);
+                margin-bottom: 8px;
+                padding-bottom: 4px;
+                border-bottom: 1px solid var(--border);
+            }
+            .hr-llm-suggest {
+                background: #EFF6FF;
+                border: 1px solid #BFDBFE;
+                border-radius: var(--radius-sm);
+                padding: 10px 14px;
+            }
+            .hr-llm-suggest h4 {
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--accent);
+                margin-bottom: 6px;
+            }
+            .hr-llm-suggest p {
+                font-size: 12px;
+                line-height: 1.45;
+                color: #374151;
+            }
+            .hr-explanation {
+                margin-top: 10px;
+                padding-top: 8px;
+                border-top: 1px solid var(--border);
+            }
+            .hr-explanation h4 {
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--text);
+                margin-bottom: 4px;
+            }
+
+            /* ========== Image detail card (non-high-risk) ========== */
+            .image-detail-card {
+                border: 1px solid var(--border);
+                background: #FFF;
+                border-radius: var(--radius-sm);
+                padding: 14px 16px;
+                margin-bottom: 10px;
+                page-break-inside: auto;
+            }
+            .image-detail-card h3 {
+                font-size: 12px;
+                color: var(--text);
+                margin-bottom: 8px;
+                padding-bottom: 6px;
+                border-bottom: 1px solid var(--border);
+            }
+            .img-detail-explanation {
+                margin-top: 8px;
+                padding-top: 6px;
+                border-top: 1px solid var(--border);
+            }
+            .img-detail-explanation h4 {
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--text);
+                margin-bottom: 4px;
+            }
+
+            /* ========== Simplified summary cell ========== */
+            .cell-summary {
+                max-width: 200px;
+                font-size: 11px;
+                color: var(--text-secondary);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
 
             /* ========== No-image placeholder ========== */
             .no-image {
@@ -805,10 +955,16 @@ class ReportGenerator:
                 .img-grid .card { page-break-inside: avoid; }
                 .metrics-banner { page-break-inside: avoid; }
                 h2 { page-break-after: avoid; }
+                h3 { page-break-after: avoid; }
+                h4 { page-break-after: avoid; }
                 .page-header { page-break-after: avoid; }
                 .data-table { page-break-inside: auto; }
                 .data-table tr { page-break-inside: avoid; }
                 .meta-grid { page-break-inside: avoid; }
+                .chart-row-4 { page-break-inside: avoid; }
+                .img-row-4 { page-break-inside: avoid; }
+                .high-risk-detail-card { page-break-inside: avoid; }
+                .image-detail-card { page-break-inside: avoid; }
             }
         '''
 
@@ -989,8 +1145,9 @@ class ReportGenerator:
         {priority_html}
     </div>'''
 
-    def _high_risk_details_section(self, results: list) -> str:
-        """批量报告：高风险条目详情展开"""
+    def _high_risk_details_expanded(self, results: list, review_suggestions: dict = None) -> str:
+        """批量报告：高风险条目详情展开（4图并排 + 五维分析 + LLM建议 + bbox + 解释）"""
+        review_suggestions = review_suggestions or {}
         high_risk_items = [
             (i, r) for i, r in enumerate(results, 1)
             if r.get('risk_level') == 'high'
@@ -998,7 +1155,6 @@ class ReportGenerator:
         if not high_risk_items:
             return ''
 
-        cards = ''
         dim_keys = ['fake_prob', 'artifact_intensity', 'tamper_area', 'region_count', 'consistency']
         dim_labels_zh = {
             'fake_prob': '检测置信度',
@@ -1008,52 +1164,145 @@ class ReportGenerator:
             'consistency': '一致性',
         }
 
+        cards = ''
         for idx, r in high_risk_items:
             label = r.get('label', '-')
             fake_prob = r.get('fake_prob', 0)
             risk_score = r.get('risk_score', 0)
             risk_level = r.get('risk_level', '-')
-            bbox_count = len(r.get('bbox_list', []))
+            bbox_list = r.get('bbox_list', [])
+            bbox_count = len(bbox_list)
             dim_scores = r.get('dimension_scores', {})
+            explanation = r.get('explanation', '')
             explanation_brief = r.get('explanation_brief', '')
-            overlay_b64 = r.get('overlay_b64', '')
-            file_name = f'#{idx}'
 
             is_so = (label == 'fake' and fake_prob >= 0.9)
             so_mark = ' &#9888; 超监管' if is_so else ''
 
-            # 迷你维度进度条
-            mini_bars = ''
+            # 4 evidence images side by side
+            img_row = f'''<div class="img-row-4">
+                <div class="img-cell">{self._img_tag(r.get('overlay_b64'), '热力图叠加')}<div class="caption">热力图叠加</div></div>
+                <div class="img-cell">{self._img_tag(r.get('mask_b64'), '热力掩膜')}<div class="caption">热力掩膜</div></div>
+                <div class="img-cell">{self._img_tag(r.get('bbox_image_b64'), 'BBox标注')}<div class="caption">BBox标注</div></div>
+                <div class="img-cell">{self._img_tag(r.get('tamper_overlay_b64'), '篡改掩膜叠加')}<div class="caption">篡改掩膜叠加</div></div>
+            </div>'''
+
+            # 五维分析 (mini bars)
+            dim_rows = ''
             for key in dim_keys:
                 val = dim_scores.get(key, 0)
                 pct = int(val * 100)
-                color = '#4CAF50' if val < 0.5 else ('#FF9800' if val < 0.8 else '#F44336')
-                mini_bars += f'''<div class="hr-mini-bar-row">
-                <span class="hr-mini-bar-label">{dim_labels_zh.get(key, key)}</span>
-                <span class="hr-mini-bar-track"><span class="hr-mini-bar-fill" style="width:{pct}%;background:{color};"></span></span>
-                <span class="hr-mini-bar-val">{val:.2f}</span>
+                if val < 0.5:
+                    bar_color = '#06B6D4'
+                elif val < 0.8:
+                    bar_color = '#F59E0B'
+                else:
+                    bar_color = '#EF4444'
+                dim_rows += f'''<div class="hr-mini-bar-row">
+                    <span class="hr-mini-bar-label">{dim_labels_zh.get(key, key)}</span>
+                    <span class="hr-mini-bar-track"><span class="hr-mini-bar-fill" style="width:{pct}%;background:{bar_color};"></span></span>
+                    <span class="hr-mini-bar-val">{val:.2f}</span>
+                </div>'''
+
+            dim_analysis = f'''<div class="hr-dim-analysis">
+                <h4>五维分析</h4>
+                <div class="hr-mini-bars">{dim_rows}</div>
             </div>'''
 
-            # 热力图缩略图
-            thumb_html = ''
-            if overlay_b64:
-                thumb_html = f'<img class="hr-thumb" src="data:image/png;base64,{overlay_b64}" alt="热力叠加缩略图" loading="lazy">'
+            # LLM review suggestion
+            suggestion = review_suggestions.get(str(idx), '')
+            if not suggestion:
+                # fallback: generate from data
+                if is_so:
+                    suggestion = f'伪造概率极高（{fake_prob:.1%}），综合风险分数 {risk_score:.2f}，建议立即人工复核并限制传播。'
+                else:
+                    suggestion = f'综合风险分数 {risk_score:.2f}，伪造概率 {fake_prob:.1%}，建议优先人工复核。'
+            llm_suggest = f'''<div class="hr-llm-suggest">
+                <h4>&#128269; 复核建议</h4>
+                <p>{self._escape_html(suggestion)}</p>
+            </div>'''
+
+            # Two-col: 5-dim + LLM
+            two_col = f'<div class="two-col hr-detail-two-col">{dim_analysis}{llm_suggest}</div>'
+
+            # BBox table
+            bbox_table = self._bbox_table(bbox_list)
+
+            # Explanation
+            expl_html = ''
+            if explanation:
+                expl_html = f'''<div class="hr-explanation">
+                    <h4>详细解释</h4>
+                    <pre class="explanation-text">{self._escape_html(explanation)}</pre>
+                </div>'''
+
+            so_alert = ''
+            if is_so:
+                so_alert = '<div class="so-alert" style="margin-bottom:10px;"><span class="so-alert-icon">&#9888;</span><div class="so-alert-text"><strong>超监管高危内容</strong><p>该图像伪造概率极高且综合风险为高风险等级，建议立即标记并限制传播，优先进行人工复核。</p></div></div>'
 
             cards += f'''<div class="high-risk-detail-card">
-        <h3>#{idx}{so_mark} — 伪造概率 {fake_prob:.3f} | 综合风险 {risk_score:.2f} | {RISK_LABELS.get(risk_level, risk_level)}</h3>
-        <div class="hr-meta-row">
-            <div class="hr-meta-item"><span class="hr-meta-label">判定</span><span class="hr-meta-value {'fake-color' if label == 'fake' else 'real-color'}">{LABELS.get(label, label)}</span></div>
-            <div class="hr-meta-item"><span class="hr-meta-label">伪造概率</span><span class="hr-meta-value">{fake_prob:.3f}</span></div>
-            <div class="hr-meta-item"><span class="hr-meta-label">风险分数</span><span class="hr-meta-value">{risk_score:.2f}</span></div>
-            <div class="hr-meta-item"><span class="hr-meta-label">可疑区域</span><span class="hr-meta-value">{bbox_count} 处</span></div>
-        </div>
-        {thumb_html}
-        <div class="hr-mini-bars">{mini_bars}</div>
-        <p style="font-size:13px;color:#424242;">{self._escape_html(explanation_brief)}</p>
+        <h3>#{idx}{so_mark} — {LABELS.get(label, label)} | 伪造概率 {fake_prob:.3f} | 综合风险 {risk_score:.2f} | {RISK_LABELS.get(risk_level, risk_level)} | 可疑区域 {bbox_count} 处</h3>
+        {so_alert}
+        {img_row}
+        {two_col}
+        {bbox_table}
+        {expl_html}
     </div>'''
 
         return f'''<div class="card">
-    <h2>高风险条目详情 ({len(high_risk_items)}条)</h2>
+    <h2>高风险条目详情 <span class="card-badge">{len(high_risk_items)} 条</span></h2>
+    {cards}
+</div>'''
+
+    def _all_images_details_section(self, results: list) -> str:
+        """批量报告：除高风险外的所有图片详情（4图并排 + bbox + 解释）"""
+        non_high_items = [
+            (i, r) for i, r in enumerate(results, 1)
+            if r.get('risk_level') != 'high'
+            and r.get('status', 'success') == 'success'
+            and r.get('label') not in ('error',)
+        ]
+        if not non_high_items:
+            return ''
+
+        cards = ''
+        for idx, r in non_high_items:
+            label = r.get('label', '-')
+            fake_prob = r.get('fake_prob', 0)
+            risk_score = r.get('risk_score', 0)
+            risk_level = r.get('risk_level', '-')
+            bbox_list = r.get('bbox_list', [])
+            bbox_count = len(bbox_list)
+            explanation = r.get('explanation', '')
+
+            # 4 evidence images side by side
+            img_row = f'''<div class="img-row-4">
+                <div class="img-cell">{self._img_tag(r.get('overlay_b64'), '热力图叠加')}<div class="caption">热力图叠加</div></div>
+                <div class="img-cell">{self._img_tag(r.get('mask_b64'), '热力掩膜')}<div class="caption">热力掩膜</div></div>
+                <div class="img-cell">{self._img_tag(r.get('bbox_image_b64'), 'BBox标注')}<div class="caption">BBox标注</div></div>
+                <div class="img-cell">{self._img_tag(r.get('tamper_overlay_b64'), '篡改掩膜叠加')}<div class="caption">篡改掩膜叠加</div></div>
+            </div>'''
+
+            # BBox table
+            bbox_table = self._bbox_table(bbox_list)
+
+            # Explanation
+            expl_html = ''
+            if explanation:
+                expl_html = f'''<div class="img-detail-explanation">
+                    <h4>详细解释</h4>
+                    <pre class="explanation-text">{self._escape_html(explanation)}</pre>
+                </div>'''
+
+            cards += f'''<div class="image-detail-card">
+        <h3>#{idx} — {LABELS.get(label, label)} | 伪造概率 {fake_prob:.3f} | 综合风险 {risk_score:.2f} | {RISK_LABELS.get(risk_level, risk_level)}</h3>
+        {img_row}
+        {bbox_table}
+        {expl_html}
+    </div>'''
+
+        return f'''<div class="card">
+    <h2>全部图片详情 <span class="card-badge">{len(non_high_items)} 张</span></h2>
     {cards}
 </div>'''
 

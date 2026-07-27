@@ -166,3 +166,4 @@ class ReportPreviewResponse(BaseModel):
 class PdfRequest(BaseModel):
     """PDF 导出请求 — 直接传入已生成的 HTML"""
     html: str = Field(..., description="完整 HTML 报告字符串")
+    type: str = Field("report", description="报告类型: single | batch")

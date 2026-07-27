@@ -9,7 +9,9 @@ Visualization 子模块 — 图表生成 + HTML 报告
   - batch_summary:    批量处理汇总图
 """
 
-from .charts import radar_chart, risk_gauge, batch_summary, all_charts
+from .charts import (radar_chart, risk_gauge, batch_summary, all_charts,
+                       label_pie_chart, risk_level_bar_chart,
+                       fake_prob_histogram, risk_score_distribution)
 from .report import ReportGenerator
 
 
@@ -68,4 +70,8 @@ __all__ = [
     'risk_gauge',
     'batch_summary',
     'all_charts',
+    'label_pie_chart',
+    'risk_level_bar_chart',
+    'fake_prob_histogram',
+    'risk_score_distribution',
 ]

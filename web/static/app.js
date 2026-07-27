@@ -832,6 +832,7 @@ function bindEvents() {
       }
       const data = await resp.json();
       cachedReportHtml = data.html;
+      cachedReportType = type;
       openPreview(data.html);
     } catch (err) {
       alert("报告生成失败：" + err.message);
@@ -842,6 +843,7 @@ function bindEvents() {
   }
 
   var cachedReportHtml = "";
+  var cachedReportType = "";
 
   async function downloadReport() {
     if (!cachedReportHtml) {
@@ -852,11 +854,21 @@ function bindEvents() {
     btn.disabled = true;
     btn.textContent = "正在生成 PDF...";
     el.previewStatus.textContent = "";
+    // 生成唯一文件名: TraceGuard-{single|batch}-{YYYYMMDD-HHmmss}.pdf
+    var now = new Date();
+    var ts = now.getFullYear()
+      + String(now.getMonth() + 1).padStart(2, "0")
+      + String(now.getDate()).padStart(2, "0")
+      + "-"
+      + String(now.getHours()).padStart(2, "0")
+      + String(now.getMinutes()).padStart(2, "0")
+      + String(now.getSeconds()).padStart(2, "0");
+    var filename = "TraceGuard-" + (cachedReportType || "report") + "-" + ts + ".pdf";
     try {
       const resp = await fetch("/api/v1/report/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ html: cachedReportHtml }),
+        body: JSON.stringify({ html: cachedReportHtml, type: cachedReportType }),
       });
       if (!resp.ok) {
         const err = await resp.json();
@@ -866,7 +878,7 @@ function bindEvents() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "traceguard-report.pdf";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
