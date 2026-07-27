@@ -46,7 +46,8 @@ class ReportGenerator:
     # ------------------------------------------------------------------
 
     def generate_single(self, image_path: str,
-                        result: dict) -> str:
+                        result: dict,
+                        llm_opinion: dict = None) -> str:
         """
         生成单张图像完整分析 HTML 报告。
 
@@ -72,6 +73,17 @@ class ReportGenerator:
         bbox_list = result.get('bbox_list', [])
         dim_scores = result.get('dimension_scores', {})
         metadata = result.get('metadata', {})
+
+        # ---- 超监管标记 ----
+        is_super_oversight = (
+            label == 'fake' and fake_prob >= 0.9 and risk_level == 'high'
+        )
+
+        # ---- LLM 研判 ----
+        llm = llm_opinion or {}
+        llm_opinion_text = llm.get('opinion', '')
+        llm_dimension_notes = llm.get('dimension_notes', '')
+        llm_region_notes = llm.get('region_notes', '')
 
         # ---- 生成图表 ----
         radar_b64 = None
@@ -103,9 +115,13 @@ class ReportGenerator:
         <div class="subtitle">{filename} — 生成时间: {now}</div>
     </div>
     <div class="header-right">
+        {self._super_oversight_badge() if is_super_oversight else ''}
         <div class="risk-badge risk-{risk_level}">{RISK_LABELS.get(risk_level, risk_level)}</div>
     </div>
 </div>
+
+<!-- =============== 综合研判意见 =============== -->
+{self._llm_opinion_section(llm_opinion_text)}
 
 <!-- =============== 摘要区 =============== -->
 <div class="summary">
@@ -169,6 +185,7 @@ class ReportGenerator:
             <div class="explanation-brief">{explanation_brief}</div>
         </div>
         {self._bbox_table(bbox_list)}
+        {self._llm_region_notes_section(llm_region_notes)}
     </div>
 </div>
 
@@ -180,6 +197,8 @@ class ReportGenerator:
 
 <!-- =============== 维度详情 =============== -->
 {self._dimension_table(dim_scores)}
+
+{self._llm_dimension_notes_section(llm_dimension_notes)}
 
 <!-- =============== 元信息 =============== -->
 <div class="card meta">
@@ -209,7 +228,8 @@ class ReportGenerator:
     # ------------------------------------------------------------------
 
     def generate_batch(self, results: list,
-                       title: str = None) -> str:
+                       title: str = None,
+                       llm_opinion: dict = None) -> str:
         """
         生成批量分析汇总 HTML 报告。
 
@@ -229,6 +249,17 @@ class ReportGenerator:
         high_risk = sum(1 for r in results if r.get('risk_level') == 'high')
         medium_risk = sum(1 for r in results if r.get('risk_level') == 'medium')
         low_risk = sum(1 for r in results if r.get('risk_level') == 'low')
+        super_oversight_count = sum(
+            1 for r in results
+            if r.get('label') == 'fake'
+            and r.get('fake_prob', 0) >= 0.9
+            and r.get('risk_level') == 'high'
+        )
+
+        # ---- LLM 研判 ----
+        llm = llm_opinion or {}
+        llm_overview = llm.get('overview', '')
+        llm_priority = llm.get('priority_list', '')
 
         # 汇总图表
         summary_b64 = None
@@ -252,10 +283,17 @@ class ReportGenerator:
 
             label_cls = 'fake-color' if label == 'fake' else 'real-color'
             risk_cls = f'risk-{risk_level}-text'
+            row_cls = ''
+            so_prefix = ''
+            if label == 'fake' and fake_prob >= 0.9 and risk_level == 'high':
+                row_cls = ' class="row-super-oversight"'
+                so_prefix = '&#9888; '
+            elif risk_level == 'high':
+                row_cls = ' class="row-high-risk"'
 
             result_rows += f'''
-            <tr>
-                <td class="cell-index">{i}</td>
+            <tr{row_cls}>
+                <td class="cell-index">{so_prefix}{i}</td>
                 <td class="cell-file" title="{self._escape_html(file_name)}">{self._escape_html(file_name)}</td>
                 <td class="cell-status {label_cls}">{LABELS.get(label, label)}</td>
                 <td class="cell-num">{fake_prob:.3f}</td>
@@ -294,7 +332,11 @@ class ReportGenerator:
     <div class="summary-item"><span class="summary-label">高风险</span><span class="summary-value risk-high-text">{high_risk}</span></div>
     <div class="summary-item"><span class="summary-label">中风险</span><span class="summary-value risk-medium-text">{medium_risk}</span></div>
     <div class="summary-item"><span class="summary-label">低风险</span><span class="summary-value risk-low-text">{low_risk}</span></div>
+    {f'<div class="summary-item"><span class="summary-label so-summary">超监管</span><span class="summary-value risk-high-text">{super_oversight_count}</span></div>' if super_oversight_count > 0 else ''}
 </div>
+
+<!-- =============== 批量综合研判意见 =============== -->
+{self._llm_batch_overview_section(llm_overview, llm_priority)}
 
 <!-- 汇总图表 -->
 {self._summary_section(summary_b64)}
@@ -322,6 +364,8 @@ class ReportGenerator:
     </table>
     </div>
 </div>
+
+{self._high_risk_details_section(results)}
 
 <div class="footer">
     <p>© {datetime.now().year} {self.company} — AIGC图像安全审核平台</p>
@@ -574,6 +618,133 @@ class ReportGenerator:
                 color: var(--text-secondary);
                 font-size: 13px;
             }
+
+            /* === LLM 研判段落 === */
+            .llm-card {
+                background: #FFF8E1;
+                border-left: 4px solid #FF6F00;
+                padding: 20px 24px;
+                border-radius: var(--radius);
+                margin-bottom: 16px;
+            }
+            .llm-card h2 {
+                font-size: 15px;
+                color: #E65100;
+                border-bottom: 1px solid #FFE0B2;
+                padding-bottom: 8px;
+                margin-bottom: 12px;
+            }
+            .llm-opinion {
+                font-size: 14px;
+                line-height: 1.8;
+                white-space: pre-wrap;
+                color: #424242;
+            }
+            .llm-dimension-notes {
+                font-size: 13px;
+                line-height: 1.7;
+                white-space: pre-wrap;
+                color: #616161;
+            }
+
+            /* === 超监管标记 === */
+            .super-oversight-badge {
+                display: inline-block;
+                background: #B71C1C;
+                color: #FFF;
+                font-size: 11px;
+                font-weight: 700;
+                padding: 4px 10px;
+                border-radius: 4px;
+                margin-right: 8px;
+                vertical-align: middle;
+            }
+            .so-summary {
+                color: #B71C1C !important;
+                font-weight: 700;
+            }
+            .row-super-oversight {
+                background: #FFEBEE !important;
+            }
+            .row-high-risk {
+                background: #FFF3E0 !important;
+            }
+
+            /* === 高风险条目详情 === */
+            .high-risk-detail-card {
+                background: #FFF;
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 20px;
+                margin-bottom: 16px;
+            }
+            .high-risk-detail-card h3 {
+                font-size: 14px;
+                color: #D32F2F;
+                border-bottom: 1px solid #FFCDD2;
+                padding-bottom: 8px;
+                margin-bottom: 12px;
+            }
+            .hr-meta-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+                font-size: 13px;
+                margin-bottom: 12px;
+            }
+            .hr-meta-item {
+                display: flex;
+                flex-direction: column;
+                min-width: 80px;
+            }
+            .hr-meta-label {
+                font-size: 11px;
+                color: var(--text-secondary);
+            }
+            .hr-meta-value {
+                font-weight: 700;
+                font-size: 15px;
+            }
+            .hr-thumb {
+                max-width: 200px;
+                border-radius: 4px;
+                border: 1px solid var(--border);
+                margin-bottom: 8px;
+            }
+            .hr-mini-bars {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                margin-bottom: 12px;
+            }
+            .hr-mini-bar-row {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-size: 12px;
+            }
+            .hr-mini-bar-label {
+                width: 80px;
+                text-align: right;
+                color: var(--text-secondary);
+            }
+            .hr-mini-bar-track {
+                flex: 1;
+                height: 6px;
+                background: #EEE;
+                border-radius: 3px;
+                overflow: hidden;
+            }
+            .hr-mini-bar-fill {
+                height: 100%;
+                border-radius: 3px;
+            }
+            .hr-mini-bar-val {
+                width: 40px;
+                text-align: right;
+                font-weight: 600;
+                font-size: 12px;
+            }
         '''
 
     # ------------------------------------------------------------------
@@ -688,6 +859,124 @@ class ReportGenerator:
             label = name_map.get(key, k)
             parts.append(f'{label}={v:.2f}')
         return ', '.join(parts)
+
+    # ------------------------------------------------------------------
+    # LLM / 超监管 相关 HTML 片段
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _super_oversight_badge() -> str:
+        return '<span class="super-oversight-badge">&#9888; 超监管高危</span>'
+
+    @staticmethod
+    def _llm_opinion_section(text: str) -> str:
+        if not text:
+            return ''
+        # 如果 fallback 文本已包含完整段落标签，直接渲染
+        return f'''<div class="llm-card">
+        <h2>&#128269; 综合研判意见</h2>
+        <div class="llm-opinion">{text}</div>
+    </div>'''
+
+    @staticmethod
+    def _llm_dimension_notes_section(text: str) -> str:
+        if not text:
+            return ''
+        return f'''<div class="card">
+        <h2>&#129514; 维度解读 (LLM)</h2>
+        <div class="llm-dimension-notes">{text}</div>
+    </div>'''
+
+    @staticmethod
+    def _llm_region_notes_section(text: str) -> str:
+        if not text:
+            return ''
+        return f'''<div class="card">
+        <h2>&#128506; 可疑区域分布解读 (LLM)</h2>
+        <div class="llm-dimension-notes">{text}</div>
+    </div>'''
+
+    @staticmethod
+    def _llm_batch_overview_section(overview: str, priority: str) -> str:
+        if not overview:
+            return ''
+        priority_html = ''
+        if priority:
+            priority_html = f'''<h3>高风险优先级排序</h3>
+        <div class="llm-opinion">{priority}</div>'''
+        return f'''<div class="llm-card">
+        <h2>&#128269; 批量综合研判意见</h2>
+        <div class="llm-opinion">{overview}</div>
+        {priority_html}
+    </div>'''
+
+    def _high_risk_details_section(self, results: list) -> str:
+        """批量报告：高风险条目详情展开"""
+        high_risk_items = [
+            (i, r) for i, r in enumerate(results, 1)
+            if r.get('risk_level') == 'high'
+        ]
+        if not high_risk_items:
+            return ''
+
+        cards = ''
+        dim_keys = ['fake_prob', 'artifact_intensity', 'tamper_area', 'region_count', 'consistency']
+        dim_labels_zh = {
+            'fake_prob': '检测置信度',
+            'artifact_intensity': '伪影强度',
+            'tamper_area': '篡改面积',
+            'region_count': '区域数量',
+            'consistency': '一致性',
+        }
+
+        for idx, r in high_risk_items:
+            label = r.get('label', '-')
+            fake_prob = r.get('fake_prob', 0)
+            risk_score = r.get('risk_score', 0)
+            risk_level = r.get('risk_level', '-')
+            bbox_count = len(r.get('bbox_list', []))
+            dim_scores = r.get('dimension_scores', {})
+            explanation_brief = r.get('explanation_brief', '')
+            overlay_b64 = r.get('overlay_b64', '')
+            file_name = f'#{idx}'
+
+            is_so = (label == 'fake' and fake_prob >= 0.9)
+            so_mark = ' &#9888; 超监管' if is_so else ''
+
+            # 迷你维度进度条
+            mini_bars = ''
+            for key in dim_keys:
+                val = dim_scores.get(key, 0)
+                pct = int(val * 100)
+                color = '#4CAF50' if val < 0.5 else ('#FF9800' if val < 0.8 else '#F44336')
+                mini_bars += f'''<div class="hr-mini-bar-row">
+                <span class="hr-mini-bar-label">{dim_labels_zh.get(key, key)}</span>
+                <span class="hr-mini-bar-track"><span class="hr-mini-bar-fill" style="width:{pct}%;background:{color};"></span></span>
+                <span class="hr-mini-bar-val">{val:.2f}</span>
+            </div>'''
+
+            # 热力图缩略图
+            thumb_html = ''
+            if overlay_b64:
+                thumb_html = f'<img class="hr-thumb" src="data:image/png;base64,{overlay_b64}" alt="热力叠加缩略图" loading="lazy">'
+
+            cards += f'''<div class="high-risk-detail-card">
+        <h3>#{idx}{so_mark} — 伪造概率 {fake_prob:.3f} | 综合风险 {risk_score:.2f} | {RISK_LABELS.get(risk_level, risk_level)}</h3>
+        <div class="hr-meta-row">
+            <div class="hr-meta-item"><span class="hr-meta-label">判定</span><span class="hr-meta-value {'fake-color' if label == 'fake' else 'real-color'}">{LABELS.get(label, label)}</span></div>
+            <div class="hr-meta-item"><span class="hr-meta-label">伪造概率</span><span class="hr-meta-value">{fake_prob:.3f}</span></div>
+            <div class="hr-meta-item"><span class="hr-meta-label">风险分数</span><span class="hr-meta-value">{risk_score:.2f}</span></div>
+            <div class="hr-meta-item"><span class="hr-meta-label">可疑区域</span><span class="hr-meta-value">{bbox_count} 处</span></div>
+        </div>
+        {thumb_html}
+        <div class="hr-mini-bars">{mini_bars}</div>
+        <p style="font-size:13px;color:#424242;">{self._escape_html(explanation_brief)}</p>
+    </div>'''
+
+        return f'''<div class="card">
+    <h2>高风险条目详情 ({len(high_risk_items)}条)</h2>
+    {cards}
+</div>'''
 
     @staticmethod
     def _escape_html(text: str) -> str:

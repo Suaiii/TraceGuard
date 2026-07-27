@@ -59,6 +59,14 @@ const el = {
   soRiskScoreVal: document.getElementById("soRiskScoreVal"),
   soTotalScore: document.getElementById("soTotalScore"),
   clearFilesButton: document.getElementById("clearFilesButton"),
+  exportSingleButton: document.getElementById("exportSingleButton"),
+  exportBatchButton: document.getElementById("exportBatchButton"),
+  previewModal: document.getElementById("previewModal"),
+  previewOverlay: document.getElementById("previewOverlay"),
+  previewFrame: document.getElementById("previewFrame"),
+  previewClose: document.getElementById("previewClose"),
+  previewCancel: document.getElementById("previewCancel"),
+  previewDownload: document.getElementById("previewDownload"),
 };
 
 const text = {
@@ -101,6 +109,9 @@ const text = {
     consistency: "\u7279\u5f81\u4e00\u81f4\u6027",
   },
   clearFiles: "\u6e05\u7a7a\u6240\u6709\u56fe\u7247",
+  exportGenerating: "\u6b63\u5728\u751f\u6210\u62a5\u544a...",
+  exportSingle: "\u5bfc\u51fa\u62a5\u544a",
+  exportBatch: "\u6279\u91cf\u5bfc\u51fa\u62a5\u544a",
 };
 
 function setStatus(kind, message) {
@@ -205,6 +216,7 @@ async function analyze() {
   if (!state.file) return;
   el.analyzeButton.disabled = true;
   el.analyzeButton.textContent = text.analyzing;
+  el.exportSingleButton.style.display = "none";
 
   try {
     const image_base64 = await fileToBase64(state.file);
@@ -277,6 +289,8 @@ function renderResult(data) {
     el.labelText.textContent = text.label[label] || label;
   }
 
+  el.exportSingleButton.style.display = "block";
+
   renderEvidence();
 }
 
@@ -345,6 +359,7 @@ function removeFile(index) {
 function clearFiles() {
   state.files = [];
   state.batchResults = null;
+  el.exportBatchButton.style.display = "none";
   renderFileList();
 }
 
@@ -395,6 +410,7 @@ async function submitBatch() {
 
   el.batchAnalyzeButton.disabled = true;
   el.batchAnalyzeButton.textContent = text.batchConvert;
+  el.exportBatchButton.style.display = "none";
   el.batchEmptyState.textContent = "正在分析中...";
   el.batchEmptyState.style.display = "";
   el.batchStats.style.display = "none";
@@ -442,6 +458,8 @@ async function submitBatch() {
 function renderBatchResults(data) {
   el.batchEmptyState.style.display = "none";
   el.batchStats.style.display = "flex";
+  var oldCards = el.resultGrid.querySelectorAll(".result-card");
+  for (var c = 0; c < oldCards.length; c++) { oldCards[c].remove(); }
   el.batchSuccessCount.textContent = String(data.success_count);
   el.batchErrorCount.textContent = String(data.error_count);
   el.batchTotalTime.textContent = String(Math.round(data.total_elapsed_ms));
@@ -452,6 +470,8 @@ function renderBatchResults(data) {
     var card = createResultCard(result, index);
     grid.appendChild(card);
   });
+
+  el.exportBatchButton.style.display = "block";
 }
 
 function createResultCard(result, index) {
@@ -717,6 +737,110 @@ function bindEvents() {
     });
   });
 
+  // --- Report export ---
+  function buildReportRequest(type) {
+    if (type === "single") {
+      const data = state.result;
+      if (!data) return null;
+      // Convert state.result to a plain object matching AnalysisResponse schema
+      return {
+        type: "single",
+        results: [data],
+        options: { include_llm: true },
+      };
+    } else {
+      const data = state.batchResults;
+      if (!data || !data.results) return null;
+      return {
+        type: "batch",
+        results: data.results,
+        options: { include_llm: true },
+      };
+    }
+  }
+
+  function openPreview(html) {
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    el.previewFrame.src = url;
+    el.previewModal.style.display = "flex";
+    // Store URL for cleanup
+    el.previewFrame.dataset.blobUrl = url;
+  }
+
+  function closePreview() {
+    el.previewModal.style.display = "none";
+    const url = el.previewFrame.dataset.blobUrl;
+    if (url) {
+      URL.revokeObjectURL(url);
+      el.previewFrame.dataset.blobUrl = "";
+    }
+    el.previewFrame.src = "";
+  }
+
+  async function previewReport(type) {
+    const req = buildReportRequest(type);
+    if (!req) {
+      alert("没有可导出的检测结果");
+      return;
+    }
+    const btn = type === "single" ? el.exportSingleButton : el.exportBatchButton;
+    const originalText = btn.textContent;
+    btn.textContent = text.exportGenerating;
+    btn.disabled = true;
+    try {
+      const resp = await fetch("/api/v1/report/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || err.message || resp.statusText);
+      }
+      const data = await resp.json();
+      openPreview(data.html);
+
+      // Store request for download
+      el.previewDownload.dataset.reportType = type;
+    } catch (err) {
+      alert("报告生成失败：" + err.message);
+    } finally {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  }
+
+  async function downloadReport(type) {
+    const req = buildReportRequest(type);
+    if (!req) {
+      alert("没有可导出的检测结果");
+      return;
+    }
+    try {
+      const resp = await fetch("/api/v1/report/download", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+      });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.detail || err.message || resp.statusText);
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "traceguard-report.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("PDF 下载失败：" + err.message);
+    }
+  }
+
   // --- Mode toggle ---
   el.modeBar.querySelectorAll(".mode-tab").forEach(function (tab) {
     tab.addEventListener("click", function () {
@@ -754,6 +878,31 @@ function bindEvents() {
 
   // --- Clear files button ---
   el.clearFilesButton.addEventListener("click", clearFiles);
+
+  // --- Export buttons ---
+  el.exportSingleButton.addEventListener("click", function () {
+    previewReport("single");
+  });
+  el.exportBatchButton.addEventListener("click", function () {
+    previewReport("batch");
+  });
+
+  // --- Preview modal ---
+  el.previewClose.addEventListener("click", closePreview);
+  el.previewCancel.addEventListener("click", closePreview);
+  el.previewOverlay.addEventListener("click", closePreview);
+
+  el.previewDownload.addEventListener("click", function () {
+    const type = el.previewDownload.dataset.reportType || "single";
+    downloadReport(type);
+  });
+
+  // ESC to close modal
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && el.previewModal.style.display === "flex") {
+      closePreview();
+    }
+  });
 }
 
 bindEvents();

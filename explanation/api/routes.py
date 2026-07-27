@@ -31,6 +31,8 @@ from .schemas import (
     BatchResponse,
     HealthResponse,
     ConfigResponse,
+    ReportRequest,
+    ReportPreviewResponse,
     BBoxItem,
     DimensionScores,
     Metadata,
@@ -38,6 +40,8 @@ from .schemas import (
 from detection.inference_api import Detector
 from explanation.pipeline import ExplanationPipeline
 from explanation.utils import base64_to_image
+from explanation.visualization import ReportGenerator
+from explanation.llm import DeepSeekClient, ReportAgent
 
 _detector: Detector | None = None
 _pipeline: ExplanationPipeline | None = None
@@ -199,6 +203,137 @@ def create_app(
             total_elapsed_ms=round((time.perf_counter() - t0) * 1000, 2),
             success_count=len(results) - errors,
             error_count=errors,
+        )
+
+    # ------------------------------------------------------------------
+    # 报告导出
+    # ------------------------------------------------------------------
+
+    def _get_llm_agent():
+        """延迟初始化 LLM agent"""
+        cfg = get_config()
+        llm_cfg = cfg.get('llm', {})
+        if not llm_cfg.get('enabled', True):
+            return None
+        api_key = os.environ.get(llm_cfg.get('api_key_env', 'DEEPSEEK_API_KEY'), '')
+        if not api_key:
+            return None
+        client = DeepSeekClient(
+            api_key=api_key,
+            model=llm_cfg.get('model', 'deepseek-v4-pro'),
+            base_url=llm_cfg.get('base_url', 'https://api.deepseek.com'),
+            temperature=llm_cfg.get('temperature', 0.3),
+            max_tokens=llm_cfg.get('max_tokens', 2048),
+        )
+        return ReportAgent(client)
+
+    @app.post("/api/v1/report/preview", response_model=ReportPreviewResponse)
+    async def report_preview(request: ReportRequest):
+        cfg = get_config()
+        output_cfg = cfg.get('output', {})
+        html_title = output_cfg.get('html_title', 'TraceGuard 检测报告')
+
+        gen = ReportGenerator(title=html_title, include_charts=True)
+
+        llm_generated = False
+        llm_elapsed_ms = 0
+
+        # LLM 研判
+        agent = None
+        if request.options.include_llm:
+            agent = _get_llm_agent()
+
+        if request.type == 'single':
+            result = request.results[0] if request.results else {}
+            llm_opinion = None
+            if agent:
+                llm_opinion = agent.analyze_single(result)
+                llm_generated = llm_opinion.get('llm_generated', False)
+                llm_elapsed_ms = llm_opinion.get('elapsed_ms', 0)
+            html = gen.generate_single(
+                image_path=result.get('file', ''),
+                result=result,
+                llm_opinion=llm_opinion,
+            )
+        elif request.type == 'batch':
+            llm_opinion = None
+            results_raw = [r for r in request.results]
+            if agent:
+                llm_opinion = agent.analyze_batch(results_raw)
+                llm_generated = llm_opinion.get('llm_generated', False)
+                llm_elapsed_ms = llm_opinion.get('elapsed_ms', 0)
+            html = gen.generate_batch(
+                results=results_raw,
+                llm_opinion=llm_opinion,
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"unknown report type: {request.type}")
+
+        return ReportPreviewResponse(
+            html=html,
+            llm_generated=llm_generated,
+            llm_elapsed_ms=llm_elapsed_ms,
+        )
+
+    @app.post("/api/v1/report/download")
+    async def report_download(request: ReportRequest):
+        """返回 PDF 文件下载"""
+        cfg = get_config()
+        output_cfg = cfg.get('output', {})
+        html_title = output_cfg.get('html_title', 'TraceGuard 检测报告')
+
+        gen = ReportGenerator(title=html_title, include_charts=True)
+
+        # LLM 研判
+        agent = None
+        if request.options.include_llm:
+            agent = _get_llm_agent()
+
+        if request.type == 'single':
+            result = request.results[0] if request.results else {}
+            llm_opinion = None
+            if agent:
+                llm_opinion = agent.analyze_single(result)
+            html = gen.generate_single(
+                image_path=result.get('file', ''),
+                result=result,
+                llm_opinion=llm_opinion,
+            )
+        elif request.type == 'batch':
+            llm_opinion = None
+            results_raw = [r for r in request.results]
+            if agent:
+                llm_opinion = agent.analyze_batch(results_raw)
+            html = gen.generate_batch(
+                results=results_raw,
+                llm_opinion=llm_opinion,
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"unknown report type: {request.type}")
+
+        # HTML → PDF
+        import tempfile
+        import io as std_io
+        pdf_bytes = None
+        try:
+            # 先尝试 weasyprint
+            from weasyprint import HTML as WHTML
+            pdf_bytes = WHTML(string=html).write_pdf()
+        except ImportError:
+            raise HTTPException(
+                status_code=501,
+                detail="PDF generation requires weasyprint. Install with: pip install weasyprint"
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"PDF generation failed: {exc}") from exc
+
+        from fastapi.responses import Response
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="traceguard-report.pdf"',
+            },
         )
 
     return app

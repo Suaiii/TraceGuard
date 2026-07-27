@@ -138,3 +138,26 @@ class BatchResponse(BaseModel):
     total_elapsed_ms: float
     success_count: int
     error_count: int
+
+
+# ==============================================================================
+# 报告导出模型
+# ==============================================================================
+
+class ReportOptions(BaseModel):
+    """报告生成选项"""
+    include_llm: bool = Field(True, description="是否调用 LLM 生成研判意见")
+
+
+class ReportRequest(BaseModel):
+    """报告导出请求"""
+    type: str = Field(..., description="报告类型: single | batch")
+    results: list[dict] = Field(..., min_length=1, description="检测结果列表 (AnalysisResponse dict)")
+    options: ReportOptions = Field(default_factory=ReportOptions, description="报告选项")
+
+
+class ReportPreviewResponse(BaseModel):
+    """报告预览响应"""
+    html: str = Field(..., description="完整 HTML 报告")
+    llm_generated: bool = Field(False, description="是否成功调用了 LLM")
+    llm_elapsed_ms: float = Field(0, description="LLM 调用耗时 (ms)")

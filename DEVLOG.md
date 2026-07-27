@@ -97,6 +97,32 @@
 
 **分支状态**：已于 2026-07-27 通过 `--no-ff` 合并至 `main`。
 
+### 2026-07-27 — 分支 `feature/report-export`：检测报告导出功能（LLM 研判 + PDF 导出）
+
+**目标**：实现单图/批量检测报告的预览与 PDF 导出，接入 DeepSeek API 生成专业取证研判意见。
+
+**已完成**（代码已落地，待 commit）：
+- `explanation/llm/` 新建模块（`__init__.py`, `client.py`, `prompts.py`, `agent.py`）
+  - `DeepSeekClient`：OpenAI SDK 兼容的 DeepSeek API 客户端（模型 `deepseek-v4-pro`）
+  - `ReportAgent`：接收 pipeline 输出，提取结构化摘要 JSON → 调 DS → 解析回复为 {opinion, dimension_notes, region_notes}
+  - Prompt 模板：System prompt（取证专家角色）+ 单图三段式 prompt + 批量两段式 prompt + fallback 文本
+  - DS 不可用时自动 fallback 模板文字，不阻断报告生成
+- `explanation/visualization/report.py` 模板扩展
+  - `generate_single()` 新增 LLM 研判段落（综合研判意见、维度解读、区域解读）
+  - `generate_batch()` 新增批量研判意见 + 高风险条目详情展开（含热力缩略图、迷你维度条）
+  - 超监管标记（报告页头 badge、汇总表红色底色行、⚠ 前缀）
+  - 新增 10 个 CSS 类（llm-card, super-oversight-badge, row-super-oversight, high-risk-detail-card 等）
+- `explanation/api/schemas.py`：新增 `ReportRequest`、`ReportOptions`、`ReportPreviewResponse`
+- `explanation/api/routes.py`：新增两个端点
+  - `POST /api/v1/report/preview` — 返回完整 HTML 报告（iframe 预览）
+  - `POST /api/v1/report/download` — 返回 PDF 文件流（weasyprint 渲染）
+  - 延迟初始化 LLM agent，从 `configs/default.yaml` 读取配置
+- `configs/default.yaml`：新增 `llm` 配置段（provider/model/api_key_env/base_url/temperature/max_tokens/enabled）
+- `requirements.txt`：新增 `openai>=1.0`、`weasyprint>=60`
+- 前端：单图/批量结果面板各加「导出报告」按钮，预览弹窗（iframe + 下载 PDF + ESC 关闭），CSS 动画
+
+**分支状态**：当前在 `feature/report-export`，尚未 commit/push。
+
 ### 2026-07-21 - 第一章 v2：定名"社交媒体传播场景" + 相关工作改基金写法
 
 队长两点反馈落地（`docs/restructure/latex_ch1_overview.tex` 已更新为 v2）：

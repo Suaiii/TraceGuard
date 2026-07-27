@@ -32,13 +32,13 @@ class Visualizer:
             include_charts=include_charts,
         )
 
-    def report(self, image_path: str, result: dict) -> str:
-        """生成单图 HTML 报告"""
-        return self.report_gen.generate_single(image_path, result)
+    def report(self, image_path: str, result: dict, llm_opinion: dict = None) -> str:
+        """生成单图 HTML 报告 (可附带 LLM 研判)"""
+        return self.report_gen.generate_single(image_path, result, llm_opinion=llm_opinion)
 
-    def batch_report(self, results: list, title: str = None) -> str:
-        """生成批量 HTML 报告"""
-        return self.report_gen.generate_batch(results, title=title)
+    def batch_report(self, results: list, title: str = None, llm_opinion: dict = None) -> str:
+        """生成批量 HTML 报告 (可附带 LLM 研判)"""
+        return self.report_gen.generate_batch(results, title=title, llm_opinion=llm_opinion)
 
     def charts(self, result: dict) -> dict:
         """生成全部图表 (radar, gauge)"""

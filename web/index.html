@@ -144,6 +144,8 @@
             <h3>&#35299;&#37322;&#25688;&#35201;</h3>
             <p id="briefText">&#19978;&#20256;&#19968;&#24352;&#22270;&#29255;&#21518;&#65292;&#31995;&#32479;&#20250;&#32473;&#20986;&#20840;&#23616;&#30495;&#20266;&#21028;&#26029;&#12289;&#23616;&#37096;&#35777;&#25454;&#21644;&#21487;&#22797;&#26680;&#35299;&#37322;&#12290;</p>
           </div>
+
+          <button class="export-button" id="exportSingleButton" type="button" style="display:none">&#128196; &#23548;&#20986;&#25253;&#21578;</button>
         </section>
 
         <section class="evidence-panel">
@@ -230,8 +232,28 @@
           <div class="result-grid" id="resultGrid">
             <div class="batch-empty" id="batchEmptyState">&#19978;&#20256;&#22270;&#29255;&#24182;&#24320;&#22987;&#26816;&#27979;&#21518;&#26174;&#31034;&#32467;&#26524;</div>
           </div>
+
+          <button class="export-button" id="exportBatchButton" type="button" style="display:none">&#128196; &#25209;&#37327;&#23548;&#20986;&#25253;&#21578;</button>
         </section>
       </section>
+
+      <!-- ========== 预览弹窗 ========== -->
+      <div class="preview-modal" id="previewModal" style="display:none">
+        <div class="preview-overlay" id="previewOverlay"></div>
+        <div class="preview-container">
+          <div class="preview-head">
+            <span>&#128196; &#25253;&#21578;&#39044;&#35272;</span>
+            <button class="preview-close" id="previewClose" type="button">&times;</button>
+          </div>
+          <div class="preview-body">
+            <iframe id="previewFrame" sandbox="allow-same-origin"></iframe>
+          </div>
+          <div class="preview-actions">
+            <button class="preview-download" id="previewDownload" type="button">&#128229; &#19979;&#36733; PDF</button>
+            <button class="preview-cancel" id="previewCancel" type="button">&#20851;&#38381;</button>
+          </div>
+        </div>
+      </div>
     </main>
 
     <script src="/static/app.js"></script>

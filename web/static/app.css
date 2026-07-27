@@ -1234,3 +1234,146 @@ pre {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   Export Button
+   ============================================================ */
+
+.export-button {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 0;
+  border: 1.5px dashed var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.export-button:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--lime-alpha);
+}
+
+.export-button:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   Preview Modal
+   ============================================================ */
+
+.preview-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.preview-container {
+  position: relative;
+  width: min(95vw, 960px);
+  height: min(90vh, 700px);
+  background: var(--card-bg);
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalIn 0.25s ease-out;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--night);
+}
+
+.preview-close {
+  background: none;
+  border: none;
+  font-size: 26px;
+  color: var(--secondary);
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 4px;
+  transition: color 0.15s;
+}
+
+.preview-close:hover {
+  color: var(--red);
+}
+
+.preview-body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.preview-body iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.preview-download {
+  padding: 9px 24px;
+  border: none;
+  border-radius: 6px;
+  background: var(--primary);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.preview-download:hover {
+  background: #1450A0;
+}
+
+.preview-cancel {
+  padding: 9px 20px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.preview-cancel:hover {
+  background: var(--bg);
+}
