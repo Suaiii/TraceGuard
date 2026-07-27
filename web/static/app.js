@@ -2,6 +2,10 @@ const state = {
   file: null,
   result: null,
   activeView: "overlay",
+  mode: "single",
+  files: [],
+  batchResults: null,
+  expandedCard: null,
 };
 
 const el = {
@@ -30,6 +34,23 @@ const el = {
   evidenceImage: document.getElementById("evidenceImage"),
   emptyEvidence: document.getElementById("emptyEvidence"),
   detailText: document.getElementById("detailText"),
+  modeBar: document.getElementById("modeBar"),
+  singleWorkspace: document.getElementById("singleWorkspace"),
+  multiWorkspace: document.getElementById("multiWorkspace"),
+  multiDropzone: document.getElementById("multiDropzone"),
+  multiFileInput: document.getElementById("multiFileInput"),
+  fileGrid: document.getElementById("fileGrid"),
+  multiFileCount: document.getElementById("multiFileCount"),
+  batchAnalyzeButton: document.getElementById("batchAnalyzeButton"),
+  multiLocalizationToggle: document.getElementById("multiLocalizationToggle"),
+  multiAlphaRange: document.getElementById("multiAlphaRange"),
+  resultGrid: document.getElementById("resultGrid"),
+  batchStats: document.getElementById("batchStats"),
+  batchEmptyState: document.getElementById("batchEmptyState"),
+  batchSuccessCount: document.getElementById("batchSuccessCount"),
+  batchErrorCount: document.getElementById("batchErrorCount"),
+  batchTotalTime: document.getElementById("batchTotalTime"),
+  batchLatencyText: document.getElementById("batchLatencyText"),
 };
 
 const text = {
@@ -53,6 +74,13 @@ const text = {
   noDetail: "\u65e0\u8be6\u7ec6\u89e3\u91ca",
   failed: "\u5206\u6790\u5931\u8d25",
   localSample: "\u8bf7\u9009\u62e9 tests/fixtures \u4e2d\u7684\u6837\u4f8b\u56fe\u50cf\u8fdb\u884c\u68c0\u6d4b",
+  batchConvert: "\u6b63\u5728\u8f6c\u6362\u56fe\u7247...",
+  batchAnalyzing: "\u6b63\u5728\u6279\u91cf\u68c0\u6d4b...",
+  batchAnalyze: "\u5f00\u59cb\u6279\u91cf\u68c0\u6d4b",
+  batchEmpty: "\u4e0a\u4f20\u56fe\u7247\u5e76\u5f00\u59cb\u68c0\u6d4b\u540e\u663e\u793a\u7ed3\u679c",
+  batchFailed: "\u6279\u91cf\u5206\u6790\u5931\u8d25",
+  expandLabel: "\u5c55\u5f00 \u25bc",
+  collapseLabel: "\u6536\u8d77 \u25b2",
 };
 
 function setStatus(kind, message) {
@@ -180,6 +208,267 @@ function renderEvidence() {
   }
 }
 
+function switchMode(mode) {
+  if (state.mode === mode) return;
+  state.mode = mode;
+
+  el.modeBar.querySelectorAll(".mode-tab").forEach(function (tab) {
+    tab.classList.toggle("active", tab.dataset.mode === mode);
+  });
+
+  el.singleWorkspace.style.display = mode === "single" ? "" : "none";
+  el.multiWorkspace.style.display = mode === "multi" ? "" : "none";
+}
+
+function addFiles(incomingFileList) {
+  var incoming = Array.from(incomingFileList).filter(function (f) {
+    return f.type.startsWith("image/");
+  });
+
+  for (var i = 0; i < incoming.length; i++) {
+    var file = incoming[i];
+    var isDuplicate = state.files.some(function (f) {
+      return f.name === file.name && f.size === file.size;
+    });
+    if (!isDuplicate && state.files.length < 20) {
+      state.files.push(file);
+    }
+  }
+
+  state.batchResults = null;
+  state.expandedCard = null;
+  renderFileList();
+}
+
+function removeFile(index) {
+  state.files.splice(index, 1);
+  state.batchResults = null;
+  state.expandedCard = null;
+  renderFileList();
+}
+
+function renderFileList() {
+  el.fileGrid.innerHTML = "";
+  el.multiFileCount.textContent = state.files.length + " / 20";
+  el.batchAnalyzeButton.disabled = state.files.length === 0;
+  el.batchEmptyState.style.display = "";
+  el.batchStats.style.display = "none";
+  var cards = el.resultGrid.querySelectorAll(".result-card");
+  for (var c = 0; c < cards.length; c++) { cards[c].remove(); }
+
+  state.files.forEach(function (file, index) {
+    var card = document.createElement("div");
+    card.className = "file-card";
+
+    var img = document.createElement("img");
+    img.src = URL.createObjectURL(file);
+    img.alt = file.name;
+
+    var nameSpan = document.createElement("span");
+    nameSpan.className = "file-name";
+    nameSpan.textContent = file.name;
+
+    var sizeSpan = document.createElement("span");
+    sizeSpan.className = "file-size";
+    sizeSpan.textContent = (file.size / 1024).toFixed(1) + " KB";
+
+    var removeBtn = document.createElement("button");
+    removeBtn.className = "file-remove";
+    removeBtn.type = "button";
+    removeBtn.textContent = "×";
+    removeBtn.addEventListener("click", (function (idx) {
+      return function (e) { e.stopPropagation(); removeFile(idx); };
+    })(index));
+
+    card.appendChild(img);
+    card.appendChild(nameSpan);
+    card.appendChild(sizeSpan);
+    card.appendChild(removeBtn);
+    el.fileGrid.appendChild(card);
+  });
+}
+
+async function submitBatch() {
+  if (state.files.length === 0) return;
+
+  el.batchAnalyzeButton.disabled = true;
+  el.batchAnalyzeButton.textContent = text.batchConvert;
+  el.batchEmptyState.textContent = "正在分析中...";
+  el.batchEmptyState.style.display = "";
+  el.batchStats.style.display = "none";
+  var oldCards = el.resultGrid.querySelectorAll(".result-card");
+  for (var c = 0; c < oldCards.length; c++) { oldCards[c].remove(); }
+
+  try {
+    var imagesBase64 = await Promise.all(
+      state.files.map(function (f) { return fileToBase64(f); })
+    );
+
+    el.batchAnalyzeButton.textContent = text.batchAnalyzing;
+
+    var res = await fetch("/api/v1/analyze/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        images_base64: imagesBase64,
+        options: {
+          overlay_alpha: Number(el.multiAlphaRange.value),
+          enable_localization: el.multiLocalizationToggle.checked,
+          language: "zh",
+          detail_level: "standard",
+        },
+      }),
+    });
+
+    var data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || "HTTP " + res.status);
+    }
+
+    state.batchResults = data;
+    renderBatchResults(data);
+  } catch (error) {
+    el.batchEmptyState.textContent = text.batchFailed + ": " + error.message;
+    el.batchEmptyState.style.display = "";
+    el.batchStats.style.display = "none";
+  } finally {
+    el.batchAnalyzeButton.disabled = false;
+    el.batchAnalyzeButton.textContent = text.batchAnalyze;
+  }
+}
+
+function renderBatchResults(data) {
+  el.batchEmptyState.style.display = "none";
+  el.batchStats.style.display = "flex";
+  el.batchSuccessCount.textContent = String(data.success_count);
+  el.batchErrorCount.textContent = String(data.error_count);
+  el.batchTotalTime.textContent = String(Math.round(data.total_elapsed_ms));
+  el.batchLatencyText.textContent = Math.round(data.total_elapsed_ms) + " ms";
+
+  var grid = el.resultGrid;
+  data.results.forEach(function (result, index) {
+    var card = createResultCard(result, index);
+    grid.appendChild(card);
+  });
+}
+
+function createResultCard(result, index) {
+  var card = document.createElement("article");
+  var label = result.label || "error";
+  card.className = "result-card " + label;
+  card.dataset.index = String(index);
+
+  var file = state.files[index];
+  var fileName = file ? file.name : ("图片 " + (index + 1));
+  var thumbSrc = file ? URL.createObjectURL(file) : "";
+
+  // Head
+  var head = document.createElement("div");
+  head.className = "card-head";
+
+  var thumb = document.createElement("img");
+  thumb.className = "card-thumb";
+  thumb.src = thumbSrc;
+  thumb.alt = "";
+
+  var meta = document.createElement("div");
+  meta.className = "card-meta";
+
+  var nameEl = document.createElement("span");
+  nameEl.className = "card-name";
+  nameEl.textContent = fileName;
+
+  var verdict = document.createElement("span");
+  verdict.className = "card-verdict";
+  verdict.textContent = text.label[label] || label;
+
+  meta.appendChild(nameEl);
+  meta.appendChild(verdict);
+  head.appendChild(thumb);
+  head.appendChild(meta);
+
+  // Body stats
+  var body = document.createElement("div");
+  body.className = "card-body";
+  body.appendChild(makeStat("伪造概率", asPercent(result.fake_prob || 0)));
+
+  var riskLevel = result.risk_level || "error";
+  var riskHtml = "<span class=\"risk-" + riskLevel + "\">" + (riskLevel || "--") + "</span>";
+  body.appendChild(makeStat("风险等级", riskHtml));
+
+  body.appendChild(makeStat("耗时", Math.round(result.elapsed_ms || 0) + " ms"));
+
+  // Toggle
+  var toggle = document.createElement("button");
+  toggle.className = "card-toggle";
+  toggle.type = "button";
+  var expanded = state.expandedCard === index;
+  toggle.textContent = expanded ? text.collapseLabel : text.expandLabel;
+  toggle.addEventListener("click", (function (idx) {
+    return function () { expandCard(idx); };
+  })(index));
+
+  // Detail
+  var detail = document.createElement("div");
+  detail.className = "card-detail";
+  detail.style.display = expanded ? "" : "none";
+
+  var brief = document.createElement("p");
+  brief.textContent = result.explanation_brief || text.noBrief;
+
+  var pre = document.createElement("pre");
+  pre.textContent = result.explanation || text.noDetail;
+
+  detail.appendChild(brief);
+  detail.appendChild(pre);
+
+  card.appendChild(head);
+  card.appendChild(body);
+  card.appendChild(toggle);
+  card.appendChild(detail);
+
+  return card;
+}
+
+function makeStat(label, valueHtml) {
+  var div = document.createElement("div");
+  div.className = "card-stat";
+  var span = document.createElement("span");
+  span.textContent = label;
+  var b = document.createElement("b");
+  b.innerHTML = valueHtml;
+  div.appendChild(span);
+  div.appendChild(b);
+  return div;
+}
+
+function expandCard(index) {
+  var prev = state.expandedCard;
+  state.expandedCard = state.expandedCard === index ? null : index;
+
+  // Collapse previous
+  if (prev !== null) {
+    var prevCard = el.resultGrid.querySelector('[data-index="' + prev + '"]');
+    if (prevCard) {
+      var prevDetail = prevCard.querySelector(".card-detail");
+      var prevToggle = prevCard.querySelector(".card-toggle");
+      if (prevDetail) prevDetail.style.display = "none";
+      if (prevToggle) prevToggle.textContent = text.expandLabel;
+    }
+  }
+
+  // Expand new
+  if (state.expandedCard !== null) {
+    var curCard = el.resultGrid.querySelector('[data-index="' + state.expandedCard + '"]');
+    if (curCard) {
+      var curDetail = curCard.querySelector(".card-detail");
+      var curToggle = curCard.querySelector(".card-toggle");
+      if (curDetail) curDetail.style.display = "";
+      if (curToggle) curToggle.textContent = text.collapseLabel;
+    }
+  }
+}
+
 function bindEvents() {
   el.fileInput.addEventListener("change", (event) => {
     setFile(event.target.files?.[0]);
@@ -217,6 +506,41 @@ function bindEvents() {
       renderEvidence();
     });
   });
+
+  // --- Mode toggle ---
+  el.modeBar.querySelectorAll(".mode-tab").forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      switchMode(tab.dataset.mode);
+    });
+  });
+
+  // --- Multi-file input ---
+  el.multiFileInput.addEventListener("change", function (event) {
+    addFiles(event.target.files);
+    event.target.value = "";
+  });
+
+  // --- Multi dropzone drag-and-drop ---
+  ["dragenter", "dragover"].forEach(function (type) {
+    el.multiDropzone.addEventListener(type, function (event) {
+      event.preventDefault();
+      el.multiDropzone.classList.add("dragging");
+    });
+  });
+
+  ["dragleave", "drop"].forEach(function (type) {
+    el.multiDropzone.addEventListener(type, function (event) {
+      event.preventDefault();
+      el.multiDropzone.classList.remove("dragging");
+    });
+  });
+
+  el.multiDropzone.addEventListener("drop", function (event) {
+    addFiles(event.dataTransfer.files);
+  });
+
+  // --- Batch analyze button ---
+  el.batchAnalyzeButton.addEventListener("click", submitBatch);
 }
 
 bindEvents();
