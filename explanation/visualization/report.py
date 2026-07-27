@@ -194,7 +194,7 @@ class ReportGenerator:
 {self._llm_dimension_notes_card(llm_dimension_notes)}
 
 <!-- ========== Metadata ========== -->
-<div class="card">
+<div class="card keep-together">
     <h2>分析元信息</h2>
     <div class="meta-grid">
         <div class="meta-item"><span class="meta-key">热力图方法</span><span class="meta-val">{metadata.get('heatmap_method', '-')}</span></div>
@@ -565,6 +565,9 @@ class ReportGenerator:
                 margin-bottom: 10px;
                 page-break-inside: auto;
             }
+            .card.keep-together {
+                page-break-inside: avoid;
+            }
             .card h2 {
                 font-size: 13px;
                 font-weight: 700;
@@ -803,6 +806,9 @@ class ReportGenerator:
                 .metrics-banner { page-break-inside: avoid; }
                 h2 { page-break-after: avoid; }
                 .page-header { page-break-after: avoid; }
+                .data-table { page-break-inside: auto; }
+                .data-table tr { page-break-inside: avoid; }
+                .meta-grid { page-break-inside: avoid; }
             }
         '''
 
@@ -838,7 +844,7 @@ class ReportGenerator:
 
     def _bbox_table(self, bbox_list: list) -> str:
         if not bbox_list:
-            return '''<div class="card">
+            return '''<div class="card keep-together">
             <h2>可疑区域列表 <span class="card-badge">0 处</span></h2>
             <p style="color:var(--text-secondary);font-size:12px;">未检测到可疑篡改区域</p>
         </div>'''
@@ -855,7 +861,7 @@ class ReportGenerator:
                 <td class="center" style="font-weight:700;color:{score_color};">{local_score:.2f}</td>
             </tr>'''
 
-        return f'''<div class="card">
+        return f'''<div class="card keep-together">
             <h2>可疑区域列表 <span class="card-badge">{len(bbox_list)} 处</span></h2>
             <table class="data-table">
                 <thead><tr><th class="center">#</th><th class="center">坐标 (x, y)</th><th class="center">尺寸 (w&times;h)</th><th class="center">面积 (px)</th><th class="center">局部风险分</th></tr></thead>
@@ -901,7 +907,7 @@ class ReportGenerator:
                 </td>
             </tr>'''
 
-        return f'''<div class="card">
+        return f'''<div class="card keep-together">
             <h2>风险维度详情 <span class="card-badge">5 维</span></h2>
             <table class="data-table">
                 <thead><tr><th>维度</th><th>权重</th><th class="center">分数</th><th>百分比</th></tr></thead>
