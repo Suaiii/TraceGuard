@@ -44,7 +44,7 @@
 
 **背景**：ExImage 测试集在平台实测中大量图片被判定为 fake，但无一触发超监管提示。根因是 `risk_level` 几乎全部落在 medium 带（0.35–0.70），五维风险评分中 `tamper_area` 和 `consistency` 的低方差拖累了 `fake_prob` 的主信号。同时 bbox `area` 字段在代码和报告间存在语义不一致。
 
-**已完成（共 6 commits）**：
+**已完成（共 7 commits，已通过 `--no-ff` 合并至 `main`：`5d1dc0c`）**：
 
 1. **超监管高危内容展示（方案 A）**（`dad81fb`）
    - HTML/CSS/JS：单图 verdict 下方红色脉冲警示横幅 + 解释摘要顶部人工复核建议段落 + 四维度风险可视化条形图
@@ -71,11 +71,31 @@
    - 单图模式：verdict 块切换深红黑底 + 白色文字 + 脉冲外发光动画；警示横幅加入左侧红色强调条 + 斜纹底纹 + 伪造概率/综合风险分动态数值；维度分析新增红色综合分徽章
    - 批量模式：超监管卡片左侧 3px 红色强调条 + 卡片头部淡红背景 + 徽章渐变红底呼吸脉冲动画
 
-**变更文件**：`web/index.html`、`web/static/app.css`、`web/static/app.js`、`explanation/risk/scorer.py`、`explanation/config.py`、`explanation/localization/postprocess.py`、`configs/default.yaml`、`docs/restructure/latex_ch1_overview.tex`、`tests/test_config.py`
+7. **DEVLOG 记录**（`f76cc8f`）
 
-**测试**：58/58 通过（test_risk.py 20/20 + test_text.py 17/17 + test_localization.py 21/21），33/33 通过（test_config.py）。`test_risk_calibration.py` 有 pandas/pyarrow 环境 SegFault（预存问题，非本次引入）。
+**变更文件**：`web/index.html`、`web/static/app.css`、`web/static/app.js`、`explanation/risk/scorer.py`、`explanation/config.py`、`explanation/localization/postprocess.py`、`configs/default.yaml`、`docs/restructure/latex_ch1_overview.tex`、`tests/test_config.py`、`DEVLOG.md`
 
-**未合并**：`feature/super-oversight` 仍为独立分支，未合入 `main`。
+**测试**：58/58 通过（test_risk.py 20/20 + test_text.py 17/17 + test_localization.py 21/21），33/33 通过（test_config.py）。
+
+### 2026-07-27 — 分支 `enhance-platform`：平台功能完善（SPA 单图/多图检测切换、证据展示、交互修复）
+
+**背景**：Web 平台仅支持单图检测，缺少批量入口。多图检测后端 API（`POST /api/v1/analyze/batch`，上限 20 张）已就绪但前端未使用。同时存在文案（审计→检测）和功能（复选框无效）的 bug。
+
+**已合并回 main（`116da0f`，共 7 commits）**：
+
+1. **复选框修复 + 文案统一**（`25503e4`）：`_apply_options` 未写入 `enable_localization`，导致"可疑区域定位"复选框无效；`app.js` 三处遗漏的"审计"改为"检测"
+2. **单图/多图检测切换**（`2e33630`）：SPA 方案——`index.html` 内 CSS show/hide 切换两个 workspace；`<nav class="mode-bar">` 放两个 tab；多图左列批量上传（dropzone `multiple` + 缩略图网格 `#fileGrid` + 去重/20 张上限）、右列批量结果；`switchMode()` 切换逻辑
+3. **结果卡片迷你证据查看器**（`1cb2c23`）：每张卡片展开后含四 tab 迷你证据图（overlay/mask/bbox/tamper），`switchMiniEvidence()` 切换
+4. **三列结果网格**（`6e17428`）：`repeat(3, 1fr)` 固定三列 + 响应式覆写
+5. **独立展开/收起**（`4eb9550`）：`expandCard()` 改为独立 toggle（`display !== "none"` 切换），不再手风琴互斥
+6. **风险等级文字居中**（`ee58107`）：`.card-stat b` 设置 `display: block`
+7. **定位关闭提示文案**（`021b6e6`）：未勾选"可疑区域定位"时，bbox/tamper 证据区显示「勾选"可疑区域定位"后显示」；替换中文弯引号（U+201C/U+201D）为角形引号修复 JS SyntaxError
+8. **清空按钮**（`7175cf7`）：多图上传区新增红色「清空所有图片」按钮，有文件时显示/无文件时隐藏；点击清空 `state.files`、`batchResults` 并刷新界面
+9. **DEVLOG 记录**（`202016d`）
+
+**变更文件**：`web/index.html`、`web/static/app.css`、`web/static/app.js`、`explanation/api/routes.py`、`DEVLOG.md`
+
+**分支状态**：已于 2026-07-27 通过 `--no-ff` 合并至 `main`。
 
 ### 2026-07-21 - 第一章 v2：定名"社交媒体传播场景" + 相关工作改基金写法
 

@@ -839,6 +839,26 @@ pre {
   color: var(--muted);
 }
 
+.clear-files-button {
+  width: 100%;
+  min-height: 32px;
+  margin-top: 10px;
+  border: 1px solid rgba(184, 63, 53, 0.22);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.clear-files-button:hover {
+  background: #fff5f2;
+  border-color: rgba(184, 63, 53, 0.40);
+}
+
 .file-remove {
   position: absolute;
   top: 4px;

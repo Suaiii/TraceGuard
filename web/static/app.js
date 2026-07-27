@@ -58,6 +58,7 @@ const el = {
   soFakeProbVal: document.getElementById("soFakeProbVal"),
   soRiskScoreVal: document.getElementById("soRiskScoreVal"),
   soTotalScore: document.getElementById("soTotalScore"),
+  clearFilesButton: document.getElementById("clearFilesButton"),
 };
 
 const text = {
@@ -99,6 +100,7 @@ const text = {
     region_count: "\u53ef\u7591\u533a\u57df\u6570\u91cf",
     consistency: "\u7279\u5f81\u4e00\u81f4\u6027",
   },
+  clearFiles: "\u6e05\u7a7a\u6240\u6709\u56fe\u7247",
 };
 
 function setStatus(kind, message) {
@@ -340,10 +342,17 @@ function removeFile(index) {
   renderFileList();
 }
 
+function clearFiles() {
+  state.files = [];
+  state.batchResults = null;
+  renderFileList();
+}
+
 function renderFileList() {
   el.fileGrid.innerHTML = "";
   el.multiFileCount.textContent = state.files.length + " / 20";
   el.batchAnalyzeButton.disabled = state.files.length === 0;
+  el.clearFilesButton.style.display = state.files.length > 0 ? "" : "none";
   el.batchEmptyState.style.display = "";
   el.batchStats.style.display = "none";
   var cards = el.resultGrid.querySelectorAll(".result-card");
@@ -742,6 +751,9 @@ function bindEvents() {
 
   // --- Batch analyze button ---
   el.batchAnalyzeButton.addEventListener("click", submitBatch);
+
+  // --- Clear files button ---
+  el.clearFilesButton.addEventListener("click", clearFiles);
 }
 
 bindEvents();
