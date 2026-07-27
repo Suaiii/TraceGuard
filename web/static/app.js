@@ -73,6 +73,8 @@ const text = {
   noDetail: "\u65e0\u8be6\u7ec6\u89e3\u91ca",
   failed: "\u5206\u6790\u5931\u8d25",
   localSample: "\u8bf7\u9009\u62e9 tests/fixtures \u4e2d\u7684\u6837\u4f8b\u56fe\u50cf\u8fdb\u884c\u68c0\u6d4b",
+  collapsed: "\u68c0\u6d4b\u540e\u663e\u793a\u8bc1\u636e\u56fe",
+  noLocalization: "\u52fe\u9009"\u53ef\u7591\u533a\u57df\u5b9a\u4f4d"\u540e\u663e\u793a",
   batchConvert: "\u6b63\u5728\u8f6c\u6362\u56fe\u7247...",
   batchAnalyzing: "\u6b63\u5728\u6279\u91cf\u68c0\u6d4b...",
   batchAnalyze: "\u5f00\u59cb\u6279\u91cf\u68c0\u6d4b",
@@ -204,6 +206,13 @@ function renderEvidence() {
   } else {
     el.evidenceImage.removeAttribute("src");
     el.emptyEvidence.classList.remove("hidden");
+    var locViews = ["bbox", "tamper"];
+    var locEnabled = state.result && state.result.metadata && state.result.metadata.localization_enabled;
+    if (locViews.indexOf(state.activeView) !== -1 && locEnabled === false) {
+      el.emptyEvidence.textContent = text.noLocalization;
+    } else {
+      el.emptyEvidence.textContent = text.collapsed;
+    }
   }
 }
 
