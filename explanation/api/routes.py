@@ -314,12 +314,15 @@ def create_app(
         # HTML → PDF (Playwright Chromium, async)
         pdf_bytes = None
         try:
+            import base64 as b64
             from playwright.async_api import async_playwright
             pw = await async_playwright().start()
             try:
                 browser = await pw.chromium.launch()
                 page = await browser.new_page()
-                await page.set_content(html, timeout=30000)
+                # 用 data URL 加载，确保 base64 图片全部渲染完毕再导出
+                data_url = 'data:text/html;base64,' + b64.b64encode(html.encode('utf-8')).decode()
+                await page.goto(data_url, wait_until='networkidle', timeout=30000)
                 pdf_bytes = await page.pdf(format='A4', print_background=True)
                 await browser.close()
             finally:
