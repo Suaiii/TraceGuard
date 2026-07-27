@@ -5,7 +5,6 @@ const state = {
   mode: "single",
   files: [],
   batchResults: null,
-  expandedCard: null,
 };
 
 const el = {
@@ -236,14 +235,12 @@ function addFiles(incomingFileList) {
   }
 
   state.batchResults = null;
-  state.expandedCard = null;
   renderFileList();
 }
 
 function removeFile(index) {
   state.files.splice(index, 1);
   state.batchResults = null;
-  state.expandedCard = null;
   renderFileList();
 }
 
@@ -402,8 +399,7 @@ function createResultCard(result, index) {
   var toggle = document.createElement("button");
   toggle.className = "card-toggle";
   toggle.type = "button";
-  var expanded = state.expandedCard === index;
-  toggle.textContent = expanded ? text.collapseLabel : text.expandLabel;
+  toggle.textContent = text.expandLabel;
   toggle.addEventListener("click", (function (idx) {
     return function () { expandCard(idx); };
   })(index));
@@ -411,7 +407,7 @@ function createResultCard(result, index) {
   // Detail
   var detail = document.createElement("div");
   detail.className = "card-detail";
-  detail.style.display = expanded ? "" : "none";
+  detail.style.display = "none";
 
   var brief = document.createElement("p");
   brief.textContent = result.explanation_brief || text.noBrief;
@@ -542,29 +538,20 @@ function switchMiniEvidence(cardIndex, view) {
 }
 
 function expandCard(index) {
-  var prev = state.expandedCard;
-  state.expandedCard = state.expandedCard === index ? null : index;
+  var card = el.resultGrid.querySelector('[data-index="' + index + '"]');
+  if (!card) return;
 
-  // Collapse previous
-  if (prev !== null) {
-    var prevCard = el.resultGrid.querySelector('[data-index="' + prev + '"]');
-    if (prevCard) {
-      var prevDetail = prevCard.querySelector(".card-detail");
-      var prevToggle = prevCard.querySelector(".card-toggle");
-      if (prevDetail) prevDetail.style.display = "none";
-      if (prevToggle) prevToggle.textContent = text.expandLabel;
-    }
-  }
+  var detail = card.querySelector(".card-detail");
+  var toggle = card.querySelector(".card-toggle");
+  if (!detail || !toggle) return;
 
-  // Expand new
-  if (state.expandedCard !== null) {
-    var curCard = el.resultGrid.querySelector('[data-index="' + state.expandedCard + '"]');
-    if (curCard) {
-      var curDetail = curCard.querySelector(".card-detail");
-      var curToggle = curCard.querySelector(".card-toggle");
-      if (curDetail) curDetail.style.display = "";
-      if (curToggle) curToggle.textContent = text.collapseLabel;
-    }
+  var isOpen = detail.style.display !== "none";
+  if (isOpen) {
+    detail.style.display = "none";
+    toggle.textContent = text.expandLabel;
+  } else {
+    detail.style.display = "";
+    toggle.textContent = text.collapseLabel;
   }
 }
 
