@@ -1383,6 +1383,8 @@ pre {
   border-radius: 4px;
   margin: 28px auto;
   overflow: hidden;
+  transform: scale(0.82);
+  transform-origin: top center;
 }
 
 /* --- Actions --- */
