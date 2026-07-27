@@ -311,16 +311,19 @@ def create_app(
         else:
             raise HTTPException(status_code=400, detail=f"unknown report type: {request.type}")
 
-        # HTML → PDF (Playwright + Chromium)
+        # HTML → PDF (Playwright Chromium, async)
         pdf_bytes = None
         try:
-            from playwright.sync_api import sync_playwright
-            with sync_playwright() as pw:
-                browser = pw.chromium.launch()
-                page = browser.new_page()
-                page.set_content(html, timeout=30000)
-                pdf_bytes = page.pdf(format='A4', print_background=True)
-                browser.close()
+            from playwright.async_api import async_playwright
+            pw = await async_playwright().start()
+            try:
+                browser = await pw.chromium.launch()
+                page = await browser.new_page()
+                await page.set_content(html, timeout=30000)
+                pdf_bytes = await page.pdf(format='A4', print_background=True)
+                await browser.close()
+            finally:
+                await pw.stop()
         except ImportError:
             raise HTTPException(
                 status_code=501,
