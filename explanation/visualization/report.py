@@ -256,13 +256,19 @@ class ReportGenerator:
         llm_priority = llm.get('priority_list', '')
         llm_review_suggestions = llm.get('review_suggestions', {})
 
-        # ---- 汇总图表 (4 张独立图表并排) ----
+        # ---- 汇总图表 (4 张独立图表并排, 统一尺寸) ----
         chart_html = ''
         if self.include_charts and results:
-            pie_img = label_pie_chart(results, size=(260, 220))
-            bar_img = risk_level_bar_chart(results, size=(260, 220))
-            hist_img = fake_prob_histogram(results, size=(260, 220))
-            dist_img = risk_score_distribution(results, size=(260, 220))
+            chart_size = (520, 440)  # 2x target for retina/crisp rendering
+            pie_img = label_pie_chart(results, size=chart_size)
+            bar_img = risk_level_bar_chart(results, size=chart_size)
+            hist_img = fake_prob_histogram(results, size=chart_size)
+            dist_img = risk_score_distribution(results, size=chart_size)
+            # 统一缩放到相同尺寸，避免不同图表类型因 bbox_inches 产生的尺寸差异
+            pie_img = pie_img.resize(chart_size, Image.LANCZOS)
+            bar_img = bar_img.resize(chart_size, Image.LANCZOS)
+            hist_img = hist_img.resize(chart_size, Image.LANCZOS)
+            dist_img = dist_img.resize(chart_size, Image.LANCZOS)
             chart_html = f'''<div class="card">
             <h2>汇总图表</h2>
             <div class="chart-row-4">
@@ -763,7 +769,7 @@ class ReportGenerator:
             }
             .result-table td { padding: 7px 8px; border-bottom: 1px solid #F3F4F6; }
             .result-table tbody tr:nth-child(even) { background: #F9FAFB; }
-            .cell-index { width: 36px; text-align: center; color: var(--text-secondary); }
+            .cell-index { width: 52px; text-align: center; color: var(--text-secondary); white-space: nowrap; }
             .cell-file { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .cell-num { text-align: center; font-variant-numeric: tabular-nums; }
             .cell-status { text-align: center; font-weight: 700; font-size: 11px; }
@@ -843,7 +849,7 @@ class ReportGenerator:
             .hr-mini-bar-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
             .hr-mini-bar-label { width: 70px; text-align: right; color: var(--text-secondary); }
             .hr-mini-bar-track { flex: 1; height: 5px; background: #E5E7EB; border-radius: 3px; overflow: hidden; }
-            .hr-mini-bar-fill { height: 100%; border-radius: 3px; }
+            .hr-mini-bar-fill { display: block; height: 100%; border-radius: 3px; }
             .hr-mini-bar-val { width: 36px; text-align: right; font-weight: 700; font-size: 11px; }
 
             /* ========== HR detail two-col ========== */
