@@ -1231,10 +1231,9 @@ class ReportGenerator:
             # Explanation
             expl_html = ''
             if explanation:
-                expl_text = explanation if len(explanation) <= 600 else explanation[:600] + '...'
                 expl_html = f'''<div class="hr-explanation">
                     <h4>详细解释</h4>
-                    <pre class="explanation-text">{self._escape_html(expl_text)}</pre>
+                    <pre class="explanation-text">{self._escape_html(explanation)}</pre>
                 </div>'''
 
             so_alert = ''
@@ -1290,10 +1289,9 @@ class ReportGenerator:
             # Explanation
             expl_html = ''
             if explanation:
-                expl_text = explanation if len(explanation) <= 500 else explanation[:500] + '...'
                 expl_html = f'''<div class="img-detail-explanation">
                     <h4>详细解释</h4>
-                    <pre class="explanation-text">{self._escape_html(expl_text)}</pre>
+                    <pre class="explanation-text">{self._escape_html(explanation)}</pre>
                 </div>'''
 
             cards += f'''<div class="image-detail-card">
