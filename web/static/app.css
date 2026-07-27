@@ -768,6 +768,7 @@ pre {
 }
 
 .result-card .card-stat b {
+  display: block;
   font-size: 13px;
   font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
   color: var(--ink);
