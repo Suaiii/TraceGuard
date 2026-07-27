@@ -1373,8 +1373,7 @@ pre {
 
 .preview-body iframe {
   display: block;
-  width: 100%;
-  max-width: 1000px;
+  width: 80%;
   border: none;
   background: #fff;
   box-shadow:
@@ -1383,7 +1382,7 @@ pre {
   border-radius: 4px;
   margin: 28px auto;
   overflow: hidden;
-  transform: scale(0.82);
+  transform: scale(0.9);
   transform-origin: top center;
 }
 
