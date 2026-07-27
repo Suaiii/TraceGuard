@@ -440,6 +440,215 @@ def batch_summary(results: list,
 
 
 # ==============================================================================
+# 4. 独立图表函数 (用于批量报告并排展示)
+# ==============================================================================
+
+def label_pie_chart(results: list,
+                   size: tuple = (280, 240),
+                   title: str = None) -> Image.Image:
+    """生成伪造/真实分布饼图（独立版）"""
+    if not results:
+        return Image.new('RGBA', size, (250, 250, 250, 255))
+
+    labels_list = [r.get('label', 'real') for r in results]
+    fake_count = sum(1 for l in labels_list if l == 'fake')
+    real_count = len(labels_list) - fake_count
+
+    fig, ax = plt.subplots(figsize=(size[0] / 100, size[1] / 100),
+                           facecolor=CHART_BG)
+    fig.patch.set_alpha(0)
+
+    wedges, texts, autotexts = ax.pie(
+        [fake_count, real_count],
+        labels=None,
+        autopct='%1.1f%%',
+        colors=['#F44336', '#4CAF50'],
+        startangle=90,
+        wedgeprops={'edgecolor': 'white', 'linewidth': 1.5},
+        textprops={'fontsize': 11, 'fontweight': 'bold'},
+    )
+    legend_labels = ['AIGC伪造', '真实'] if _CJK_FONT else ['Fake', 'Real']
+    ax.legend(wedges, [
+        f'{legend_labels[0]} ({fake_count})',
+        f'{legend_labels[1]} ({real_count})',
+    ], loc='lower center', fontsize=8)
+    if title is None:
+        title = '检测结果分布' if _CJK_FONT else 'Detection Distribution'
+    if _CJK_FONT:
+        ax.set_title(title, fontproperties=_CJK_FONT, fontsize=12, fontweight='bold')
+    else:
+        ax.set_title(title, fontsize=12, fontweight='bold')
+
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight',
+                facecolor=fig.get_facecolor(), edgecolor='none')
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert('RGBA')
+
+
+def risk_level_bar_chart(results: list,
+                         size: tuple = (280, 240),
+                         title: str = None) -> Image.Image:
+    """生成风险等级分布柱状图（独立版）"""
+    if not results:
+        return Image.new('RGBA', size, (250, 250, 250, 255))
+
+    risk_levels = [r.get('risk_level', 'low') for r in results]
+    level_counts = {
+        'low': sum(1 for l in risk_levels if l == 'low'),
+        'medium': sum(1 for l in risk_levels if l == 'medium'),
+        'high': sum(1 for l in risk_levels if l == 'high'),
+    }
+    bar_labels = LABEL_RISK
+    bar_values = [level_counts[k] for k in ['low', 'medium', 'high']]
+    bar_colors = [RISK_COLORS[k] for k in ['low', 'medium', 'high']]
+
+    fig, ax = plt.subplots(figsize=(size[0] / 100, size[1] / 100),
+                           facecolor=CHART_BG)
+    fig.patch.set_alpha(0)
+
+    bars = ax.bar(bar_labels, bar_values, color=bar_colors, alpha=0.75,
+                  edgecolor='white', linewidth=1.5)
+    for bar, val in zip(bars, bar_values):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max(bar_values) * 0.03,
+                str(val), ha='center', fontsize=11, fontweight='bold', color='#424242')
+    if title is None:
+        title = '风险等级分布' if _CJK_FONT else 'Risk Level Distribution'
+    if _CJK_FONT:
+        ax.set_title(title, fontproperties=_CJK_FONT, fontsize=12, fontweight='bold')
+        ax.set_xticks(range(len(bar_labels)))
+        ax.set_xticklabels(bar_labels, fontproperties=_CJK_FONT, fontsize=9)
+    else:
+        ax.set_title(title, fontsize=12, fontweight='bold')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#E0E0E0')
+    ax.spines['bottom'].set_color('#E0E0E0')
+    ax.tick_params(axis='y', colors='#757575')
+    ax.set_ylim(0, max(bar_values) * 1.25 if max(bar_values) > 0 else 1)
+
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight',
+                facecolor=fig.get_facecolor(), edgecolor='none')
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert('RGBA')
+
+
+def fake_prob_histogram(results: list,
+                        size: tuple = (280, 240),
+                        title: str = None) -> Image.Image:
+    """生成伪造概率直方图（独立版）"""
+    if not results:
+        return Image.new('RGBA', size, (250, 250, 250, 255))
+
+    fake_probs = [r.get('fake_prob', 0) for r in results]
+
+    fig, ax = plt.subplots(figsize=(size[0] / 100, size[1] / 100),
+                           facecolor=CHART_BG)
+    fig.patch.set_alpha(0)
+
+    ax.hist(fake_probs, bins=12, color='#42A5F5', alpha=0.75, edgecolor='white', linewidth=1.2)
+    ax.axvline(x=0.5, color='#F44336', linestyle='--', linewidth=1.5, label='阈值 0.5')
+    if title is None:
+        title = '伪造概率分布' if _CJK_FONT else 'Fake Probability Histogram'
+    if _CJK_FONT:
+        ax.set_title(title, fontproperties=_CJK_FONT, fontsize=12, fontweight='bold')
+        ax.set_xlabel('fake_prob', fontsize=9, color='#757575')
+        ax.set_ylabel('数量', fontproperties=_CJK_FONT, fontsize=9, color='#757575')
+        ax.legend(fontsize=7, prop=_CJK_FONT)
+    else:
+        ax.set_title(title, fontsize=12, fontweight='bold')
+        ax.set_xlabel('fake_prob', fontsize=9, color='#757575')
+        ax.set_ylabel('Count', fontsize=9, color='#757575')
+        ax.legend(fontsize=7)
+    ax.set_xlim(0, 1)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_color('#E0E0E0')
+    ax.spines['bottom'].set_color('#E0E0E0')
+    ax.tick_params(colors='#757575')
+
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight',
+                facecolor=fig.get_facecolor(), edgecolor='none')
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert('RGBA')
+
+
+def risk_score_distribution(results: list,
+                            size: tuple = (280, 240),
+                            title: str = None) -> Image.Image:
+    """生成风险分数分布图（独立版）"""
+    if not results:
+        return Image.new('RGBA', size, (250, 250, 250, 255))
+
+    risk_scores = [r.get('risk_score', 0) for r in results]
+
+    fig, ax = plt.subplots(figsize=(size[0] / 100, size[1] / 100),
+                           facecolor=CHART_BG)
+    fig.patch.set_alpha(0)
+
+    # 分段背景
+    for lo, hi, color in [
+        (0.0, 0.35, RISK_COLORS['low']),
+        (0.35, 0.70, RISK_COLORS['medium']),
+        (0.70, 1.0, RISK_COLORS['high']),
+    ]:
+        ax.axvspan(lo, hi, alpha=0.08, color=color, linewidth=0)
+
+    y_positions = np.random.uniform(-0.15, 0.15, len(risk_scores))
+    ax.scatter(risk_scores, y_positions, alpha=0.6, color='#1E88E5',
+              edgecolors='white', linewidth=0.5, s=40, zorder=5)
+    ax.set_ylim(-0.5, 0.5)
+    ax.set_yticks([])
+    ax.set_xlim(0, 1)
+    ax.set_xticks([0, 0.25, 0.5, 0.75, 1.0])
+    ax.set_xticklabels(['0', '0.25', '0.5', '0.75', '1.0'], fontsize=9, color='#757575')
+    if title is None:
+        title = '风险分数分布' if _CJK_FONT else 'Risk Score Distribution'
+    if _CJK_FONT:
+        ax.set_title(title, fontproperties=_CJK_FONT, fontsize=12, fontweight='bold')
+        ax.set_xlabel('risk_score', fontsize=9, color='#757575')
+    else:
+        ax.set_title(title, fontsize=12, fontweight='bold')
+        ax.set_xlabel('risk_score', fontsize=9, color='#757575')
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.spines['bottom'].set_color('#E0E0E0')
+    ax.tick_params(colors='#757575')
+
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor=RISK_COLORS['low'], alpha=0.3, label=LABEL_RISK[0]),
+        Patch(facecolor=RISK_COLORS['medium'], alpha=0.3, label=LABEL_RISK[1]),
+        Patch(facecolor=RISK_COLORS['high'], alpha=0.3, label=LABEL_RISK[2]),
+    ]
+    if _CJK_FONT:
+        ax.legend(handles=legend_elements, fontsize=7, loc='upper right', prop=_CJK_FONT)
+    else:
+        ax.legend(handles=legend_elements, fontsize=7, loc='upper right')
+
+    plt.tight_layout()
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight',
+                facecolor=fig.get_facecolor(), edgecolor='none')
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert('RGBA')
+
+
+# ==============================================================================
 # 便捷函数: 直接从 pipeline result 生成全部图表
 # ==============================================================================
 

@@ -246,10 +246,11 @@ class ReportAgent:
 
     @staticmethod
     def _parse_batch_reply(reply: str) -> dict:
-        """将 DS 回复解析为 {overview, priority_list}"""
+        """将 DS 回复解析为 {overview, priority_list, review_suggestions}"""
         sections = {
             "overview": "",
             "priority_list": "",
+            "review_suggestions": {},
         }
 
         current_key = None
@@ -261,11 +262,23 @@ class ReportAgent:
             elif "[高风险优先级排序]" in line_stripped:
                 current_key = "priority_list"
                 continue
+            elif "[逐图复核建议]" in line_stripped:
+                current_key = "review_suggestions"
+                continue
 
-            if current_key and line_stripped:
+            if current_key == "review_suggestions":
+                # 解析 "#N: suggestion text" 格式
+                if line_stripped.startswith("#") and ":" in line_stripped:
+                    idx_str, suggestion = line_stripped.split(":", 1)
+                    try:
+                        idx = int(idx_str.strip("#").strip())
+                        sections["review_suggestions"][str(idx)] = suggestion.strip()
+                    except ValueError:
+                        pass
+            elif current_key and line_stripped:
                 sections[current_key] += line_stripped + "\n"
 
-        for key in sections:
+        for key in ("overview", "priority_list"):
             sections[key] = sections[key].strip()
 
         return sections
@@ -289,6 +302,7 @@ class ReportAgent:
         return {
             "overview": FALLBACK_BATCH_OVERVIEW,
             "priority_list": "",
+            "review_suggestions": {},
             "llm_generated": False,
             "elapsed_ms": 0,
         }
