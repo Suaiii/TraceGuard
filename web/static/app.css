@@ -1287,8 +1287,8 @@ pre {
 
 .preview-container {
   position: relative;
-  width: min(96vw, 1024px);
-  height: min(92vh, 760px);
+  width: 98vw;
+  height: 96vh;
   background: var(--panel);
   border-radius: 14px;
   box-shadow:
