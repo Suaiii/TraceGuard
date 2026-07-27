@@ -774,7 +774,19 @@ function bindEvents() {
 
     el.previewFrame.onload = function () {
       el.previewLoading.style.display = "none";
-      el.previewFrame.style.display = "";
+      el.previewFrame.style.display = "block";
+      // Auto-resize iframe to content height (消除内层滚动条)
+      try {
+        var body = el.previewFrame.contentDocument.body;
+        var html = el.previewFrame.contentDocument.documentElement;
+        var h = Math.max(
+          body.scrollHeight, body.offsetHeight,
+          html.clientHeight, html.scrollHeight, html.offsetHeight
+        );
+        el.previewFrame.style.height = (h + 40) + "px";
+      } catch (e) {
+        el.previewFrame.style.height = "2000px";
+      }
     };
     el.previewFrame.src = url;
   }
