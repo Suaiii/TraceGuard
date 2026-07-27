@@ -58,7 +58,9 @@ def test_generate_case_figure_exports_four_formats(tmp_path):
     assert len(generated) == 4
     assert all(path.is_file() and path.stat().st_size > 0 for path in generated)
     svg = (tmp_path / "case_evidence.svg").read_text(encoding="utf-8")
-    assert "Stable" in svg
-    assert "Degraded" in svg
-    assert "Conflict" in svg
+    # 案例图已于 #15-A 中文化（ROLE_LABELS_CN），断言随之改为中文标签；
+    # 文字仍以 <text> 形式保留在 SVG 中，未被转成路径，故可直接子串匹配。
+    assert "稳定案例" in svg
+    assert "衰减案例" in svg
+    assert "冲突案例" in svg
     assert all(line == line.rstrip() for line in svg.splitlines())

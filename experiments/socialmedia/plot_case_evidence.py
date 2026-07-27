@@ -101,7 +101,16 @@ def _save(fig, output_base):
     output_base = Path(output_base)
     output_base.parent.mkdir(parents=True, exist_ok=True)
     paths = []
-    for ext, kw in (("png", {"dpi": 300}), ("svg", {}), ("pdf", {})):
+    # tiff 600dpi 供高分辨率投稿/提交使用；该格式曾在案例图重构时被漏掉，
+    # 导致 test_generate_case_figure_exports_four_formats 长期失败，此处补回。
+    # 必须带 LZW 压缩：本案例图在 600dpi 下约 8400x9800 px，未压缩 TIFF 单个
+    # 超过 300MB，不适合入库；LZW 为无损压缩，画质与像素完全一致。
+    for ext, kw in (
+        ("png", {"dpi": 300}),
+        ("svg", {}),
+        ("pdf", {}),
+        ("tiff", {"dpi": 600, "pil_kwargs": {"compression": "tiff_lzw"}}),
+    ):
         p = output_base.with_suffix(f".{ext}")
         fig.savefig(p, bbox_inches="tight", facecolor="white", pad_inches=0.20, **kw)
         if ext == "svg":
