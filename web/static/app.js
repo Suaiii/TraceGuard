@@ -47,12 +47,12 @@ const text = {
     unavailable: "不可用",
   },
   apiOffline: "API \u672a\u5c31\u7eea",
-  analyzing: "\u5ba1\u8ba1\u4e2d...",
-  analyze: "\u5f00\u59cb\u5ba1\u8ba1",
+  analyzing: "\u68c0\u6d4b\u4e2d...",
+  analyze: "\u5f00\u59cb\u68c0\u6d4b",
   noBrief: "\u65e0\u6458\u8981",
   noDetail: "\u65e0\u8be6\u7ec6\u89e3\u91ca",
   failed: "\u5206\u6790\u5931\u8d25",
-  localSample: "\u8bf7\u9009\u62e9 tests/fixtures \u4e2d\u7684\u6837\u4f8b\u56fe\u50cf\u8fdb\u884c\u5ba1\u8ba1",
+  localSample: "\u8bf7\u9009\u62e9 tests/fixtures \u4e2d\u7684\u6837\u4f8b\u56fe\u50cf\u8fdb\u884c\u68c0\u6d4b",
 };
 
 function setStatus(kind, message) {
