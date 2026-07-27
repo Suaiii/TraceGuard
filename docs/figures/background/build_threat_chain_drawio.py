@@ -141,7 +141,7 @@ a.cell("d2", BAR + f"strokeColor={RED};fontColor={INK};", 250, 278, 440, 104,
        "&lt;b&gt;第二道防线&lt;/b&gt;&lt;br&gt;显式标识与生成元数据&lt;br&gt;"
        + color_span("× 传播中被系统性剥离", RED, bold=True))
 a.cell("d3", BAR + f"strokeColor={GREEN};fillColor=#F1F8F1;fontColor={INK};", 710, 278, 210, 104,
-       "&lt;b&gt;第三道防线&lt;/b&gt;&lt;br&gt;传播后第三方审核&lt;br&gt;"
+       "&lt;b&gt;第三道防线&lt;/b&gt;&lt;br&gt;传播后第三方取证&lt;br&gt;"
        + color_span("√ 本作品 TraceGuard", GREEN, bold=True))
 
 # 虚线须垂直：entryX 按“阶段卡中心落在防线条上的相对位置”算，

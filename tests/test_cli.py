@@ -23,6 +23,7 @@ class TestCLI:
         result = subprocess.run(
             [sys.executable, '-m', 'explanation.cli', '--help'],
             capture_output=True, text=True, timeout=15,
+            encoding='utf-8', errors='replace',
             cwd=os.path.dirname(os.path.dirname(__file__)),
         )
         assert result.returncode == 0
@@ -33,6 +34,7 @@ class TestCLI:
         result = subprocess.run(
             [sys.executable, '-m', 'explanation.cli'],
             capture_output=True, text=True, timeout=15,
+            encoding='utf-8', errors='replace',
             cwd=os.path.dirname(os.path.dirname(__file__)),
         )
         assert result.returncode != 0  # 应非零退出
@@ -42,6 +44,7 @@ class TestCLI:
         result = subprocess.run(
             [sys.executable, '-m', 'explanation.cli', '--help'],
             capture_output=True, text=True, timeout=15,
+            encoding='utf-8', errors='replace',
             cwd=os.path.dirname(os.path.dirname(__file__)),
         )
         assert '--config' in result.stdout or '--config' in result.stderr
@@ -51,6 +54,7 @@ class TestCLI:
         result = subprocess.run(
             [sys.executable, '-m', 'explanation.cli', '--input', '/nonexistent/file.jpg'],
             capture_output=True, text=True, timeout=15,
+            encoding='utf-8', errors='replace',
             cwd=os.path.dirname(os.path.dirname(__file__)),
         )
         assert result.returncode != 0
@@ -63,6 +67,7 @@ class TestBatchCLI:
         result = subprocess.run(
             [sys.executable, '-m', 'explanation.batch', '--help'],
             capture_output=True, text=True, timeout=15,
+            encoding='utf-8', errors='replace',
             cwd=os.path.dirname(os.path.dirname(__file__)),
         )
         assert result.returncode == 0
@@ -72,6 +77,7 @@ class TestBatchCLI:
         result = subprocess.run(
             [sys.executable, '-m', 'explanation.batch', '--help'],
             capture_output=True, text=True, timeout=15,
+            encoding='utf-8', errors='replace',
             cwd=os.path.dirname(os.path.dirname(__file__)),
         )
         assert '--config' in result.stdout or '--config' in result.stderr
