@@ -9,10 +9,13 @@ Endpoints:
   GET  /
 """
 
+import logging
 import os
 import sys
 import time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if PROJECT_ROOT not in sys.path:
@@ -212,14 +215,24 @@ def create_app(
     # ------------------------------------------------------------------
 
     def _get_llm_agent():
-        """延迟初始化 LLM agent — 全部配置来自 default.yaml"""
+        """延迟初始化 LLM agent — 全部配置来自 default.yaml
+
+        返回 None 表示"报告不含研判段落"（llm.enabled=false，使用者主动关闭）。
+        若 enabled=true 但缺 API Key，返回无 client 的 ReportAgent，使报告仍渲染
+        降级研判段（说明 LLM 暂不可用），而不是整段消失——否则评委在未配置
+        ARK_API_KEY 的环境下看到的报告会缺一块且没有任何解释。
+        """
         yaml_cfg = load_yaml_config('configs/default.yaml')
         llm_cfg = yaml_cfg.llm if hasattr(yaml_cfg, 'llm') else None
         if llm_cfg is None or not llm_cfg.enabled:
             return None
         api_key = os.environ.get(llm_cfg.api_key_env, '')
         if not api_key:
-            return None
+            logger.warning(
+                "%s not set; report will use rule-based fallback opinion",
+                llm_cfg.api_key_env,
+            )
+            return ReportAgent(None)
         client = DeepSeekClient(
             api_key=api_key,
             model=llm_cfg.model,
