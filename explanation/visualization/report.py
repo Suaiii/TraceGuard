@@ -451,6 +451,9 @@ class ReportGenerator:
                 color: var(--text);
                 font-size: 13px;
                 line-height: 1.6;
+                max-width: 960px;
+                margin: 0 auto;
+                padding: 20px 16px;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -790,7 +793,7 @@ class ReportGenerator:
 
             /* ========== Print helpers ========== */
             @media print {
-                body { background: #FFF; }
+                body { background: #FFF; max-width: none; margin: 0; padding: 0; }
                 .card { box-shadow: none; }
             }
         '''
