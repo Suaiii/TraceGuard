@@ -44,10 +44,10 @@ localization:
 # ------------------------------------------------------------------------------
 risk:
   weights:
-    fake_prob: 0.30                        # 检测置信度
+    fake_prob: 0.50                        # 检测置信度
     artifact_intensity: 0.25               # 伪影强度
-    tamper_area: 0.25                      # 篡改面积比
-    region_count: 0.10                     # 区域数量
+    tamper_area: 0.10                      # 篡改面积比
+    region_count: 0.05                     # 区域数量
     consistency: 0.10                      # 一致性重叠
   levels:
     low: [0.0, 0.35]                       # 低风险区间
