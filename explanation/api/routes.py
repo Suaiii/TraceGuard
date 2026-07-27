@@ -233,6 +233,7 @@ def _build_response(result: dict) -> AnalysisResponse:
 
 
 def _apply_options(pipeline: ExplanationPipeline, options: AnalysisOptions) -> None:
+    pipeline.enable_localization = options.enable_localization
     pipeline.heatmap_generator.overlay_alpha = options.overlay_alpha
     if hasattr(pipeline, "tamper_detector"):
         pipeline.tamper_detector.patch_analyzer.scales = options.localization_scales
