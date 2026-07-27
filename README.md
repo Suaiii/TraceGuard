@@ -63,11 +63,11 @@ python server.py --device cpu --port 8080 --checkpoint D:\models\traceguard-best
 | Swagger UI | `http://127.0.0.1:8000/docs` | 调试 HTTP API |
 | 健康检查 | `http://127.0.0.1:8000/api/v1/health` | 核对模型、设备与服务状态 |
 
-**报告导出功能**（需要 DeepSeek API Key）：
+**报告导出功能**（需要 LLM API Key）：
 
 ```bash
 # 设置 API Key（Windows PowerShell）
-$env:DEEPSEEK_API_KEY = "sk-你的key"
+$env:ARK_API_KEY = "你的API Key"
 
 # 安装 Playwright Chromium（首次使用）
 playwright install chromium
@@ -81,9 +81,22 @@ python server.py
 | API 端点 | 说明 |
 |---|---|
 | `POST /api/v1/report/preview` | 生成完整 HTML 报告（LLM 研判 + 图表 + 模板） |
-| `POST /api/v1/report/pdf` | 接收 HTML 直接转 PDF（Playwright Chromium 渲染） |
+| `POST /api/v1/report/pdf` | 接收预览缓存 HTML 直接转 PDF（Playwright Chromium，不复调 LLM） |
 
-LLM 配置见 `configs/default.yaml` 的 `llm` 段：默认模型 `deepseek-v4-pro`，通过 `DEEPSEEK_API_KEY` 环境变量读取密钥。LLM 不可用时报告自动回退为模板填充文字，不阻断生成。
+**LLM 配置**：全部由 `configs/default.yaml` 的 `llm` 段控制，切换 provider/模型/API 地址只需修改该文件：
+
+```yaml
+llm:
+  provider: "volcengine_ark"                   # 平台标识
+  model: "deepseek-v4-pro"                     # 当前模型（支持 doubao/glm/kimi/deepseek/minimax 系列）
+  api_key_env: "ARK_API_KEY"                   # API Key 环境变量名
+  base_url: "https://ark.cn-beijing.volces.com/api/coding/v3"  # OpenAI 兼容端点
+  temperature: 0.3
+  max_tokens: 2048
+  enabled: true                                # false 时跳过 LLM，仅模板填充
+```
+
+代码中无任何 LLM 配置硬编码。LLM 不可用时报告自动回退为模板填充文字，不阻断生成。
 
 ### 1.3 CLI 与批量测试
 

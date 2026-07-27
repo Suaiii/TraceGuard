@@ -99,15 +99,29 @@
 
 ### 2026-07-27 — 分支 `feature/report-export`：检测报告导出功能（LLM 研判 + PDF 导出）
 
-**目标**：实现单图/批量检测报告的预览与 PDF 导出，接入 DeepSeek API 生成专业取证研判意见。
+**目标**：实现单图/批量检测报告的预览与 PDF 导出，接入 LLM 生成专业取证研判意见。
 
-**已实现**（21 commits，尚未合并）：
+**已实现**（24 commits，尚未合并）：
 
 **后端 — LLM 模块** (`explanation/llm/`)
-- `DeepSeekClient`（`client.py`）：OpenAI SDK 兼容，默认模型 `deepseek-v4-pro`、API Key 环境变量 `DEEPSEEK_API_KEY`
-- `ReportAgent`（`agent.py`）：编排层 — 提取 pipeline 结构化摘要 JSON → 调 DS → 解析回复为结构化 dict
+- `DeepSeekClient`（`client.py`）：OpenAI SDK 兼容，全部配置由 `default.yaml` 控制，代码零硬编码
+- `ReportAgent`（`agent.py`）：编排层 — 提取 pipeline 结构化摘要 JSON → 调 LLM → 解析回复为结构化 dict
 - `prompts.py`：System prompt（取证专家角色）+ 单图三段式 + 批量两段式 + fallback 文本
+- 支持火山方舟 Ark 平台（`/api/coding/v3`），可用 doubao/glm/kimi/deepseek/minimax 全系列模型
 - LLM 不可用时自动 fallback 模板文字，不阻断报告生成
+
+**LLM 配置完全解耦**（`configs/default.yaml` `llm` 段）：
+```yaml
+llm:
+  provider: "volcengine_ark"
+  model: "deepseek-v4-pro"        # 改这一行即可切换模型
+  api_key_env: "ARK_API_KEY"
+  base_url: "https://ark.cn-beijing.volces.com/api/coding/v3"
+  temperature: 0.3
+  max_tokens: 2048
+  enabled: true
+```
+`routes.py` 通过 `load_config()` 直接读取 YAML，`client.py` 无任何硬编码默认值。
 
 **后端 — 报告模板** (`explanation/visualization/report.py`，已全面重构)
 - **设计风格**：冷白底色 `#FAFBFC` + 白色卡片 + 微阴影边框；高危赤红 `#DC2626` / 低危青蓝 `#06B6D4` / 中危琥珀 `#F59E0B`
@@ -134,7 +148,7 @@
 - `configs/default.yaml`：新增 `llm` 配置段（provider/model/api_key_env/base_url）
 - `requirements.txt`：`openai>=1.0`、`playwright>=1.40`
 
-**分支状态**：`feature/report-export` 本地 21 commits，尚未 push/merge。待验证：真实 DeepSeek API Key 端到端测试。
+**分支状态**：`feature/report-export` 本地 24 commits，尚未 push/merge。当前配置为火山方舟 Ark 平台 `doubao-seed-2.0-code`。待端到端验证。
 
 ### 2026-07-21 - 第一章 v2：定名"社交媒体传播场景" + 相关工作改基金写法
 
