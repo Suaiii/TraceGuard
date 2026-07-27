@@ -96,11 +96,15 @@ class ReportGenerator:
             gauge_b64 = self._pil_to_b64(gauge_img)
 
         # ---- 组装 HTML ----
+        report_id = f"TG-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        risk_cls_map = {'low': 'risk-low-v', 'medium': 'risk-medium-v', 'high': 'risk-high-v'}
+        verdict_cls = 'verdict-fake' if label == 'fake' else 'verdict-real'
+        verdict_color = 'fake' if label == 'fake' else 'real'
+
         html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{self.title} — {filename}</title>
 <style>
 {self._css()}
@@ -108,114 +112,103 @@ class ReportGenerator:
 </head>
 <body>
 
-<!-- =============== 页头 =============== -->
-<div class="header">
-    <div class="header-left">
-        <h1>{self.title}</h1>
-        <div class="subtitle">{filename} — 生成时间: {now}</div>
+<!-- ========== Page Header ========== -->
+<div class="page-header">
+    <div class="page-header-brand">
+        TraceGuard <span>| 多模态图像安全审核系统</span>
     </div>
-    <div class="header-right">
-        {self._super_oversight_badge() if is_super_oversight else ''}
-        <div class="risk-badge risk-{risk_level}">{RISK_LABELS.get(risk_level, risk_level)}</div>
-    </div>
-</div>
-
-<!-- =============== 综合研判意见 =============== -->
-{self._llm_opinion_section(llm_opinion_text)}
-
-<!-- =============== 摘要区 =============== -->
-<div class="summary">
-    <div class="summary-item">
-        <span class="summary-label">判定结果</span>
-        <span class="summary-value {'fake-color' if label == 'fake' else 'real-color'}">{LABELS.get(label, label)}</span>
-    </div>
-    <div class="summary-item">
-        <span class="summary-label">局部证据类型</span>
-        <span class="summary-value {'local-tamper-color' if tamper_type == 'local_tamper' else ''}">{TAMPER_TYPE_LABELS.get(tamper_type, tamper_type)}</span>
-    </div>
-    <div class="summary-item">
-        <span class="summary-label">伪造概率</span>
-        <span class="summary-value">{fake_prob:.3f}</span>
-    </div>
-    <div class="summary-item">
-        <span class="summary-label">风险分数</span>
-        <span class="summary-value">{risk_score:.2f}</span>
-    </div>
-    <div class="summary-item">
-        <span class="summary-label">风险等级</span>
-        <span class="summary-value risk-{risk_level}-text">{RISK_LABELS.get(risk_level, risk_level)}</span>
-    </div>
-    <div class="summary-item">
-        <span class="summary-label">分析耗时</span>
-        <span class="summary-value">{elapsed_ms:.0f} ms</span>
-    </div>
-    <div class="summary-item">
-        <span class="summary-label">可疑区域</span>
-        <span class="summary-value">{len(bbox_list)} 处</span>
+    <div class="page-header-meta">
+        报告编号: {report_id}<br>
+        生成时间: {now}
     </div>
 </div>
 
-<!-- =============== 主内容区 =============== -->
-<div class="main-grid">
-    <!-- 左列: 图像 -->
-    <div class="col">
-        <div class="card">
-            <h2>热力图叠加</h2>
-            {self._img_tag(result.get('overlay_b64'), '热力图叠加图')}
-            <div class="caption">原图 + 半透明热力层 (蓝=低伪造可疑, 红紫=高伪造可疑)</div>
-        </div>
-        <div class="card">
-            <h2>篡改可疑区域</h2>
-            {self._img_tag(result.get('tamper_overlay_b64'), '篡改掩膜叠加')}
-            <div class="caption">红色标记区域为可疑篡改位置</div>
-        </div>
-        <div class="card">
-            <h2>可疑区域坐标框</h2>
-            {self._img_tag(result.get('bbox_image_b64'), 'BBox 标注')}
-            <div class="caption">红色矩形框标记可疑区域边界</div>
-        </div>
-    </div>
+<!-- ========== Super-Oversight Alert ========== -->
+{self._super_oversight_alert() if is_super_oversight else ''}
 
-    <!-- 右列: 图表 + 解释 -->
-    <div class="col">
-        {self._radar_section(radar_b64)}
-        {self._gauge_section(gauge_b64)}
-        <div class="card">
-            <h2>解释摘要</h2>
-            <div class="explanation-brief">{explanation_brief}</div>
-        </div>
-        {self._bbox_table(bbox_list)}
-        {self._llm_region_notes_section(llm_region_notes)}
+<!-- ========== Key Metrics ========== -->
+<div class="metrics-banner">
+    <div class="metric-card {verdict_cls}">
+        <div class="metric-label">判定结果</div>
+        <div class="metric-value {verdict_color}">{LABELS.get(label, label)}</div>
+        <div class="metric-sub">{TAMPER_TYPE_LABELS.get(tamper_type, tamper_type)}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">伪造概率</div>
+        <div class="metric-value">{fake_prob:.1%}</div>
+        <div class="metric-sub">综合风险分: {risk_score:.2f}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">风险等级</div>
+        <div class="metric-value {risk_cls_map.get(risk_level, '')}">{RISK_LABELS.get(risk_level, risk_level)}</div>
+        <div class="metric-sub">可疑区域: {len(bbox_list)} 处 | 耗时: {elapsed_ms:.0f}ms</div>
     </div>
 </div>
 
-<!-- =============== 解释全文 =============== -->
-<div class="card explanation-full">
+<!-- ========== LLM 综合研判 ========== -->
+{self._llm_callout(llm_opinion_text)}
+
+<!-- ========== 2×2 证据图网格 ========== -->
+<div class="img-grid">
+    <div class="card">
+        <h2>热力图叠加</h2>
+        {self._img_tag(result.get('overlay_b64'), '热力图叠加图')}
+        <div class="caption">原图 + Grad-CAM 热力层 (蓝=低响应, 红紫=高响应)</div>
+    </div>
+    <div class="card">
+        <h2>风险维度雷达图</h2>
+        {self._radar_img(radar_b64)}
+    </div>
+    <div class="card">
+        <h2>可疑区域坐标框</h2>
+        {self._img_tag(result.get('bbox_image_b64'), 'BBox 标注')}
+        <div class="caption">红色矩形框标记可疑区域边界</div>
+    </div>
+    <div class="card">
+        <h2>篡改可疑区域</h2>
+        {self._img_tag(result.get('tamper_overlay_b64'), '篡改掩膜叠加')}
+        <div class="caption">红色区域为可疑篡改位置</div>
+    </div>
+</div>
+
+<!-- ========== Two-column: Gauge + Dimensions ========== -->
+<div class="two-col">
+    <div class="card">
+        <h2>风险分数仪表</h2>
+        {self._gauge_img(gauge_b64)}
+    </div>
+    {self._dimension_table(dim_scores)}
+</div>
+
+<!-- ========== BBox + LLM Region Notes ========== -->
+{self._bbox_table(bbox_list)}
+{self._llm_region_notes_card(llm_region_notes)}
+
+<!-- ========== Full Explanation ========== -->
+<div class="card">
     <h2>详细解释</h2>
     <pre class="explanation-text">{self._escape_html(explanation)}</pre>
 </div>
 
-<!-- =============== 维度详情 =============== -->
-{self._dimension_table(dim_scores)}
+<!-- ========== LLM Dimension Notes ========== -->
+{self._llm_dimension_notes_card(llm_dimension_notes)}
 
-{self._llm_dimension_notes_section(llm_dimension_notes)}
-
-<!-- =============== 元信息 =============== -->
-<div class="card meta">
+<!-- ========== Metadata ========== -->
+<div class="card">
     <h2>分析元信息</h2>
-    <table class="meta-table">
-        <tr><td>热力图方法</td><td>{metadata.get('heatmap_method', '-')}</td></tr>
-        <tr><td>叠加透明度</td><td>{metadata.get('overlay_alpha', '-')}</td></tr>
-        <tr><td>定位模块</td><td>{'启用' if metadata.get('localization_enabled') else '禁用'}</td></tr>
-        <tr><td>解释语言</td><td>{metadata.get('language', '-')}</td></tr>
-        <tr><td>风险权重</td><td>{self._format_weights(metadata.get('risk_weights', {}))}</td></tr>
-    </table>
+    <div class="meta-grid">
+        <div class="meta-item"><span class="meta-key">热力图方法</span><span class="meta-val">{metadata.get('heatmap_method', '-')}</span></div>
+        <div class="meta-item"><span class="meta-key">叠加透明度</span><span class="meta-val">{metadata.get('overlay_alpha', '-')}</span></div>
+        <div class="meta-item"><span class="meta-key">定位模块</span><span class="meta-val">{'启用' if metadata.get('localization_enabled') else '禁用'}</span></div>
+        <div class="meta-item"><span class="meta-key">解释语言</span><span class="meta-val">{metadata.get('language', '-')}</span></div>
+        <div class="meta-item"><span class="meta-key">风险权重</span><span class="meta-val">{self._format_weights(metadata.get('risk_weights', {}))}</span></div>
+    </div>
 </div>
 
-<!-- =============== 页脚 =============== -->
-<div class="footer">
-    <p>© {datetime.now().year} {self.company} — AIGC图像安全审核平台</p>
-    <p>本报告由 TraceGuard 自动生成，仅供审核参考。</p>
+<!-- ========== Page Footer ========== -->
+<div class="page-footer">
+    <span>© {datetime.now().year} TraceGuard — AIGC 图像安全审核平台</span>
+    <span>本报告由系统自动生成 · 仅供审核参考</span>
 </div>
 
 </body>
@@ -303,11 +296,12 @@ class ReportGenerator:
                 <td class="cell-brief">{self._escape_html(explanation_brief)}</td>
             </tr>'''
 
+        report_id = f"TG-BATCH-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
         html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{title}</title>
 <style>
 {self._css()}
@@ -315,35 +309,45 @@ class ReportGenerator:
 </head>
 <body>
 
-<div class="header">
-    <div class="header-left">
-        <h1>{title}</h1>
-        <div class="subtitle">生成时间: {now} — 共 {total} 张图片</div>
+<!-- ========== Page Header ========== -->
+<div class="page-header">
+    <div class="page-header-brand">
+        TraceGuard <span>| 批量检测报告</span>
+    </div>
+    <div class="page-header-meta">
+        报告编号: {report_id}<br>
+        生成时间: {now} &nbsp;|&nbsp; 共 {total} 张图片
     </div>
 </div>
 
-<!-- 汇总统计 -->
-<div class="summary">
-    <div class="summary-item"><span class="summary-label">总图片</span><span class="summary-value">{total}</span></div>
-    <div class="summary-item"><span class="summary-label">成功</span><span class="summary-value real-color">{success}</span></div>
-    <div class="summary-item"><span class="summary-label">AIGC伪造</span><span class="summary-value fake-color">{fake_count}</span></div>
-    <div class="summary-item"><span class="summary-label">局部篡改</span><span class="summary-value local-tamper-color">{tamper_count}</span></div>
-    <div class="summary-item"><span class="summary-label">真实图</span><span class="summary-value real-color">{real_count}</span></div>
-    <div class="summary-item"><span class="summary-label">高风险</span><span class="summary-value risk-high-text">{high_risk}</span></div>
-    <div class="summary-item"><span class="summary-label">中风险</span><span class="summary-value risk-medium-text">{medium_risk}</span></div>
-    <div class="summary-item"><span class="summary-label">低风险</span><span class="summary-value risk-low-text">{low_risk}</span></div>
-    {f'<div class="summary-item"><span class="summary-label so-summary">超监管</span><span class="summary-value risk-high-text">{super_oversight_count}</span></div>' if super_oversight_count > 0 else ''}
+<!-- ========== Key Metrics ========== -->
+<div class="metrics-banner">
+    <div class="metric-card">
+        <div class="metric-label">总图片</div>
+        <div class="metric-value">{total}</div>
+        <div class="metric-sub">成功 {success} / 失败 {total - success}</div>
+    </div>
+    <div class="metric-card verdict-fake">
+        <div class="metric-label">风险分布</div>
+        <div class="metric-value fake">{fake_count}</div>
+        <div class="metric-sub">AIGC伪造 (含局部篡改 {tamper_count})</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">风险等级</div>
+        <div class="metric-value" style="color:var(--risk-high);">{high_risk} <span style="font-size:16px;color:var(--text-secondary);">/ {medium_risk} / {low_risk}</span></div>
+        <div class="metric-sub">高 / 中 / 低{f' &nbsp;|&nbsp; 超监管 {super_oversight_count}' if super_oversight_count > 0 else ''}</div>
+    </div>
 </div>
 
-<!-- =============== 批量综合研判意见 =============== -->
+<!-- ========== LLM 研判 ========== -->
 {self._llm_batch_overview_section(llm_overview, llm_priority)}
 
-<!-- 汇总图表 -->
+<!-- ========== Summary Fig ========== -->
 {self._summary_section(summary_b64)}
 
-<!-- 逐条结果表 -->
+<!-- ========== Result Table ========== -->
 <div class="card">
-    <h2>逐条分析结果</h2>
+    <h2>逐条分析结果 <span class="card-badge">{total} 条</span></h2>
     <div class="table-scroll">
     <table class="result-table">
         <thead>
@@ -365,10 +369,13 @@ class ReportGenerator:
     </div>
 </div>
 
+<!-- ========== High-Risk Details ========== -->
 {self._high_risk_details_section(results)}
 
-<div class="footer">
-    <p>© {datetime.now().year} {self.company} — AIGC图像安全审核平台</p>
+<!-- ========== Page Footer ========== -->
+<div class="page-footer">
+    <span>© {datetime.now().year} TraceGuard — AIGC 图像安全审核平台</span>
+    <span>本报告由系统自动生成 · 仅供审核参考</span>
 </div>
 
 </body>
@@ -410,340 +417,381 @@ class ReportGenerator:
     @staticmethod
     def _css() -> str:
         return '''
+            @page { size: A4; margin: 18mm 16mm 22mm 16mm; }
             :root {
-                --bg: #F5F5F5;
+                --bg: #FAFBFC;
                 --card-bg: #FFFFFF;
-                --text: #212121;
-                --text-secondary: #757575;
-                --border: #E0E0E0;
-                --accent: #1565C0;
-                --fake-red: #D32F2F;
-                --real-green: #2E7D32;
-                --tamper-yellow: #F9A825;
-                --risk-low: #4CAF50;
-                --risk-medium: #FF9800;
-                --risk-high: #F44336;
-                --radius: 8px;
+                --text: #1A1D23;
+                --text-secondary: #6B7280;
+                --border: #E5E7EB;
+                --accent: #1A56DB;
+                --accent-light: #EFF6FF;
+                --fake-red: #DC2626;
+                --fake-red-bg: #FEF2F2;
+                --real-green: #059669;
+                --real-green-bg: #ECFDF5;
+                --tamper-amber: #D97706;
+                --risk-low: #06B6D4;
+                --risk-low-bg: #ECFEFF;
+                --risk-medium: #F59E0B;
+                --risk-medium-bg: #FFFBEB;
+                --risk-high: #EF4444;
+                --risk-high-bg: #FEF2F2;
+                --so-red: #991B1B;
+                --so-red-bg: #FEE2E2;
+                --radius: 10px;
+                --radius-sm: 6px;
+                --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+                --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
             }
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
                 background: var(--bg);
                 color: var(--text);
-                max-width: 1100px;
-                margin: 0 auto;
-                padding: 24px 20px;
+                font-size: 13px;
                 line-height: 1.6;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
             }
-            .header {
+
+            /* ========== Page Header ========== */
+            .page-header {
                 display: flex;
                 justify-content: space-between;
-                align-items: center;
-                background: var(--card-bg);
-                padding: 24px 28px;
-                border-radius: var(--radius);
-                box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-                margin-bottom: 16px;
+                align-items: flex-end;
+                padding-bottom: 12px;
+                margin-bottom: 20px;
+                border-bottom: 2px solid var(--accent);
             }
-            .header h1 { font-size: 22px; color: var(--accent); }
-            .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
-            .risk-badge {
-                display: inline-block;
-                font-size: 20px;
-                font-weight: 700;
-                padding: 12px 28px;
-                border-radius: var(--radius);
-                color: #FFF;
+            .page-header-brand {
+                font-size: 18px;
+                font-weight: 800;
+                color: var(--text);
+                letter-spacing: -0.01em;
             }
-            .risk-low { background: var(--risk-low); }
-            .risk-medium { background: var(--risk-medium); }
-            .risk-high { background: var(--risk-high); }
-            .risk-low-text { color: var(--risk-low); font-weight: 700; }
-            .risk-medium-text { color: var(--risk-medium); font-weight: 700; }
-            .risk-high-text { color: var(--risk-high); font-weight: 700; }
+            .page-header-brand span { color: var(--accent); font-weight: 400; }
+            .page-header-meta {
+                text-align: right;
+                font-size: 10px;
+                color: var(--text-secondary);
+                line-height: 1.5;
+            }
 
-            /* Summary */
-            .summary {
-                display: flex;
-                flex-wrap: wrap;
+            /* ========== Key Metrics Banner ========== */
+            .metrics-banner {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
                 gap: 12px;
-                background: var(--card-bg);
-                padding: 18px 24px;
-                border-radius: var(--radius);
-                box-shadow: 0 1px 3px rgba(0,0,0,0.08);
                 margin-bottom: 16px;
             }
-            .summary-item {
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                min-width: 90px;
+            .metric-card {
+                background: var(--card-bg);
+                border: 1px solid var(--border);
+                border-radius: var(--radius);
+                padding: 16px 20px;
+                box-shadow: var(--shadow-sm);
+                text-align: center;
             }
-            .summary-label { font-size: 12px; color: var(--text-secondary); }
-            .summary-value { font-size: 18px; font-weight: 700; }
-            .fake-color { color: var(--fake-red); }
-            .real-color { color: var(--real-green); }
-            .local-tamper-color { color: var(--tamper-yellow); }
+            .metric-card.verdict-fake {
+                border-color: #FECACA;
+                background: var(--fake-red-bg);
+            }
+            .metric-card.verdict-real {
+                border-color: #A7F3D0;
+                background: var(--real-green-bg);
+            }
+            .metric-label {
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--text-secondary);
+                margin-bottom: 6px;
+            }
+            .metric-value {
+                font-size: 28px;
+                font-weight: 800;
+                letter-spacing: -0.02em;
+            }
+            .metric-value.fake { color: var(--fake-red); }
+            .metric-value.real { color: var(--real-green); }
+            .metric-value.risk-high-v { color: var(--risk-high); }
+            .metric-value.risk-medium-v { color: var(--risk-medium); }
+            .metric-value.risk-low-v { color: var(--risk-low); }
+            .metric-sub {
+                font-size: 11px;
+                color: var(--text-secondary);
+                margin-top: 2px;
+            }
 
-            /* Grid */
-            .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-            @media (max-width: 800px) { .main-grid { grid-template-columns: 1fr; } }
+            /* ========== Super-Oversight Alert ========== */
+            .so-alert {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                background: var(--so-red-bg);
+                border: 1.5px solid #FCA5A5;
+                border-radius: var(--radius);
+                padding: 14px 20px;
+                margin-bottom: 16px;
+            }
+            .so-alert-icon {
+                font-size: 24px;
+                flex-shrink: 0;
+            }
+            .so-alert-text strong {
+                display: block;
+                font-size: 14px;
+                color: var(--so-red);
+                margin-bottom: 2px;
+            }
+            .so-alert-text p {
+                font-size: 12px;
+                color: #7F1D1D;
+                line-height: 1.5;
+            }
 
-            /* Card */
+            /* ========== Card ========== */
             .card {
                 background: var(--card-bg);
+                border: 1px solid var(--border);
                 border-radius: var(--radius);
-                box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-                padding: 20px;
-                margin-bottom: 16px;
+                box-shadow: var(--shadow);
+                padding: 18px 20px;
+                margin-bottom: 14px;
+                page-break-inside: avoid;
             }
             .card h2 {
-                font-size: 15px;
-                color: var(--accent);
-                border-bottom: 2px solid var(--border);
-                padding-bottom: 8px;
-                margin-bottom: 12px;
-            }
-            .card img {
-                width: 100%;
-                border-radius: 4px;
-                border: 1px solid var(--border);
-            }
-            .caption {
-                font-size: 12px;
-                color: var(--text-secondary);
-                margin-top: 8px;
-                text-align: center;
-            }
-
-            /* Explanation */
-            .explanation-brief {
-                font-size: 14px;
-                font-weight: 600;
+                font-size: 13px;
+                font-weight: 700;
                 color: var(--text);
-                padding: 8px 0;
-            }
-            .explanation-full pre.explanation-text {
-                white-space: pre-wrap;
-                font-family: inherit;
-                font-size: 14px;
-                line-height: 1.8;
-                background: #FAFAFA;
-                padding: 16px;
-                border-radius: 4px;
-                border: 1px solid var(--border);
-            }
-
-            /* Tables */
-            .meta-table { width: 100%; border-collapse: collapse; }
-            .meta-table td {
-                padding: 8px 12px;
-                border-bottom: 1px solid var(--border);
-                font-size: 13px;
-            }
-            .meta-table td:first-child { font-weight: 600; color: var(--text-secondary); width: 140px; }
-
-            .dim-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-            .dim-table th, .dim-table td {
-                padding: 10px 12px;
-                border-bottom: 1px solid var(--border);
-                text-align: center;
-                font-size: 13px;
-            }
-            .dim-table th { background: #F5F5F5; font-weight: 600; color: var(--text-secondary); }
-            .dim-bar {
-                display: inline-block;
-                height: 8px;
-                border-radius: 4px;
-                background: var(--accent);
-                vertical-align: middle;
-                margin-right: 6px;
-            }
-
-            .result-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-            .result-table th {
-                background: #F5F5F5;
-                padding: 10px 8px;
-                text-align: left;
-                font-weight: 600;
-                color: var(--text-secondary);
-                border-bottom: 2px solid var(--border);
-                position: sticky;
-                top: 0;
-            }
-            .result-table td { padding: 8px; border-bottom: 1px solid var(--border); }
-            .cell-index { width: 36px; text-align: center; color: var(--text-secondary); }
-            .cell-file { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .cell-num { text-align: center; font-variant-numeric: tabular-nums; }
-            .cell-status { text-align: center; font-weight: 700; }
-            .cell-brief {
-                max-width: 200px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                font-size: 12px;
-                color: var(--text-secondary);
-            }
-            .table-scroll { overflow-x: auto; }
-
-            /* BBox table */
-            .bbox-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-            .bbox-table th {
-                background: #F5F5F5;
-                padding: 8px;
-                text-align: center;
-                font-weight: 600;
-                color: var(--text-secondary);
-                border-bottom: 2px solid var(--border);
-            }
-            .bbox-table td { padding: 8px; text-align: center; border-bottom: 1px solid var(--border); }
-
-            /* Footer */
-            .footer {
-                text-align: center;
-                padding: 24px;
-                color: var(--text-secondary);
-                font-size: 12px;
-                border-top: 1px solid var(--border);
-                margin-top: 16px;
-            }
-            .no-image {
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 120px;
-                background: #FAFAFA;
-                border: 1px dashed var(--border);
-                border-radius: 4px;
-                color: var(--text-secondary);
-                font-size: 13px;
-            }
-
-            /* === LLM 研判段落 === */
-            .llm-card {
-                background: #FFF8E1;
-                border-left: 4px solid #FF6F00;
-                padding: 20px 24px;
-                border-radius: var(--radius);
-                margin-bottom: 16px;
-            }
-            .llm-card h2 {
-                font-size: 15px;
-                color: #E65100;
-                border-bottom: 1px solid #FFE0B2;
+                margin-bottom: 12px;
                 padding-bottom: 8px;
-                margin-bottom: 12px;
-            }
-            .llm-opinion {
-                font-size: 14px;
-                line-height: 1.8;
-                white-space: pre-wrap;
-                color: #424242;
-            }
-            .llm-dimension-notes {
-                font-size: 13px;
-                line-height: 1.7;
-                white-space: pre-wrap;
-                color: #616161;
-            }
-
-            /* === 超监管标记 === */
-            .super-oversight-badge {
-                display: inline-block;
-                background: #B71C1C;
-                color: #FFF;
-                font-size: 11px;
-                font-weight: 700;
-                padding: 4px 10px;
-                border-radius: 4px;
-                margin-right: 8px;
-                vertical-align: middle;
-            }
-            .so-summary {
-                color: #B71C1C !important;
-                font-weight: 700;
-            }
-            .row-super-oversight {
-                background: #FFEBEE !important;
-            }
-            .row-high-risk {
-                background: #FFF3E0 !important;
-            }
-
-            /* === 高风险条目详情 === */
-            .high-risk-detail-card {
-                background: #FFF;
-                border: 1px solid var(--border);
-                border-radius: var(--radius);
-                padding: 20px;
-                margin-bottom: 16px;
-            }
-            .high-risk-detail-card h3 {
-                font-size: 14px;
-                color: #D32F2F;
-                border-bottom: 1px solid #FFCDD2;
-                padding-bottom: 8px;
-                margin-bottom: 12px;
-            }
-            .hr-meta-row {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 16px;
-                font-size: 13px;
-                margin-bottom: 12px;
-            }
-            .hr-meta-item {
-                display: flex;
-                flex-direction: column;
-                min-width: 80px;
-            }
-            .hr-meta-label {
-                font-size: 11px;
-                color: var(--text-secondary);
-            }
-            .hr-meta-value {
-                font-weight: 700;
-                font-size: 15px;
-            }
-            .hr-thumb {
-                max-width: 200px;
-                border-radius: 4px;
-                border: 1px solid var(--border);
-                margin-bottom: 8px;
-            }
-            .hr-mini-bars {
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-                margin-bottom: 12px;
-            }
-            .hr-mini-bar-row {
+                border-bottom: 1px solid var(--border);
                 display: flex;
                 align-items: center;
                 gap: 8px;
+            }
+            .card h2 .card-badge {
+                display: inline-block;
+                font-size: 10px;
+                font-weight: 600;
+                padding: 2px 8px;
+                border-radius: 100px;
+                background: var(--accent-light);
+                color: var(--accent);
+            }
+            .card img {
+                width: 100%;
+                border-radius: var(--radius-sm);
+                border: 1px solid var(--border);
+            }
+            .card .caption {
+                font-size: 11px;
+                color: var(--text-secondary);
+                margin-top: 6px;
+                text-align: center;
+            }
+
+            /* ========== 2x2 Image Grid ========== */
+            .img-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                margin-bottom: 14px;
+                page-break-inside: avoid;
+            }
+            .img-grid .card {
+                margin-bottom: 0;
+            }
+            .img-grid .card h2 {
+                font-size: 12px;
+                margin-bottom: 8px;
+                padding-bottom: 6px;
+            }
+
+            /* ========== Callout / LLM ========== */
+            .callout {
+                background: #F8FAFC;
+                border-left: 4px solid var(--accent);
+                border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+                padding: 16px 20px;
+                margin-bottom: 14px;
+                page-break-inside: avoid;
+            }
+            .callout h2 {
+                font-size: 13px;
+                font-weight: 700;
+                color: var(--accent);
+                margin-bottom: 8px;
+            }
+            .callout-body {
+                font-size: 13px;
+                line-height: 1.75;
+                white-space: pre-wrap;
+                color: #374151;
+            }
+
+            /* ========== Striped Table ========== */
+            .data-table {
+                width: 100%;
+                border-collapse: collapse;
                 font-size: 12px;
             }
-            .hr-mini-bar-label {
-                width: 80px;
-                text-align: right;
+            .data-table th {
+                background: #F9FAFB;
+                padding: 9px 12px;
+                text-align: left;
+                font-weight: 700;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
                 color: var(--text-secondary);
+                border-bottom: 2px solid var(--border);
             }
-            .hr-mini-bar-track {
+            .data-table th.center { text-align: center; }
+            .data-table td {
+                padding: 8px 12px;
+                border-bottom: 1px solid #F3F4F6;
+            }
+            .data-table td.center { text-align: center; font-variant-numeric: tabular-nums; }
+            .data-table tbody tr:nth-child(even) { background: #F9FAFB; }
+            .data-table tbody tr:hover { background: var(--accent-light); }
+
+            /* Dim bar */
+            .dim-bar-wrap {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .dim-bar {
                 flex: 1;
                 height: 6px;
-                background: #EEE;
+                background: #E5E7EB;
                 border-radius: 3px;
                 overflow: hidden;
             }
-            .hr-mini-bar-fill {
+            .dim-bar-fill {
                 height: 100%;
                 border-radius: 3px;
             }
-            .hr-mini-bar-val {
-                width: 40px;
+            .dim-bar-val {
+                width: 36px;
                 text-align: right;
-                font-weight: 600;
+                font-weight: 700;
                 font-size: 12px;
+                font-variant-numeric: tabular-nums;
+            }
+
+            /* ========== Two-column layout ========== */
+            .two-col {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                margin-bottom: 14px;
+            }
+            .two-col .card { margin-bottom: 0; }
+
+            /* ========== Page Footer ========== */
+            .page-footer {
+                margin-top: 20px;
+                padding-top: 10px;
+                border-top: 1px solid var(--border);
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+                color: var(--text-secondary);
+            }
+
+            /* ========== Explanation ========== */
+            .explanation-text {
+                white-space: pre-wrap;
+                font-family: inherit;
+                font-size: 13px;
+                line-height: 1.8;
+                color: #4B5563;
+            }
+
+            /* ========== Meta table (compact) ========== */
+            .meta-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 8px 16px;
+                font-size: 12px;
+            }
+            .meta-item { display: flex; gap: 6px; }
+            .meta-key { color: var(--text-secondary); flex-shrink: 0; }
+            .meta-val { font-weight: 600; color: var(--text); }
+
+            /* ========== Batch table ========== */
+            .result-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            .result-table th {
+                background: #F9FAFB;
+                padding: 9px 8px;
+                text-align: left;
+                font-weight: 700;
+                font-size: 10px;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                color: var(--text-secondary);
+                border-bottom: 2px solid var(--border);
+            }
+            .result-table td { padding: 7px 8px; border-bottom: 1px solid #F3F4F6; }
+            .result-table tbody tr:nth-child(even) { background: #F9FAFB; }
+            .cell-index { width: 36px; text-align: center; color: var(--text-secondary); }
+            .cell-file { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .cell-num { text-align: center; font-variant-numeric: tabular-nums; }
+            .cell-status { text-align: center; font-weight: 700; font-size: 11px; }
+            .cell-brief { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--text-secondary); }
+            .table-scroll { overflow-x: auto; }
+            .row-super-oversight { background: var(--so-red-bg) !important; }
+            .row-high-risk { background: var(--risk-high-bg) !important; }
+            .fake-color { color: var(--fake-red); font-weight: 700; }
+            .real-color { color: var(--real-green); font-weight: 700; }
+            .risk-low-text { color: var(--risk-low); font-weight: 700; }
+            .risk-medium-text { color: var(--risk-medium); font-weight: 700; }
+            .risk-high-text { color: var(--risk-high); font-weight: 700; }
+            .so-summary { color: var(--so-red) !important; font-weight: 700; }
+
+            /* ========== High-risk detail card ========== */
+            .high-risk-detail-card {
+                border: 1px solid var(--border);
+                border-left: 4px solid var(--risk-high);
+                background: #FFF;
+                border-radius: var(--radius-sm);
+                padding: 16px 18px;
+                margin-bottom: 12px;
+                page-break-inside: avoid;
+            }
+            .high-risk-detail-card h3 {
+                font-size: 13px;
+                color: var(--risk-high);
+                margin-bottom: 8px;
+            }
+            .hr-meta-row { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; margin-bottom: 8px; }
+            .hr-meta-item { display: flex; flex-direction: column; min-width: 70px; }
+            .hr-meta-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+            .hr-meta-value { font-weight: 700; font-size: 14px; }
+            .hr-thumb { max-width: 180px; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 6px; }
+            .hr-mini-bars { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+            .hr-mini-bar-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+            .hr-mini-bar-label { width: 70px; text-align: right; color: var(--text-secondary); }
+            .hr-mini-bar-track { flex: 1; height: 5px; background: #E5E7EB; border-radius: 3px; overflow: hidden; }
+            .hr-mini-bar-fill { height: 100%; border-radius: 3px; }
+            .hr-mini-bar-val { width: 36px; text-align: right; font-weight: 700; font-size: 11px; }
+
+            /* ========== No-image placeholder ========== */
+            .no-image {
+                display: flex; align-items: center; justify-content: center;
+                height: 100px; background: #F9FAFB; border: 1px dashed var(--border);
+                border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 12px;
+            }
+
+            /* ========== Print helpers ========== */
+            @media print {
+                body { background: #FFF; }
+                .card { box-shadow: none; }
             }
         '''
 
@@ -757,21 +805,17 @@ class ReportGenerator:
             return f'<div class="no-image">暂无图片</div>'
         return f'<img src="data:image/png;base64,{b64_data}" alt="{alt}" loading="lazy">'
 
-    def _radar_section(self, radar_b64) -> str:
+    @staticmethod
+    def _radar_img(radar_b64) -> str:
         if not radar_b64:
-            return ''
-        return f'''<div class="card">
-            <h2>风险维度雷达图</h2>
-            <img src="data:image/png;base64,{radar_b64}" alt="五维度雷达图">
-        </div>'''
+            return '<div class="no-image">雷达图不可用</div>'
+        return f'<img src="data:image/png;base64,{radar_b64}" alt="五维度雷达图" loading="lazy">'
 
-    def _gauge_section(self, gauge_b64) -> str:
+    @staticmethod
+    def _gauge_img(gauge_b64) -> str:
         if not gauge_b64:
-            return ''
-        return f'''<div class="card">
-            <h2>风险分数</h2>
-            <img src="data:image/png;base64,{gauge_b64}" alt="风险仪表条">
-        </div>'''
+            return '<div class="no-image">仪表图不可用</div>'
+        return f'<img src="data:image/png;base64,{gauge_b64}" alt="风险仪表条" loading="lazy">'
 
     def _summary_section(self, summary_b64) -> str:
         if not summary_b64:
@@ -784,25 +828,26 @@ class ReportGenerator:
     def _bbox_table(self, bbox_list: list) -> str:
         if not bbox_list:
             return '''<div class="card">
-            <h2>可疑区域列表</h2>
-            <p style="color:var(--text-secondary);font-size:13px;">未检测到可疑篡改区域</p>
+            <h2>可疑区域列表 <span class="card-badge">0 处</span></h2>
+            <p style="color:var(--text-secondary);font-size:12px;">未检测到可疑篡改区域</p>
         </div>'''
 
         rows = ''
         for i, bbox in enumerate(bbox_list, 1):
             local_score = bbox.get('risk_score', 0)
+            score_color = '#059669' if local_score < 0.5 else ('#D97706' if local_score < 0.8 else '#DC2626')
             rows += f'''<tr>
-                <td>{i}</td>
-                <td>({bbox['x']}, {bbox['y']})</td>
-                <td>{bbox['w']}×{bbox['h']}</td>
-                <td>{bbox.get('area', bbox['w']*bbox['h'])}</td>
-                <td style="font-weight:700;">{local_score:.2f}</td>
+                <td class="center">{i}</td>
+                <td class="center">({bbox['x']}, {bbox['y']})</td>
+                <td class="center">{bbox['w']}&times;{bbox['h']}</td>
+                <td class="center">{bbox.get('area', bbox['w']*bbox['h'])}</td>
+                <td class="center" style="font-weight:700;color:{score_color};">{local_score:.2f}</td>
             </tr>'''
 
         return f'''<div class="card">
-            <h2>可疑区域列表 ({len(bbox_list)}处)</h2>
-            <table class="bbox-table">
-                <thead><tr><th>#</th><th>坐标 (x,y)</th><th>尺寸 (w×h)</th><th>面积 (px)</th><th>局部风险分</th></tr></thead>
+            <h2>可疑区域列表 <span class="card-badge">{len(bbox_list)} 处</span></h2>
+            <table class="data-table">
+                <thead><tr><th class="center">#</th><th class="center">坐标 (x, y)</th><th class="center">尺寸 (w&times;h)</th><th class="center">面积 (px)</th><th class="center">局部风险分</th></tr></thead>
                 <tbody>{rows}</tbody>
             </table>
         </div>'''
@@ -819,24 +864,36 @@ class ReportGenerator:
             'region_count': '区域数量',
             'consistency': '一致性',
         }
+        weights = {'fake_prob': 0.50, 'artifact_intensity': 0.25, 'tamper_area': 0.10,
+                   'region_count': 0.05, 'consistency': 0.10}
 
         rows = ''
         for key, label in dim_names.items():
             val = dim_scores.get(key, 0)
             pct = int(val * 100)
+            if val < 0.5:
+                bar_color = '#06B6D4'
+            elif val < 0.8:
+                bar_color = '#F59E0B'
+            else:
+                bar_color = '#EF4444'
+            w = weights.get(key, 0)
             rows += f'''<tr>
-                <td style="text-align:left;font-weight:600;">{label}</td>
-                <td>{val:.4f}</td>
+                <td style="font-weight:600;">{label}</td>
+                <td style="color:var(--text-secondary);">{w:.0%}</td>
+                <td class="center">{val:.4f}</td>
                 <td>
-                    <span class="dim-bar" style="width:{pct}%;min-width:2px;"></span>
-                    {pct}%
+                    <div class="dim-bar-wrap">
+                        <div class="dim-bar"><div class="dim-bar-fill" style="width:{pct}%;background:{bar_color};"></div></div>
+                        <span class="dim-bar-val">{pct}%</span>
+                    </div>
                 </td>
             </tr>'''
 
         return f'''<div class="card">
-            <h2>风险维度详情</h2>
-            <table class="dim-table">
-                <thead><tr><th style="text-align:left;">维度</th><th>分数</th><th>百分比</th></tr></thead>
+            <h2>风险维度详情 <span class="card-badge">5 维</span></h2>
+            <table class="data-table">
+                <thead><tr><th>维度</th><th>权重</th><th class="center">分数</th><th>百分比</th></tr></thead>
                 <tbody>{rows}</tbody>
             </table>
         </div>'''
@@ -865,35 +922,40 @@ class ReportGenerator:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _super_oversight_badge() -> str:
-        return '<span class="super-oversight-badge">&#9888; 超监管高危</span>'
-
-    @staticmethod
-    def _llm_opinion_section(text: str) -> str:
-        if not text:
-            return ''
-        # 如果 fallback 文本已包含完整段落标签，直接渲染
-        return f'''<div class="llm-card">
-        <h2>&#128269; 综合研判意见</h2>
-        <div class="llm-opinion">{text}</div>
+    def _super_oversight_alert() -> str:
+        return '''<div class="so-alert">
+        <span class="so-alert-icon">&#9888;</span>
+        <div class="so-alert-text">
+            <strong>超监管高危内容</strong>
+            <p>该图像伪造概率极高且综合风险为高风险等级，建议立即标记并限制传播，优先进行人工复核。</p>
+        </div>
     </div>'''
 
     @staticmethod
-    def _llm_dimension_notes_section(text: str) -> str:
+    def _llm_callout(text: str) -> str:
         if not text:
             return ''
-        return f'''<div class="card">
-        <h2>&#129514; 维度解读 (LLM)</h2>
-        <div class="llm-dimension-notes">{text}</div>
+        return f'''<div class="callout">
+        <h2>&#128269; 智能分析与复核建议</h2>
+        <div class="callout-body">{text}</div>
     </div>'''
 
     @staticmethod
-    def _llm_region_notes_section(text: str) -> str:
+    def _llm_dimension_notes_card(text: str) -> str:
         if not text:
             return ''
-        return f'''<div class="card">
-        <h2>&#128506; 可疑区域分布解读 (LLM)</h2>
-        <div class="llm-dimension-notes">{text}</div>
+        return f'''<div class="callout">
+        <h2>&#129514; 维度解读</h2>
+        <div class="callout-body">{text}</div>
+    </div>'''
+
+    @staticmethod
+    def _llm_region_notes_card(text: str) -> str:
+        if not text:
+            return ''
+        return f'''<div class="callout">
+        <h2>&#128506; 可疑区域分布解读</h2>
+        <div class="callout-body">{text}</div>
     </div>'''
 
     @staticmethod
@@ -902,11 +964,11 @@ class ReportGenerator:
             return ''
         priority_html = ''
         if priority:
-            priority_html = f'''<h3>高风险优先级排序</h3>
-        <div class="llm-opinion">{priority}</div>'''
-        return f'''<div class="llm-card">
+            priority_html = f'''<h3 style="margin-top:12px;font-size:13px;color:var(--accent);">高风险优先级排序</h3>
+        <div class="callout-body">{priority}</div>'''
+        return f'''<div class="callout">
         <h2>&#128269; 批量综合研判意见</h2>
-        <div class="llm-opinion">{overview}</div>
+        <div class="callout-body">{overview}</div>
         {priority_html}
     </div>'''
 
