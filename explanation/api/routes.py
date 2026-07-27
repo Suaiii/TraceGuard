@@ -311,18 +311,20 @@ def create_app(
         else:
             raise HTTPException(status_code=400, detail=f"unknown report type: {request.type}")
 
-        # HTML → PDF
-        import tempfile
-        import io as std_io
+        # HTML → PDF (Playwright + Chromium)
         pdf_bytes = None
         try:
-            # 先尝试 weasyprint
-            from weasyprint import HTML as WHTML
-            pdf_bytes = WHTML(string=html).write_pdf()
+            from playwright.sync_api import sync_playwright
+            with sync_playwright() as pw:
+                browser = pw.chromium.launch()
+                page = browser.new_page()
+                page.set_content(html, timeout=30000)
+                pdf_bytes = page.pdf(format='A4', print_background=True)
+                browser.close()
         except ImportError:
             raise HTTPException(
                 status_code=501,
-                detail="PDF generation requires weasyprint. Install with: pip install weasyprint"
+                detail="PDF generation requires playwright. Run: pip install playwright && playwright install chromium"
             )
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"PDF generation failed: {exc}") from exc

@@ -818,7 +818,7 @@ function bindEvents() {
       return;
     }
     try {
-      const resp = await fetch("/api/v1/report/preview", {
+      const resp = await fetch("/api/v1/report/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(req),
@@ -827,22 +827,17 @@ function bindEvents() {
         const err = await resp.json();
         throw new Error(err.detail || err.message || resp.statusText);
       }
-      const data = await resp.json();
-      const w = window.open("", "_blank", "width=900,height=700");
-      if (!w) {
-        alert("请允许弹出窗口以导出报告");
-        return;
-      }
-      w.document.write(data.html);
-      w.document.close();
-      w.focus();
-      w.onload = function () {
-        w.print();
-      };
-      // If onload doesn't fire (already loaded), print immediately
-      setTimeout(function () { w.print(); }, 500);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "traceguard-report.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (err) {
-      alert("PDF 导出失败：" + err.message);
+      alert("PDF 下载失败：" + err.message);
     }
   }
 
