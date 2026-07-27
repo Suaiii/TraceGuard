@@ -44,7 +44,7 @@
 
 **背景**：`feature/report-export` 的批量报告版式与单图报告风格不统一（汇总图为单张 2×2、高风险条目仅缩略图+迷你进度条、摘要栏过长、无逐图 LLM 建议）。
 
-**已完成**（3 commits，当前分支 `feature/report-export-v2`，尚未合并）：
+**已完成**（6 commits，当前分支 `feature/report-export-v2`，尚未合并）：
 
 **1. 汇总图表：2×2 → 4 张独立图表并排**（`7fa32b4`）
 - `charts.py` 新增 4 个独立图表函数：`label_pie_chart` / `risk_level_bar_chart` / `fake_prob_histogram` / `risk_score_distribution`（均 260×220，独立 `matplotlib` figure）
@@ -74,6 +74,14 @@
 
 **6. 配色对齐单图报告**：批量报告继续使用同一套 CSS 变量（`--bg: #FAFBFC` / `--card-bg: #FFFFFF` / `--risk-high: #EF4444` / `--accent: #1A56DB` 等），卡片、表格、callout 样式完全一致
 
+**7. PDF 独立命名**（`27b4b7e`）
+- 前端：新增 `cachedReportType` 变量，`downloadReport` 生成 `TraceGuard-{type}-{YYYYMMDD-HHmmss}.pdf` 唯一文件名
+- 后端：`PdfRequest` 新增 `type` 字段，`Content-Disposition` 动态拼文件名
+- 示例：`TraceGuard-single-20260727-143022.pdf` / `TraceGuard-batch-20260727-151530.pdf`
+
+**8. 预览弹窗 iframe 放大**（`b95c62c`）
+- iframe 宽度 `80%` → `92%`，scale `0.9` → `0.95`，白色预览区域明显更大
+
 **新增/变更文件**：
 | 文件 | 变更 |
 |------|------|
@@ -82,8 +90,12 @@
 | `explanation/visualization/__init__.py` | 导出 4 个新图表函数 |
 | `explanation/llm/prompts.py` | 批量 prompt 新增 `[逐图复核建议]` 段落 |
 | `explanation/llm/agent.py` | `_parse_batch_reply` 解析 `review_suggestions` |
+| `explanation/api/schemas.py` | `PdfRequest` 新增 `type` 字段 |
+| `explanation/api/routes.py` | PDF 下载 `Content-Disposition` 动态文件名 |
+| `web/static/app.js` | `cachedReportType` + 时间戳文件名生成 |
+| `web/static/app.css` | iframe 宽度/缩放调整 |
 
-**分支状态**：`feature/report-export-v2` 本地 3 commits，尚未 push/merge。
+**分支状态**：`feature/report-export-v2` 本地 6 commits，尚未 push/merge。
 
 ### 2026-07-27 — 分支 `feature/super-oversight`：超监管高危内容前端展示 + 风险权重/面积统一
 
