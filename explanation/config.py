@@ -93,12 +93,26 @@ class OutputConfig:
 
 
 @dataclass
+class LlmConfig:
+    provider: str = ""
+    model: str = ""
+    api_key_env: str = ""
+    base_url: str = ""
+    temperature: float = 0.3
+    max_tokens: int = 2048
+    enabled: bool = True
+
+
+@dataclass
 class TraceGuardConfig:
     """TraceGuard 全局配置"""
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     heatmap: HeatmapConfig = field(default_factory=HeatmapConfig)
     localization: LocalizationConfig = field(default_factory=LocalizationConfig)
     risk: RiskConfig = field(default_factory=RiskConfig)
+    text: TextConfig = field(default_factory=TextConfig)
+    output: OutputConfig = field(default_factory=OutputConfig)
+    llm: LlmConfig = field(default_factory=LlmConfig)
     text: TextConfig = field(default_factory=TextConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
 

@@ -31,6 +31,9 @@ from .schemas import (
     BatchResponse,
     HealthResponse,
     ConfigResponse,
+    ReportRequest,
+    ReportPreviewResponse,
+    PdfRequest,
     BBoxItem,
     DimensionScores,
     Metadata,
@@ -38,6 +41,9 @@ from .schemas import (
 from detection.inference_api import Detector
 from explanation.pipeline import ExplanationPipeline
 from explanation.utils import base64_to_image
+from explanation.visualization import ReportGenerator
+from explanation.llm import DeepSeekClient, ReportAgent
+from explanation.config import load_config as load_yaml_config
 
 _detector: Detector | None = None
 _pipeline: ExplanationPipeline | None = None
@@ -199,6 +205,122 @@ def create_app(
             total_elapsed_ms=round((time.perf_counter() - t0) * 1000, 2),
             success_count=len(results) - errors,
             error_count=errors,
+        )
+
+    # ------------------------------------------------------------------
+    # 报告导出
+    # ------------------------------------------------------------------
+
+    def _get_llm_agent():
+        """延迟初始化 LLM agent — 全部配置来自 default.yaml"""
+        yaml_cfg = load_yaml_config('configs/default.yaml')
+        llm_cfg = yaml_cfg.llm if hasattr(yaml_cfg, 'llm') else None
+        if llm_cfg is None or not llm_cfg.enabled:
+            return None
+        api_key = os.environ.get(llm_cfg.api_key_env, '')
+        if not api_key:
+            return None
+        client = DeepSeekClient(
+            api_key=api_key,
+            model=llm_cfg.model,
+            base_url=llm_cfg.base_url,
+            temperature=llm_cfg.temperature,
+            max_tokens=llm_cfg.max_tokens,
+        )
+        return ReportAgent(client)
+
+    @app.post("/api/v1/report/preview", response_model=ReportPreviewResponse)
+    async def report_preview(request: ReportRequest):
+        cfg = get_config()
+        output_cfg = cfg.get('output', {})
+        html_title = output_cfg.get('html_title', 'TraceGuard 检测报告')
+
+        gen = ReportGenerator(title=html_title, include_charts=True)
+
+        llm_generated = False
+        llm_elapsed_ms = 0
+
+        # LLM 研判
+        agent = None
+        if request.options.include_llm:
+            agent = _get_llm_agent()
+
+        if request.type == 'single':
+            result = request.results[0] if request.results else {}
+            llm_opinion = None
+            if agent:
+                llm_opinion = agent.analyze_single(result)
+                llm_generated = llm_opinion.get('llm_generated', False)
+                llm_elapsed_ms = llm_opinion.get('elapsed_ms', 0)
+            html = gen.generate_single(
+                image_path=result.get('file', ''),
+                result=result,
+                llm_opinion=llm_opinion,
+            )
+        elif request.type == 'batch':
+            llm_opinion = None
+            results_raw = [r for r in request.results]
+            if agent:
+                llm_opinion = agent.analyze_batch(results_raw)
+                llm_generated = llm_opinion.get('llm_generated', False)
+                llm_elapsed_ms = llm_opinion.get('elapsed_ms', 0)
+            html = gen.generate_batch(
+                results=results_raw,
+                llm_opinion=llm_opinion,
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"unknown report type: {request.type}")
+
+        return ReportPreviewResponse(
+            html=html,
+            llm_generated=llm_generated,
+            llm_elapsed_ms=llm_elapsed_ms,
+        )
+
+    async def _html_to_pdf(html: str) -> bytes:
+        """Playwright Chromium 渲染 HTML → PDF"""
+        import tempfile
+        from playwright.async_api import async_playwright
+        pw = await async_playwright().start()
+        try:
+            browser = await pw.chromium.launch()
+            page = await browser.new_page()
+            with tempfile.NamedTemporaryFile(
+                mode='w', suffix='.html', encoding='utf-8', delete=False
+            ) as f:
+                f.write(html)
+                tmp_path = f.name
+            try:
+                await page.goto('file:///' + tmp_path.replace('\\', '/'),
+                                wait_until='networkidle', timeout=60000)
+                result = await page.pdf(format='A4', print_background=True)
+            finally:
+                os.unlink(tmp_path)
+            await browser.close()
+            return result
+        finally:
+            await pw.stop()
+
+    @app.post("/api/v1/report/pdf")
+    async def report_pdf(request: PdfRequest):
+        """接收已生成的 HTML，直接转 PDF（不重复调 LLM）"""
+        try:
+            pdf_bytes = await _html_to_pdf(request.html)
+        except ImportError:
+            raise HTTPException(
+                status_code=501,
+                detail="PDF generation requires playwright. Run: pip install playwright && playwright install chromium"
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"PDF generation failed: {exc}") from exc
+
+        from fastapi.responses import Response
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": 'attachment; filename="traceguard-report.pdf"',
+            },
         )
 
     return app

@@ -97,6 +97,59 @@
 
 **分支状态**：已于 2026-07-27 通过 `--no-ff` 合并至 `main`。
 
+### 2026-07-27 — 分支 `feature/report-export`：检测报告导出功能（LLM 研判 + PDF 导出）
+
+**目标**：实现单图/批量检测报告的预览与 PDF 导出，接入 LLM 生成专业取证研判意见。
+
+**已实现**（24 commits，尚未合并）：
+
+**后端 — LLM 模块** (`explanation/llm/`)
+- `DeepSeekClient`（`client.py`）：OpenAI SDK 兼容，全部配置由 `default.yaml` 控制，代码零硬编码
+- `ReportAgent`（`agent.py`）：编排层 — 提取 pipeline 结构化摘要 JSON → 调 LLM → 解析回复为结构化 dict
+- `prompts.py`：System prompt（取证专家角色）+ 单图三段式 + 批量两段式 + fallback 文本
+- 支持火山方舟 Ark 平台（`/api/coding/v3`），可用 doubao/glm/kimi/deepseek/minimax 全系列模型
+- LLM 不可用时自动 fallback 模板文字，不阻断报告生成
+
+**LLM 配置完全解耦**（`configs/default.yaml` `llm` 段）：
+```yaml
+llm:
+  provider: "volcengine_ark"
+  model: "deepseek-v4-pro"        # 改这一行即可切换模型
+  api_key_env: "ARK_API_KEY"
+  base_url: "https://ark.cn-beijing.volces.com/api/coding/v3"
+  temperature: 0.3
+  max_tokens: 2048
+  enabled: true
+```
+`routes.py` 通过 `load_config()` 直接读取 YAML，`client.py` 无任何硬编码默认值。
+
+**后端 — 报告模板** (`explanation/visualization/report.py`，已全面重构)
+- **设计风格**：冷白底色 `#FAFBFC` + 白色卡片 + 微阴影边框；高危赤红 `#DC2626` / 低危青蓝 `#06B6D4` / 中危琥珀 `#F59E0B`
+- **单图报告版式**：页头品牌栏（TraceGuard | 报告编号 | 日期）→ 3 列 Key Metrics 大卡片 → LLM 智能分析 Callout（蓝色左边条）→ 2×2 证据图网格 → 双列（仪表+维度表）→ 可疑区域条纹数据表 → 详细解释 → 元信息 → 页脚
+- **批量报告**：统计仪表板 → LLM 批量研判 → 汇总图表 → 逐条条纹表（超监管/高风险行着色）→ 高风险条目详情卡片
+- **超监管**：`fake_prob ≥ 0.9 + risk_level = high` 触发红色全宽警示横幅
+- **分页控制**：全线 padding/margin 压缩 30-40% 紧凑布局；图片/小卡片 `page-break-inside: avoid`；长文本卡片允许跨页；`@page` 边距 14mm
+
+**后端 — API**
+- `POST /api/v1/report/preview`：生成完整 HTML（LLM 研判 + 模板 + matplotlib 图表），返回预览
+- `POST /api/v1/report/pdf`：接收预览缓存的 HTML，Playwright Chromium 渲染 PDF（A4 格式）
+- 预览/下载解耦：预览缓存 HTML，下载不复调 LLM，秒级响应
+- PDF 生成：临时文件加载 → `page.goto(wait_until='networkidle')` → 等 base64 图片渲染完毕 → 导出
+
+**前端 — 预览弹窗**
+- 暗色文档阅读器风格：`#2C2C2C` 外框 + `#1E1E1E` 顶/底栏 + `#3A3A3A` 深灰预览区
+- iframe 白纸：80% 宽度居中（两侧各 10% 暗色留白）+ `scale(0.9)` + `max-width: 1000px` + 重阴影
+- iframe `scrolling="no"` + onload 自适应高度 + overflow hidden → 消除双层滚动条
+- 弹窗 `height: 85vh` + padding 32px 不贴边 + 深色遮罩 blur 8px
+- 加载动画：spinner + 状态栏反馈（"正在生成报告..." / "PDF 已下载"）
+- 导出/下载按钮切换状态；ESC 关闭弹窗
+
+**配置与依赖**
+- `configs/default.yaml`：新增 `llm` 配置段（provider/model/api_key_env/base_url）
+- `requirements.txt`：`openai>=1.0`、`playwright>=1.40`
+
+**分支状态**：`feature/report-export` 本地 24 commits，尚未 push/merge。当前配置为火山方舟 Ark 平台 `doubao-seed-2.0-code`。待端到端验证。
+
 ### 2026-07-21 - 第一章 v2：定名"社交媒体传播场景" + 相关工作改基金写法
 
 队长两点反馈落地（`docs/restructure/latex_ch1_overview.tex` 已更新为 v2）：

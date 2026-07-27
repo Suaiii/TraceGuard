@@ -93,11 +93,12 @@ if __name__ == '__main__':
         pipeline_config=pipeline_config,
     )
 
+    display_host = '127.0.0.1' if args.host == '0.0.0.0' else args.host
     print(f"\n{'='*60}")
     print(f"  TraceGuard API 服务")
-    print(f"  地址:  http://{args.host}:{args.port}")
-    print(f"  文档:  http://{args.host}:{args.port}/docs")
-    print(f"  健康:  http://{args.host}:{args.port}/api/v1/health")
+    print(f"  地址:  http://{display_host}:{args.port}")
+    print(f"  文档:  http://{display_host}:{args.port}/docs")
+    print(f"  健康:  http://{display_host}:{args.port}/api/v1/health")
     print(f"  CUDA:  {'enabled' if args.device == 'cuda' else 'disabled'}")
     print(f"{'='*60}\n")
 
