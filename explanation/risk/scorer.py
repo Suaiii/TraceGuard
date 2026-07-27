@@ -13,10 +13,10 @@ class RiskScorer:
     多维度风险评分器。
 
     风险维度:
-      1. 检测置信度    (weight: 0.30) — fake_prob
+      1. 检测置信度    (weight: 0.50) — fake_prob
       2. 伪影强度      (weight: 0.25) — 热力图 max/mean
-      3. 篡改面积比    (weight: 0.25) — 可疑区域面积/总图像面积
-      4. 篡改区域数量  (weight: 0.10) — 归一化区域个数
+      3. 篡改面积比    (weight: 0.10) — 可疑区域面积/总图像面积
+      4. 篡改区域数量  (weight: 0.05) — 归一化区域个数
       5. 置信度一致性  (weight: 0.10) — 热力图高响应与掩膜重叠度
 
     风险等级:
@@ -44,17 +44,17 @@ class RiskScorer:
         """
         Args:
             weights: 自定义权重字典
-                - fake_prob_weight: float = 0.30
+                - fake_prob_weight: float = 0.50
                 - artifact_intensity_weight: float = 0.25
-                - tamper_area_weight: float = 0.25
-                - region_count_weight: float = 0.10
+                - tamper_area_weight: float = 0.10
+                - region_count_weight: float = 0.05
                 - consistency_weight: float = 0.10
         """
         self.weights = {
-            'fake_prob': weights.get('fake_prob_weight', 0.30) if weights else 0.30,
+            'fake_prob': weights.get('fake_prob_weight', 0.50) if weights else 0.50,
             'artifact_intensity': weights.get('artifact_intensity_weight', 0.25) if weights else 0.25,
-            'tamper_area': weights.get('tamper_area_weight', 0.25) if weights else 0.25,
-            'region_count': weights.get('region_count_weight', 0.10) if weights else 0.10,
+            'tamper_area': weights.get('tamper_area_weight', 0.10) if weights else 0.10,
+            'region_count': weights.get('region_count_weight', 0.05) if weights else 0.05,
             'consistency': weights.get('consistency_weight', 0.10) if weights else 0.10,
         }
 
