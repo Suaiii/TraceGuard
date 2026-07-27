@@ -67,6 +67,8 @@ const el = {
   previewClose: document.getElementById("previewClose"),
   previewCancel: document.getElementById("previewCancel"),
   previewDownload: document.getElementById("previewDownload"),
+  previewLoading: document.getElementById("previewLoading"),
+  previewStatus: document.getElementById("previewStatus"),
 };
 
 const text = {
@@ -760,12 +762,21 @@ function bindEvents() {
   }
 
   function openPreview(html) {
+    el.previewModal.style.display = "flex";
+    el.previewLoading.style.display = "flex";
+    el.previewFrame.style.display = "none";
+    el.previewDownload.disabled = false;
+    el.previewStatus.textContent = "";
+
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    el.previewFrame.src = url;
-    el.previewModal.style.display = "flex";
-    // Store URL for cleanup
     el.previewFrame.dataset.blobUrl = url;
+
+    el.previewFrame.onload = function () {
+      el.previewLoading.style.display = "none";
+      el.previewFrame.style.display = "";
+    };
+    el.previewFrame.src = url;
   }
 
   function closePreview() {
@@ -776,6 +787,9 @@ function bindEvents() {
       el.previewFrame.dataset.blobUrl = "";
     }
     el.previewFrame.src = "";
+    el.previewFrame.style.display = "none";
+    el.previewLoading.style.display = "flex";
+    el.previewStatus.textContent = "";
   }
 
   async function previewReport(type) {
@@ -788,6 +802,12 @@ function bindEvents() {
     const originalText = btn.textContent;
     btn.textContent = text.exportGenerating;
     btn.disabled = true;
+    // 先显示弹窗 + loading
+    el.previewModal.style.display = "flex";
+    el.previewLoading.style.display = "flex";
+    el.previewFrame.style.display = "none";
+    el.previewDownload.disabled = true;
+    el.previewStatus.textContent = "";
     try {
       const resp = await fetch("/api/v1/report/preview", {
         method: "POST",
@@ -816,6 +836,10 @@ function bindEvents() {
       alert("请先预览报告再下载");
       return;
     }
+    var btn = el.previewDownload;
+    btn.disabled = true;
+    btn.textContent = "正在生成 PDF...";
+    el.previewStatus.textContent = "";
     try {
       const resp = await fetch("/api/v1/report/pdf", {
         method: "POST",
@@ -835,8 +859,13 @@ function bindEvents() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      el.previewStatus.textContent = "PDF 已下载";
     } catch (err) {
+      el.previewStatus.textContent = "下载失败";
       alert("PDF 下载失败：" + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "下载 PDF";
     }
   }
 

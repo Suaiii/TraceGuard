@@ -242,15 +242,20 @@
         <div class="preview-overlay" id="previewOverlay"></div>
         <div class="preview-container">
           <div class="preview-head">
-            <span>&#128196; &#25253;&#21578;&#39044;&#35272;</span>
-            <button class="preview-close" id="previewClose" type="button">&times;</button>
+            <span class="preview-head-icon">&#25253;&#21578;&#39044;&#35272;</span>
+            <button class="preview-close" id="previewClose" type="button" title="&#20851;&#38381;">&times;</button>
           </div>
           <div class="preview-body">
-            <iframe id="previewFrame" sandbox="allow-same-origin"></iframe>
+            <div class="preview-loading" id="previewLoading">
+              <div class="preview-spinner"></div>
+              <span>&#27491;&#22312;&#29983;&#25104;&#25253;&#21578;...</span>
+            </div>
+            <iframe id="previewFrame" sandbox="allow-same-origin" style="display:none"></iframe>
           </div>
           <div class="preview-actions">
-            <button class="preview-download" id="previewDownload" type="button">&#128229; &#19979;&#36733; PDF</button>
+            <span class="preview-status" id="previewStatus"></span>
             <button class="preview-cancel" id="previewCancel" type="button">&#20851;&#38381;</button>
+            <button class="preview-download" id="previewDownload" type="button">&#19979;&#36733; PDF</button>
           </div>
         </div>
       </div>
