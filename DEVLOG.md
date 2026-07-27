@@ -40,6 +40,51 @@
 
 ## 当前状态
 
+### 2026-07-27 — 分支 `feature/report-export-v2`：批量报告版式重构（4图并排 + LLM逐图复核 + 配色对齐单图）
+
+**背景**：`feature/report-export` 的批量报告版式与单图报告风格不统一（汇总图为单张 2×2、高风险条目仅缩略图+迷你进度条、摘要栏过长、无逐图 LLM 建议）。
+
+**已完成**（3 commits，当前分支 `feature/report-export-v2`，尚未合并）：
+
+**1. 汇总图表：2×2 → 4 张独立图表并排**（`7fa32b4`）
+- `charts.py` 新增 4 个独立图表函数：`label_pie_chart` / `risk_level_bar_chart` / `fake_prob_histogram` / `risk_score_distribution`（均 260×220，独立 `matplotlib` figure）
+- 报告内 4 列 CSS Grid（`.chart-row-4`）并排展示，替代旧版单张 `batch_summary` 2×2 图
+- 后续 fix（`249bead`）：生成后统一 `resize` 到相同像素尺寸，消除饼图因 `bbox_inches='tight'` 修剪差异导致的偏大问题
+
+**2. 逐条分析表格精简**（`7fa32b4`）
+- 去掉 `risk_score` 列（综合风险分仅在高风险详情中显示）
+- `#` 列宽 36→52px + `white-space: nowrap`，容纳 `⚠ 3` 同行显示
+- 摘要列改为三字段紧凑格式：`AIGC伪造图 | 置信度95% | 风险高风险`
+
+**3. 高风险条目详情全面展开**（`7fa32b4`）
+- **4 证据图并排**（`.img-row-4` 4 列网格）：热力图叠加 / 热力掩膜 / BBox 标注 / 篡改掩膜叠加
+- **双栏分析**（`.hr-detail-two-col`）：左栏五维进度条（`.hr-dim-analysis` 灰蓝底卡片）、右栏 LLM 复核建议（`.hr-llm-suggest` 淡蓝底卡片）
+- **可疑区域列表**：复用单图条纹数据表
+- **详细解释**：完整展示（fix `d6b7bfb` 移除 600 字符截断）
+- 后续 fix（`249bead`）：`.hr-mini-bar-fill` 添加 `display: block`，修复 `<span>` 内联元素高度不生效导致的柱状图无色问题
+
+**4. 全部图片详情（排除高风险后）**（`7fa32b4`）
+- 每张图：4 证据图并排 + 可疑区域列表 + 详细解释
+- 排除 error/failure 结果
+
+**5. LLM Prompt 扩展：逐图复核建议**（`7fa32b4`）
+- `prompts.py`：批量 prompt 新增 `[逐图复核建议]` 段落（格式 `#N: 建议文字`）
+- `agent.py`：`_parse_batch_reply` 解析为 `review_suggestions: {idx: suggestion}` dict
+- Fallback 模板同步更新
+
+**6. 配色对齐单图报告**：批量报告继续使用同一套 CSS 变量（`--bg: #FAFBFC` / `--card-bg: #FFFFFF` / `--risk-high: #EF4444` / `--accent: #1A56DB` 等），卡片、表格、callout 样式完全一致
+
+**新增/变更文件**：
+| 文件 | 变更 |
+|------|------|
+| `explanation/visualization/charts.py` | +209 行：4 个独立图表函数 |
+| `explanation/visualization/report.py` | +350/−65 行：`generate_batch` 重写、新增 `_high_risk_details_expanded` / `_all_images_details_section`、CSS ~80 行新增 |
+| `explanation/visualization/__init__.py` | 导出 4 个新图表函数 |
+| `explanation/llm/prompts.py` | 批量 prompt 新增 `[逐图复核建议]` 段落 |
+| `explanation/llm/agent.py` | `_parse_batch_reply` 解析 `review_suggestions` |
+
+**分支状态**：`feature/report-export-v2` 本地 3 commits，尚未 push/merge。
+
 ### 2026-07-27 — 分支 `feature/super-oversight`：超监管高危内容前端展示 + 风险权重/面积统一
 
 **背景**：ExImage 测试集在平台实测中大量图片被判定为 fake，但无一触发超监管提示。根因是 `risk_level` 几乎全部落在 medium 带（0.35–0.70），五维风险评分中 `tamper_area` 和 `consistency` 的低方差拖累了 `fake_prob` 的主信号。同时 bbox `area` 字段在代码和报告间存在语义不一致。
@@ -101,7 +146,7 @@
 
 **目标**：实现单图/批量检测报告的预览与 PDF 导出，接入 LLM 生成专业取证研判意见。
 
-**已实现**（24 commits，尚未合并）：
+**已实现**（24 commits，已合并至 main `47ba3f5`）：
 
 **后端 — LLM 模块** (`explanation/llm/`)
 - `DeepSeekClient`（`client.py`）：OpenAI SDK 兼容，全部配置由 `default.yaml` 控制，代码零硬编码
@@ -148,7 +193,7 @@ llm:
 - `configs/default.yaml`：新增 `llm` 配置段（provider/model/api_key_env/base_url）
 - `requirements.txt`：`openai>=1.0`、`playwright>=1.40`
 
-**分支状态**：`feature/report-export` 本地 24 commits，尚未 push/merge。当前配置为火山方舟 Ark 平台 `doubao-seed-2.0-code`。待端到端验证。
+**分支状态**：已于 2026-07-27 通过 `--no-ff` 合并至 `main`（`47ba3f5`）。
 
 ### 2026-07-21 - 第一章 v2：定名"社交媒体传播场景" + 相关工作改基金写法
 
