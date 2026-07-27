@@ -447,11 +447,11 @@ class ReportGenerator:
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif;
-                background: var(--bg);
+                background: #f2f3f5;
                 color: var(--text);
                 font-size: 13px;
                 line-height: 1.6;
-                max-width: 960px;
+                max-width: 860px;
                 margin: 0 auto;
                 padding: 20px 16px;
                 -webkit-print-color-adjust: exact;
