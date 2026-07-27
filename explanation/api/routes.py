@@ -305,7 +305,14 @@ def create_app(
                 tmp_path = f.name
             try:
                 await page.goto('file:///' + tmp_path.replace('\\', '/'),
-                                wait_until='networkidle', timeout=60000)
+                                wait_until='load', timeout=60000)
+                # 等待所有内联 base64 图片解码完成（data: URI 无网络请求，
+                # networkidle 会过早触发，导致图片尚未渲染就被 PDF 捕获）
+                await page.wait_for_function(
+                    '() => Array.from(document.images).every('
+                    'img => img.complete && img.naturalWidth > 0)',
+                    timeout=30000,
+                )
                 result = await page.pdf(format='A4', print_background=True)
             finally:
                 os.unlink(tmp_path)

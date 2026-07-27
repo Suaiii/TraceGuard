@@ -976,19 +976,19 @@ class ReportGenerator:
     def _img_tag(b64_data, alt="图像") -> str:
         if not b64_data:
             return f'<div class="no-image">暂无图片</div>'
-        return f'<img src="data:image/png;base64,{b64_data}" alt="{alt}" loading="lazy">'
+        return f'<img src="data:image/png;base64,{b64_data}" alt="{alt}">'
 
     @staticmethod
     def _radar_img(radar_b64) -> str:
         if not radar_b64:
             return '<div class="no-image">雷达图不可用</div>'
-        return f'<img src="data:image/png;base64,{radar_b64}" alt="五维度雷达图" loading="lazy">'
+        return f'<img src="data:image/png;base64,{radar_b64}" alt="五维度雷达图">'
 
     @staticmethod
     def _gauge_img(gauge_b64) -> str:
         if not gauge_b64:
             return '<div class="no-image">仪表图不可用</div>'
-        return f'<img src="data:image/png;base64,{gauge_b64}" alt="风险仪表条" loading="lazy">'
+        return f'<img src="data:image/png;base64,{gauge_b64}" alt="风险仪表条">'
 
     def _summary_section(self, summary_b64) -> str:
         if not summary_b64:
