@@ -43,6 +43,7 @@ from explanation.pipeline import ExplanationPipeline
 from explanation.utils import base64_to_image
 from explanation.visualization import ReportGenerator
 from explanation.llm import DeepSeekClient, ReportAgent
+from explanation.config import load_config as load_yaml_config
 
 _detector: Detector | None = None
 _pipeline: ExplanationPipeline | None = None
@@ -211,20 +212,20 @@ def create_app(
     # ------------------------------------------------------------------
 
     def _get_llm_agent():
-        """延迟初始化 LLM agent"""
-        cfg = get_config()
-        llm_cfg = cfg.get('llm', {})
-        if not llm_cfg.get('enabled', True):
+        """延迟初始化 LLM agent — 全部配置来自 default.yaml"""
+        yaml_cfg = load_yaml_config('configs/default.yaml')
+        llm_cfg = yaml_cfg.llm if hasattr(yaml_cfg, 'llm') else None
+        if llm_cfg is None or not llm_cfg.enabled:
             return None
-        api_key = os.environ.get(llm_cfg.get('api_key_env', 'DEEPSEEK_API_KEY'), '')
+        api_key = os.environ.get(llm_cfg.api_key_env, '')
         if not api_key:
             return None
         client = DeepSeekClient(
             api_key=api_key,
-            model=llm_cfg.get('model', 'deepseek-v4-pro'),
-            base_url=llm_cfg.get('base_url', 'https://api.deepseek.com'),
-            temperature=llm_cfg.get('temperature', 0.3),
-            max_tokens=llm_cfg.get('max_tokens', 2048),
+            model=llm_cfg.model,
+            base_url=llm_cfg.base_url,
+            temperature=llm_cfg.temperature,
+            max_tokens=llm_cfg.max_tokens,
         )
         return ReportAgent(client)
 

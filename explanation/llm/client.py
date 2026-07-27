@@ -1,8 +1,7 @@
 """
-DeepSeek API 客户端 — 通过 OpenAI 兼容 SDK 调用
+LLM API 客户端 — 通过 OpenAI 兼容 SDK 调用，全部配置由 default.yaml 控制
 """
 
-import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,13 +23,13 @@ class DeepSeekClient:
 
     def __init__(
         self,
-        api_key: str = None,
-        model: str = "deepseek-v4-pro",
-        base_url: str = "https://api.deepseek.com",
+        api_key: str,
+        model: str,
+        base_url: str,
         temperature: float = 0.3,
         max_tokens: int = 2048,
     ):
-        self.api_key = api_key or os.environ.get("DEEPSEEK_API_KEY", "")
+        self.api_key = api_key
         self.model = model
         self.base_url = base_url
         self.temperature = temperature
@@ -39,8 +38,8 @@ class DeepSeekClient:
 
     @property
     def is_configured(self) -> bool:
-        """检查 API Key 是否已配置"""
-        return bool(self.api_key)
+        """检查 API Key 与必要参数是否已配置"""
+        return bool(self.api_key and self.model and self.base_url)
 
     def _ensure_client(self):
         """延迟初始化 OpenAI 客户端"""
@@ -48,8 +47,8 @@ class DeepSeekClient:
             return
         if not self.is_configured:
             raise RuntimeError(
-                "DeepSeek API key not configured. "
-                "Set DEEPSEEK_API_KEY environment variable."
+                "LLM client not configured. "
+                "Check llm section in configs/default.yaml"
             )
         try:
             from openai import OpenAI
