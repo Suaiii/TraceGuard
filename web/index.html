@@ -14,6 +14,7 @@
           <p class="eyebrow">TraceGuard · Image Forensics</p>
           <h1>TraceGuard 图像取证平台</h1>
         </div>
+        <button class="cap-button" id="capButton" type="button">检测器能力档案</button>
         <div class="status" id="serviceStatus">
           <span class="status-dot"></span>
           <span>连接中</span>
@@ -184,15 +185,20 @@
               <p class="eyebrow">01 — Input</p>
               <h2>批量上传</h2>
             </div>
-            <span class="file-count-display" id="multiFileCount">0 / 20</span>
+            <span class="file-count-display" id="multiFileCount">0 / 1000</span>
           </div>
 
           <label class="dropzone" id="multiDropzone">
             <input id="multiFileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple />
             <span class="upload-mark">↑</span>
             <span class="drop-title">拖入多张图片或点击上传</span>
-            <span class="drop-meta">PNG / JPG / WEBP · 最多 20 张</span>
+            <span class="drop-meta">PNG / JPG / WEBP · 最多 1000 张 · 支持文件夹</span>
           </label>
+
+          <div class="folder-row">
+            <button class="folder-button" id="folderButton" type="button">选择文件夹 ↧</button>
+            <input id="folderInput" type="file" webkitdirectory multiple style="display:none" />
+          </div>
 
           <div class="file-grid" id="fileGrid"></div>
 
@@ -217,32 +223,53 @@
         <section class="result-panel batch-result-panel">
           <div class="panel-head">
             <div>
-              <p class="eyebrow">02 — Results</p>
-              <h2>批量检测结果</h2>
+              <p class="eyebrow">02 — Screening</p>
+              <h2>取证筛查结果</h2>
             </div>
             <span class="latency" id="batchLatencyText">-- ms</span>
           </div>
 
-          <div class="batch-stats" id="batchStats" style="display:none">
-            <div class="batch-stat-item">
-              <span>成功</span>
-              <b id="batchSuccessCount">0</b>
+          <div class="screen-progress" id="screenProgress" style="display:none">
+            <div class="progress-head">
+              <span id="progressText">0 / 0</span>
+              <span id="progressMeta">已拦截 0 · 预计剩余 --</span>
+              <button class="abort-button" id="abortButton" type="button">中断 ×</button>
             </div>
-            <div class="batch-stat-item">
-              <span>失败</span>
-              <b id="batchErrorCount">0</b>
+            <div class="progress-track"><span id="progressFill"></span></div>
+          </div>
+
+          <div class="screen-summary" id="batchStats" style="display:none">
+            <div class="batch-stats">
+              <div class="batch-stat-item">
+                <span>总数</span>
+                <b id="batchTotalCount">0</b>
+              </div>
+              <div class="batch-stat-item">
+                <span>筛选通过</span>
+                <b id="batchPassedCount">0</b>
+              </div>
+              <div class="batch-stat-item hot">
+                <span>待处置</span>
+                <b id="batchFlaggedCount">0</b>
+              </div>
+              <div class="batch-stat-item hot">
+                <span>高置信伪造</span>
+                <b id="batchHighConfCount">0</b>
+              </div>
+              <div class="batch-stat-item">
+                <span>失败</span>
+                <b id="batchErrorCount">0</b>
+              </div>
             </div>
-            <div class="batch-stat-item">
-              <span>总耗时</span>
-              <b id="batchTotalTime">0</b> <span>ms</span>
-            </div>
+            <p class="batch-breakdown" id="batchBreakdown"></p>
+            <p class="batch-interrupted" id="batchInterrupted" style="display:none"></p>
           </div>
 
           <div class="result-grid" id="resultGrid">
-            <div class="batch-empty" id="batchEmptyState">上传图片并开始检测后显示结果</div>
+            <div class="batch-empty" id="batchEmptyState">上传图片或选择文件夹，开始取证筛查</div>
           </div>
 
-          <button class="export-button" id="exportBatchButton" type="button" style="display:none">批量导出报告 →</button>
+          <button class="export-button" id="exportBatchButton" type="button" style="display:none">导出待处置报告 →</button>
         </section>
       </section>
 
@@ -265,6 +292,51 @@
             <span class="preview-status" id="previewStatus"></span>
             <button class="preview-cancel" id="previewCancel" type="button">关闭</button>
             <button class="preview-download" id="previewDownload" type="button">下载 PDF</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 检测器能力档案（纯静态，零 JS 数据；数字为已定稿评测口径，勿改） ========== -->
+      <div class="preview-modal" id="capModal" style="display:none">
+        <div class="preview-overlay" id="capOverlay"></div>
+        <div class="preview-container cap-container">
+          <div class="preview-head">
+            <span class="preview-head-icon">检测器能力档案</span>
+            <button class="preview-close" id="capClose" type="button" title="关闭">×</button>
+          </div>
+          <div class="cap-body">
+            <p class="cap-scope-badge">公开数据子集零样本评测</p>
+
+            <div class="cap-grid">
+              <div class="cap-cell">
+                <span class="cap-label">ExImage 零样本 Recall（总体）</span>
+                <b class="cap-value">98.00%</b>
+                <span class="cap-sub">9 个生成器 92.4% – 100.0%</span>
+              </div>
+              <div class="cap-cell">
+                <span class="cap-label">通用盲测 Real Recall</span>
+                <b class="cap-value">99.80%</b>
+                <span class="cap-sub">真图不误杀</span>
+              </div>
+              <div class="cap-cell">
+                <span class="cap-label">模型参数量</span>
+                <b class="cap-value">45.4M</b>
+                <span class="cap-sub">单模型端到端</span>
+              </div>
+            </div>
+
+            <h3 class="cap-subhead">传播扰动召回保持率</h3>
+            <table class="cap-table">
+              <tbody>
+                <tr><td>jpeg75</td><td>19.8%</td></tr>
+                <tr><td>jpeg50</td><td>12.2%</td></tr>
+                <tr><td>resize50</td><td>101.1%<sup>†</sup></td></tr>
+                <tr><td>screenshot</td><td>56.8%</td></tr>
+              </tbody>
+            </table>
+
+            <p class="cap-note">† 保持率为扰动后召回相对无扰动基线的比值，resize50 下略高于基线。</p>
+            <p class="cap-note">以上数字来自公开数据子集零样本评测，非全量基准；系统不具备内容语义分类能力。</p>
           </div>
         </div>
       </div>

@@ -20,6 +20,10 @@ class AnalysisOptions(BaseModel):
     min_region_area: int = Field(256, ge=64, description="最小可疑区域面积")
     language: str = Field("zh", description="解释语言: zh|en")
     detail_level: str = Field("standard", description="解释详细度: brief|standard|detailed")
+    evidence_policy: str = Field(
+        "all", pattern="^(all|flagged|none)$",
+        description="证据图回传策略: all=全部回传(默认) | flagged=仅待处置条目回传 | none=全不回传",
+    )
 
 
 class AnalysisRequest(BaseModel):
@@ -30,8 +34,8 @@ class AnalysisRequest(BaseModel):
 
 class BatchRequest(BaseModel):
     """批量分析请求"""
-    images_base64: list[str] = Field(..., min_length=1, max_length=20,
-                                     description="Base64 编码图像列表 (最多20张)")
+    images_base64: list[str] = Field(..., min_length=1, max_length=50,
+                                     description="Base64 编码图像列表 (单请求最多50张，更多请分块提交)")
     options: Optional[AnalysisOptions] = Field(None, description="可选参数")
 
 
@@ -149,11 +153,22 @@ class ReportOptions(BaseModel):
     include_llm: bool = Field(True, description="是否调用 LLM 生成研判意见")
 
 
+class ScreeningContext(BaseModel):
+    """取证筛查漏斗上下文 — 说明 results 只是待处置子集，而非原始批次全量"""
+    total: int = Field(..., description="筛查总数（本轮送检的图片总张数）")
+    passed: int = Field(..., description="筛选通过数（判定为 real 且 low 风险，未进入待处置列表）")
+    flagged: int = Field(..., description="待处置数（进入报告的条目数）")
+    elapsed_ms: float = Field(0, description="筛查总耗时 (ms)")
+
+
 class ReportRequest(BaseModel):
     """报告导出请求"""
     type: str = Field(..., description="报告类型: single | batch")
     results: list[dict] = Field(..., min_length=1, description="检测结果列表 (AnalysisResponse dict)")
     options: ReportOptions = Field(default_factory=ReportOptions, description="报告选项")
+    screening: Optional[ScreeningContext] = Field(
+        None, description="可选的取证筛查上下文；提供时报告按'待处置子集'口径生成"
+    )
 
 
 class ReportPreviewResponse(BaseModel):

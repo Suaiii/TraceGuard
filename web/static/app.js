@@ -1,10 +1,35 @@
+// ---------- Screening constants ----------
+var MAX_FILES = 1000;             // 前端总量护栏（后端单请求上限 50，见 CHUNK_SIZE）
+var CHUNK_SIZE = 10;              // 每次 POST /analyze/batch 的图片数
+var IMG_EXT_RE = /\.(png|jpe?g|webp)$/i;
+var IMG_TYPE_RE = /^image\/(png|jpe?g|webp)$/i;
+
+function newScreenState() {
+  return {
+    running: false,
+    abortRequested: false,
+    chunkSize: CHUNK_SIZE,
+    total: 0,
+    done: 0,
+    passed: [],          // {idx, name, fake_prob}
+    flagged: [],         // {idx, name, data}
+    sortedFlagged: [],   // flagged 按严重度排序后的视图（卡片 dataset.index 指向它）
+    errors: 0,
+    startedAt: 0,
+    elapsedMs: 0,
+    finished: false,
+    interrupted: false,
+  };
+}
+
 const state = {
   file: null,
   result: null,
   activeView: "overlay",
   mode: "single",
   files: [],
-  batchResults: null,
+  fileKeys: new Set(),
+  screen: newScreenState(),
 };
 
 const el = {
@@ -38,6 +63,8 @@ const el = {
   multiWorkspace: document.getElementById("multiWorkspace"),
   multiDropzone: document.getElementById("multiDropzone"),
   multiFileInput: document.getElementById("multiFileInput"),
+  folderButton: document.getElementById("folderButton"),
+  folderInput: document.getElementById("folderInput"),
   fileGrid: document.getElementById("fileGrid"),
   multiFileCount: document.getElementById("multiFileCount"),
   batchAnalyzeButton: document.getElementById("batchAnalyzeButton"),
@@ -46,10 +73,19 @@ const el = {
   resultGrid: document.getElementById("resultGrid"),
   batchStats: document.getElementById("batchStats"),
   batchEmptyState: document.getElementById("batchEmptyState"),
-  batchSuccessCount: document.getElementById("batchSuccessCount"),
+  batchTotalCount: document.getElementById("batchTotalCount"),
+  batchPassedCount: document.getElementById("batchPassedCount"),
+  batchFlaggedCount: document.getElementById("batchFlaggedCount"),
+  batchHighConfCount: document.getElementById("batchHighConfCount"),
   batchErrorCount: document.getElementById("batchErrorCount"),
-  batchTotalTime: document.getElementById("batchTotalTime"),
+  batchBreakdown: document.getElementById("batchBreakdown"),
+  batchInterrupted: document.getElementById("batchInterrupted"),
   batchLatencyText: document.getElementById("batchLatencyText"),
+  screenProgress: document.getElementById("screenProgress"),
+  progressText: document.getElementById("progressText"),
+  progressMeta: document.getElementById("progressMeta"),
+  progressFill: document.getElementById("progressFill"),
+  abortButton: document.getElementById("abortButton"),
   superOversightBanner: document.getElementById("superOversightBanner"),
   reviewSuggestion: document.getElementById("reviewSuggestion"),
   reviewText: document.getElementById("reviewText"),
@@ -69,14 +105,18 @@ const el = {
   previewDownload: document.getElementById("previewDownload"),
   previewLoading: document.getElementById("previewLoading"),
   previewStatus: document.getElementById("previewStatus"),
+  capButton: document.getElementById("capButton"),
+  capModal: document.getElementById("capModal"),
+  capOverlay: document.getElementById("capOverlay"),
+  capClose: document.getElementById("capClose"),
 };
 
 const text = {
   label: {
-    fake: "AIGC \u4f2a\u9020",
-    real: "\u771f\u5b9e\u56fe\u50cf",
-    local_tamper: "\u5c40\u90e8\u7be1\u6539",
-    error: "\u5206\u6790\u5931\u8d25",
+    fake: "AIGC 伪造",
+    real: "真实图像",
+    local_tamper: "局部篡改",
+    error: "分析失败",
   },
   tamperType: {
     confirmed_real: "未发现局部异常",
@@ -85,35 +125,45 @@ const text = {
     full_aigc_hotspots: "全图 AIGC 证据（含热点）",
     unavailable: "不可用",
   },
-  apiOffline: "API \u672a\u5c31\u7eea",
-  analyzing: "\u68c0\u6d4b\u4e2d...",
-  analyze: "\u5f00\u59cb\u68c0\u6d4b",
-  noBrief: "\u65e0\u6458\u8981",
-  noDetail: "\u65e0\u8be6\u7ec6\u89e3\u91ca",
-  failed: "\u5206\u6790\u5931\u8d25",
-  localSample: "\u8bf7\u9009\u62e9 tests/fixtures \u4e2d\u7684\u6837\u4f8b\u56fe\u50cf\u8fdb\u884c\u68c0\u6d4b",
-  collapsed: "\u68c0\u6d4b\u540e\u663e\u793a\u8bc1\u636e\u56fe",
-  noLocalization: "\u52fe\u9009\u300c\u53ef\u7591\u533a\u57df\u5b9a\u4f4d\u300d\u540e\u663e\u793a",
-  batchConvert: "\u6b63\u5728\u8f6c\u6362\u56fe\u7247...",
-  batchAnalyzing: "\u6b63\u5728\u6279\u91cf\u68c0\u6d4b...",
-  batchAnalyze: "\u5f00\u59cb\u6279\u91cf\u68c0\u6d4b",
-  batchEmpty: "\u4e0a\u4f20\u56fe\u7247\u5e76\u5f00\u59cb\u68c0\u6d4b\u540e\u663e\u793a\u7ed3\u679c",
-  batchFailed: "\u6279\u91cf\u5206\u6790\u5931\u8d25",
-  expandLabel: "\u5c55\u5f00 \u25bc",
-  collapseLabel: "\u6536\u8d77 \u25b2",
-  soVerdictLabel: "\u9ad8\u7f6e\u4fe1\u4f2a\u9020",
-  soReviewText: "\u8be5\u56fe\u50cf\u5728\u4f2a\u9020\u6982\u7387\u548c\u7efc\u5408\u98ce\u9669\u4e24\u4e2a\u7ef4\u5ea6\u5747\u8fbe\u5230\u6700\u9ad8\u8b66\u6212\u7ea7\u522b\u3002\u5efa\u8bae\uff1a(1) \u5bf9\u7167\u539f\u59cb\u6765\u6e90\u6838\u5b9e\u56fe\u50cf\u771f\u5b9e\u6027\uff1b(2) \u68c0\u67e5\u5143\u6570\u636e\u4e2d\u7684\u7f16\u8f91\u75d5\u8ff9\uff1b(3) \u4ea4\u53c9\u9a8c\u8bc1\u4f20\u64ad\u94fe\u8def\u4e2d\u5176\u4ed6\u526f\u672c\u7684\u68c0\u6d4b\u7ed3\u679c\u3002\u5982\u786e\u8ba4\u4e3a AIGC \u4f2a\u9020\uff0c\u5e94\u7acb\u5373\u6807\u8bb0\u5e76\u9650\u5236\u4f20\u64ad\u3002",
-  soCardReview: "\u9ad8\u7f6e\u4fe1\u4f2a\u9020\uff1a\u4f2a\u9020\u6982\u7387\u226590%\u4e14\u7efc\u5408\u98ce\u9669\u4e3a\u9ad8\uff0c\u5efa\u8bae\u52a0\u6025\u4eba\u5de5\u590d\u6838\u3002",
-  dimLabels: {
-    artifact_intensity: "\u4f2a\u9020\u75d5\u8ff9\u5f3a\u5ea6",
-    tamper_area: "\u7be1\u6539\u533a\u57df\u5360\u6bd4",
-    region_count: "\u53ef\u7591\u533a\u57df\u6570\u91cf",
-    consistency: "\u7279\u5f81\u4e00\u81f4\u6027",
+  apiOffline: "API 未就绪",
+  analyzing: "检测中...",
+  analyze: "开始检测",
+  noBrief: "无摘要",
+  noDetail: "无详细解释",
+  failed: "分析失败",
+  localSample: "请选择 tests/fixtures 中的样例图像进行检测",
+  collapsed: "检测后显示证据图",
+  noLocalization: "勾选「可疑区域定位」后显示",
+  batchConvert: "正在转换图片...",
+  batchAnalyzing: "正在筛查...",
+  batchAnalyze: "开始批量检测",
+  batchEmpty: "上传图片或选择文件夹，开始取证筛查",
+  batchAllPassed: "本批次全部筛选通过，无待处置条目",
+  batchFailed: "批量分析失败",
+  expandLabel: "展开 ▼",
+  collapseLabel: "收起 ▲",
+  soVerdictLabel: "高置信伪造",
+  soReviewText: "该图像在伪造概率和综合风险两个维度均达到最高警戒级别。建议：(1) 对照原始来源核实图像真实性；(2) 检查元数据中的编辑痕迹；(3) 交叉验证传播链路中其他副本的检测结果。如确认为 AIGC 伪造，应立即标记并限制传播。",
+  soCardReview: "高置信伪造：伪造概率≥90%且综合风险为高，建议加急人工复核。",
+  // 唯一允许出现"超监管"字样的字符串：给人看的流程提示语（系统不判断内容语义）
+  soProcessTip: "如内容涉严重危害，请按平台超监管流程上报。",
+  rankLabel: {
+    0: "高置信伪造",
+    1: "AIGC伪造",
+    2: "局部篡改",
+    3: "需复核",
+    4: "失败",
   },
-  clearFiles: "\u6e05\u7a7a\u6240\u6709\u56fe\u7247",
-  exportGenerating: "\u6b63\u5728\u751f\u6210\u62a5\u544a...",
-  exportSingle: "\u5bfc\u51fa\u62a5\u544a",
-  exportBatch: "\u6279\u91cf\u5bfc\u51fa\u62a5\u544a",
+  dimLabels: {
+    artifact_intensity: "伪造痕迹强度",
+    tamper_area: "篡改区域占比",
+    region_count: "可疑区域数量",
+    consistency: "特征一致性",
+  },
+  clearFiles: "清空所有图片",
+  exportGenerating: "正在生成报告...",
+  exportSingle: "导出报告",
+  exportBatch: "导出待处置报告",
 };
 
 function setStatus(kind, message) {
@@ -166,6 +216,19 @@ function fileToBase64(file) {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function sleep(ms) {
+  return new Promise(function (resolve) { setTimeout(resolve, ms); });
+}
+
+// 5s → "5s"；≥60s → "2:07"
+function formatDuration(ms) {
+  var totalSec = Math.max(0, Math.round(Number(ms || 0) / 1000));
+  if (totalSec < 60) return totalSec + "s";
+  var m = Math.floor(totalSec / 60);
+  var s = totalSec % 60;
+  return m + ":" + String(s).padStart(2, "0");
 }
 
 // 判据：高置信伪造 + 高综合风险 → 加急人工复核。
@@ -237,11 +300,34 @@ function renderDimensionBars(scores, container, compact) {
   }
 }
 
+// ---------- objectURL registries ----------
+// 文件列表与结果卡各自一份，重渲染 / 结果重置时按需 revoke，避免千张图泄漏。
+var fileUrlRegistry = [];
+var resultUrlRegistry = [];
+var singlePreviewUrl = "";
+
+function trackURL(file, registry) {
+  var url = URL.createObjectURL(file);
+  registry.push(url);
+  return url;
+}
+
+function revokeAll(registry) {
+  for (var i = 0; i < registry.length; i++) {
+    try { URL.revokeObjectURL(registry[i]); } catch (e) { /* noop */ }
+  }
+  registry.length = 0;
+}
+
 function setFile(file) {
-  if (!file || !file.type.startsWith("image/")) return;
+  if (!isImageFile(file)) return;
   state.file = file;
   state.result = null;
-  el.previewImage.src = URL.createObjectURL(file);
+  if (singlePreviewUrl) {
+    try { URL.revokeObjectURL(singlePreviewUrl); } catch (e) { /* noop */ }
+  }
+  singlePreviewUrl = URL.createObjectURL(file);
+  el.previewImage.src = singlePreviewUrl;
   el.previewCaption.textContent = `${file.name} - ${(file.size / 1024).toFixed(1)} KB`;
   el.analyzeButton.disabled = false;
   el.emptyEvidence.classList.remove("hidden");
@@ -382,164 +468,550 @@ function switchMode(mode) {
   el.multiWorkspace.style.display = mode === "multi" ? "" : "none";
 }
 
-function addFiles(incomingFileList) {
-  var incoming = Array.from(incomingFileList).filter(function (f) {
-    return f.type.startsWith("image/");
-  });
+// ---------- A. 文件收集 ----------
 
+// 文件夹读出的 File 常见 type === ""，必须允许按扩展名判定
+function isImageFile(file) {
+  if (!file) return false;
+  if (IMG_TYPE_RE.test(file.type || "")) return true;
+  return IMG_EXT_RE.test(file.name || "");
+}
+
+function fileKey(file) {
+  return file.webkitRelativePath || file.__tgPath || (file.name + "|" + file.size);
+}
+
+var limitNoticeTimer = null;
+
+function showLimitNotice(skipped) {
+  var notice = document.getElementById("limitNotice");
+  if (!notice) {
+    notice = document.createElement("div");
+    notice.className = "limit-notice";
+    notice.id = "limitNotice";
+    el.fileGrid.parentNode.insertBefore(notice, el.fileGrid);
+  }
+  notice.textContent = "已达 " + MAX_FILES + " 张上限，" + skipped + " 张未加入";
+  notice.style.display = "";
+  if (limitNoticeTimer) clearTimeout(limitNoticeTimer);
+  limitNoticeTimer = setTimeout(function () {
+    notice.style.display = "none";
+  }, 6000);
+}
+
+function addFiles(incomingFileList) {
+  if (state.screen.running) return;
+  var incoming = Array.prototype.slice.call(incomingFileList || []).filter(isImageFile);
+
+  var skipped = 0;
   for (var i = 0; i < incoming.length; i++) {
     var file = incoming[i];
-    var isDuplicate = state.files.some(function (f) {
-      return f.name === file.name && f.size === file.size;
-    });
-    if (!isDuplicate && state.files.length < 20) {
-      state.files.push(file);
+    var key = fileKey(file);
+    if (state.fileKeys.has(key)) continue;
+    if (state.files.length >= MAX_FILES) {
+      skipped = incoming.length - i;
+      break;
     }
+    state.fileKeys.add(key);
+    state.files.push(file);
   }
 
-  state.batchResults = null;
+  if (skipped > 0) showLimitNotice(skipped);
+
+  resetScreening();
   renderFileList();
 }
 
 function removeFile(index) {
+  if (state.screen.running) return;
+  var file = state.files[index];
+  if (file) state.fileKeys.delete(fileKey(file));
   state.files.splice(index, 1);
-  state.batchResults = null;
+  resetScreening();
   renderFileList();
 }
 
 function clearFiles() {
+  if (state.screen.running) return;
   state.files = [];
-  state.batchResults = null;
-  el.exportBatchButton.style.display = "none";
+  state.fileKeys.clear();
+  revokeAll(fileUrlRegistry);
+  resetScreening();
   renderFileList();
 }
 
 function renderFileList() {
+  // 重渲染前先回收上一轮缩略图 URL
+  revokeAll(fileUrlRegistry);
   el.fileGrid.innerHTML = "";
-  el.multiFileCount.textContent = state.files.length + " / 20";
+  el.multiFileCount.textContent = state.files.length + " / " + MAX_FILES;
   el.batchAnalyzeButton.disabled = state.files.length === 0;
   el.clearFilesButton.style.display = state.files.length > 0 ? "" : "none";
-  el.batchEmptyState.style.display = "";
-  el.batchStats.style.display = "none";
-  var cards = el.resultGrid.querySelectorAll(".result-card");
-  for (var c = 0; c < cards.length; c++) { cards[c].remove(); }
 
-  state.files.forEach(function (file, index) {
-    var card = document.createElement("div");
-    card.className = "file-card";
-    card.style.setProperty("--i", String(index));
+  var THUMB_LIMIT = 24;
+  var shown = Math.min(state.files.length, THUMB_LIMIT);
 
-    var img = document.createElement("img");
-    img.src = URL.createObjectURL(file);
-    img.alt = file.name;
+  for (var index = 0; index < shown; index++) {
+    (function (file, idx) {
+      var card = document.createElement("div");
+      card.className = "file-card";
+      card.style.setProperty("--i", String(idx));
 
-    var nameSpan = document.createElement("span");
-    nameSpan.className = "file-name";
-    nameSpan.textContent = file.name;
+      var img = document.createElement("img");
+      img.src = trackURL(file, fileUrlRegistry);
+      img.alt = file.name;
 
-    var sizeSpan = document.createElement("span");
-    sizeSpan.className = "file-size";
-    sizeSpan.textContent = (file.size / 1024).toFixed(1) + " KB";
+      var nameSpan = document.createElement("span");
+      nameSpan.className = "file-name";
+      nameSpan.textContent = file.webkitRelativePath || file.name;
 
-    var removeBtn = document.createElement("button");
-    removeBtn.className = "file-remove";
-    removeBtn.type = "button";
-    removeBtn.textContent = "×";
-    removeBtn.addEventListener("click", (function (idx) {
-      return function (e) { e.stopPropagation(); removeFile(idx); };
-    })(index));
+      var sizeSpan = document.createElement("span");
+      sizeSpan.className = "file-size";
+      sizeSpan.textContent = (file.size / 1024).toFixed(1) + " KB";
 
-    card.appendChild(img);
-    card.appendChild(nameSpan);
-    card.appendChild(sizeSpan);
-    card.appendChild(removeBtn);
-    el.fileGrid.appendChild(card);
-  });
-}
+      card.appendChild(img);
+      card.appendChild(nameSpan);
+      card.appendChild(sizeSpan);
 
-async function submitBatch() {
-  if (state.files.length === 0) return;
+      // >24 张时不提供逐张删除（只保留"清空"），避免大列表下标维护成本
+      if (state.files.length <= THUMB_LIMIT) {
+        var removeBtn = document.createElement("button");
+        removeBtn.className = "file-remove";
+        removeBtn.type = "button";
+        removeBtn.textContent = "×";
+        removeBtn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          removeFile(idx);
+        });
+        card.appendChild(removeBtn);
+      }
 
-  el.batchAnalyzeButton.disabled = true;
-  el.batchAnalyzeButton.classList.add("loading");
-  el.batchAnalyzeButton.textContent = text.batchConvert;
-  el.exportBatchButton.style.display = "none";
-  el.batchEmptyState.textContent = "正在分析中...";
-  el.batchEmptyState.style.display = "";
-  el.batchStats.style.display = "none";
-  var oldCards = el.resultGrid.querySelectorAll(".result-card");
-  for (var c = 0; c < oldCards.length; c++) { oldCards[c].remove(); }
+      el.fileGrid.appendChild(card);
+    })(state.files[index], index);
+  }
 
-  try {
-    var imagesBase64 = await Promise.all(
-      state.files.map(function (f) { return fileToBase64(f); })
-    );
-
-    el.batchAnalyzeButton.textContent = text.batchAnalyzing;
-
-    var res = await fetch("/api/v1/analyze/batch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        images_base64: imagesBase64,
-        options: {
-          overlay_alpha: Number(el.multiAlphaRange.value),
-          enable_localization: el.multiLocalizationToggle.checked,
-          language: "zh",
-          detail_level: "standard",
-        },
-      }),
-    });
-
-    var data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.detail || "HTTP " + res.status);
-    }
-
-    state.batchResults = data;
-    renderBatchResults(data);
-  } catch (error) {
-    el.batchEmptyState.textContent = text.batchFailed + ": " + error.message;
-    el.batchEmptyState.style.display = "";
-    el.batchStats.style.display = "none";
-  } finally {
-    el.batchAnalyzeButton.disabled = false;
-    el.batchAnalyzeButton.classList.remove("loading");
-    el.batchAnalyzeButton.textContent = text.batchAnalyze;
+  if (state.files.length > THUMB_LIMIT) {
+    var more = document.createElement("div");
+    more.className = "file-card file-card-more";
+    more.textContent = "等 " + (state.files.length - THUMB_LIMIT) + " 张 …";
+    el.fileGrid.appendChild(more);
   }
 }
 
-function renderBatchResults(data) {
-  el.batchEmptyState.style.display = "none";
-  el.batchStats.style.display = "flex";
-  var oldCards = el.resultGrid.querySelectorAll(".result-card");
-  for (var c = 0; c < oldCards.length; c++) { oldCards[c].remove(); }
-  el.batchSuccessCount.textContent = String(data.success_count);
-  el.batchErrorCount.textContent = String(data.error_count);
-  el.batchTotalTime.textContent = String(Math.round(data.total_elapsed_ms));
-  el.batchLatencyText.textContent = Math.round(data.total_elapsed_ms) + " ms";
+// ---------- 拖拽文件夹（webkitGetAsEntry 递归） ----------
 
-  var grid = el.resultGrid;
-  data.results.forEach(function (result, index) {
-    var card = createResultCard(result, index);
-    grid.appendChild(card);
-  });
+async function collectFromDataTransfer(dataTransfer) {
+  if (!dataTransfer) return [];
 
-  el.exportBatchButton.style.display = "block";
+  // DataTransferItem 在首个 await 之后即失效 —— entry 必须在此处同步取完
+  var entries = [];
+  var items = dataTransfer.items;
+  if (items && items.length) {
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var entry = null;
+      if (typeof item.webkitGetAsEntry === "function") entry = item.webkitGetAsEntry();
+      else if (typeof item.getAsEntry === "function") entry = item.getAsEntry();
+      if (entry) entries.push(entry);
+    }
+  }
+
+  // 老浏览器 / 无 entry 支持 → 降级
+  if (!entries.length) return Array.prototype.slice.call(dataTransfer.files || []);
+
+  var out = [];
+  for (var k = 0; k < entries.length; k++) {
+    await walkEntry(entries[k], out);
+  }
+  return out;
 }
 
-function createResultCard(result, index) {
+function walkEntry(entry, out) {
+  return new Promise(function (resolve) {
+    if (!entry || out.length >= MAX_FILES) return resolve();
+
+    if (entry.isFile) {
+      entry.file(function (f) {
+        try { f.__tgPath = entry.fullPath; } catch (e) { /* noop */ }
+        out.push(f);
+        resolve();
+      }, function () { resolve(); });
+      return;
+    }
+
+    if (entry.isDirectory) {
+      var reader = entry.createReader();
+      var children = [];
+      // readEntries 每次最多返回约 100 条，必须循环读到返回空数组为止
+      var readBatch = function () {
+        reader.readEntries(function (batch) {
+          if (!batch || batch.length === 0) {
+            var i = 0;
+            var next = function () {
+              if (i >= children.length || out.length >= MAX_FILES) return resolve();
+              walkEntry(children[i++], out).then(next);
+            };
+            next();
+            return;
+          }
+          for (var b = 0; b < batch.length; b++) children.push(batch[b]);
+          readBatch();
+        }, function () { resolve(); });
+      };
+      readBatch();
+      return;
+    }
+
+    resolve();
+  });
+}
+
+// ---------- B. 分块提交状态机 ----------
+
+function makeErrorResult(name, msg) {
+  return {
+    status: "error",
+    label: "error",
+    risk_level: "error",
+    fake_prob: 0,
+    risk_score: 0,
+    elapsed_ms: 0,
+    explanation_brief: msg,
+    explanation: msg,
+    overlay_b64: "",
+    mask_b64: "",
+    bbox_image_b64: null,
+    tamper_overlay_b64: null,
+    file: name,
+  };
+}
+
+// 分流判据必须与后端 explanation/api/routes.py 的 _is_pass 逐字一致：
+//   status == "success" && label == "real" && risk_level == "low"
+// 后端据此在 evidence_policy=="flagged" 下裁剪通过项的证据图；两处漂移会导致
+// 前端把无证据图的条目当作待处置渲染（下方 console.warn 哨兵即为此设）。
+function routeResult(r, idx, file) {
+  var s = state.screen;
+  r.file = file ? (file.name || ("图片 " + (idx + 1))) : ("图片 " + (idx + 1));
+
+  var isPass = r.status === "success" && r.label === "real" && r.risk_level === "low";
+
+  if (isPass) {
+    s.passed.push({ idx: idx, name: r.file, fake_prob: Number(r.fake_prob || 0) });
+    return;
+  }
+
+  if (r.status !== "success") s.errors++;
+  if (r.status === "success" && !r.overlay_b64) {
+    console.warn("evidence_policy 判据疑似漂移", r.file);
+  }
+  s.flagged.push({ idx: idx, name: r.file, data: r });
+}
+
+function setScreeningUiBusy(busy) {
+  el.batchAnalyzeButton.disabled = busy;
+  el.batchAnalyzeButton.classList.toggle("loading", busy);
+  el.batchAnalyzeButton.textContent = busy ? text.batchAnalyzing : text.batchAnalyze;
+  el.clearFilesButton.disabled = busy;
+  el.multiDropzone.classList.toggle("disabled", busy);
+  el.folderButton.classList.toggle("disabled", busy);
+  el.folderButton.disabled = busy;
+}
+
+function showProgress() {
+  el.screenProgress.style.display = "";
+  el.abortButton.disabled = false;
+  el.abortButton.textContent = "中断 ×";
+  el.progressFill.style.width = "0%";
+  updateProgress();
+}
+
+function hideProgress() {
+  el.screenProgress.style.display = "none";
+}
+
+function updateProgress() {
+  var s = state.screen;
+  el.progressText.textContent = s.done + " / " + s.total;
+
+  var eta = "--";
+  if (s.done >= s.chunkSize && s.done < s.total && s.done > 0) {
+    eta = formatDuration((s.elapsedMs / s.done) * (s.total - s.done));
+  } else if (s.done >= s.total && s.total > 0) {
+    eta = "0s";
+  }
+  el.progressMeta.textContent = "已拦截 " + s.flagged.length + " · 预计剩余 " + eta;
+  el.progressFill.style.width = s.total > 0 ? ((s.done / s.total) * 100).toFixed(1) + "%" : "0%";
+}
+
+async function postBatch(imagesBase64, options) {
+  var res = await fetch("/api/v1/analyze/batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ images_base64: imagesBase64, options: options }),
+  });
+  var data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "HTTP " + res.status);
+  return data;
+}
+
+async function submitBatch() {
+  if (state.files.length === 0 || state.screen.running) return;
+
+  resetScreening();
+  var s = state.screen;
+  s.running = true;
+  s.total = state.files.length;
+  s.startedAt = (window.performance && performance.now) ? performance.now() : Date.now();
+
+  setScreeningUiBusy(true);
+  showProgress();
+  el.batchEmptyState.textContent = text.batchConvert;
+  el.batchEmptyState.style.display = "";
+
+  var options = {
+    overlay_alpha: Number(el.multiAlphaRange.value),
+    enable_localization: el.multiLocalizationToggle.checked,
+    language: "zh",
+    detail_level: "standard",
+    // 通过项不回传证据图，千张批次下省掉绝大部分 base64 传输
+    evidence_policy: "flagged",
+  };
+
+  var now = function () {
+    return (window.performance && performance.now) ? performance.now() : Date.now();
+  };
+
+  try {
+    for (var start = 0; start < state.files.length; start += s.chunkSize) {
+      // 中断只在块边界生效，当前块跑完即停，已出结果保留
+      if (s.abortRequested) {
+        s.interrupted = true;
+        break;
+      }
+
+      var chunk = state.files.slice(start, start + s.chunkSize);
+      var data = null;
+      var failMsg = "";
+
+      try {
+        // 仅本块转 base64，绝不整批
+        var payload = await Promise.all(chunk.map(function (f) { return fileToBase64(f); }));
+        try {
+          data = await postBatch(payload, options);
+        } catch (err1) {
+          await sleep(1000);   // 单次自动重试
+          data = await postBatch(payload, options);
+        }
+      } catch (err2) {
+        data = null;
+        failMsg = (err2 && err2.message) ? err2.message : String(err2);
+      }
+
+      if (data && Array.isArray(data.results)) {
+        for (var j = 0; j < chunk.length; j++) {
+          var r = data.results[j] || makeErrorResult(chunk[j].name, "后端未返回该条结果");
+          routeResult(r, start + j, chunk[j]);
+        }
+      } else {
+        for (var k = 0; k < chunk.length; k++) {
+          routeResult(makeErrorResult(chunk[k].name, text.batchFailed + ": " + failMsg), start + k, chunk[k]);
+        }
+      }
+
+      s.done = Math.min(start + chunk.length, s.total);
+      s.elapsedMs = now() - s.startedAt;
+      updateProgress();
+    }
+  } finally {
+    s.elapsedMs = now() - s.startedAt;
+    s.running = false;
+    s.finished = true;
+    hideProgress();
+    setScreeningUiBusy(false);
+    el.batchAnalyzeButton.disabled = state.files.length === 0;
+    renderFunnelResults();
+  }
+}
+
+// ---------- C. 漏斗结果 UI ----------
+
+function isLocalTamper(r) {
+  return r.label === "local_tamper" || r.tamper_type === "local_tamper";
+}
+
+function severityRank(r) {
+  if (r.status === "error" || r.label === "error") return 4;
+  if (isHighConfidenceFake(r)) return 0;
+  if (isLocalTamper(r)) return 2;
+  if (r.label === "fake") return 1;
+  return 3; // real 但 medium/high —— 需复核真图
+}
+
+function compareSeverity(a, b) {
+  var ra = severityRank(a.data);
+  var rb = severityRank(b.data);
+  if (ra !== rb) return ra - rb;
+  var sa = Number(a.data.risk_score || 0);
+  var sb = Number(b.data.risk_score || 0);
+  if (sa !== sb) return sb - sa;
+  return Number(b.data.fake_prob || 0) - Number(a.data.fake_prob || 0);
+}
+
+function clearResultArea() {
+  revokeAll(resultUrlRegistry);
+  var cards = el.resultGrid.querySelectorAll(".result-card, .show-more-button");
+  for (var c = 0; c < cards.length; c++) cards[c].remove();
+  var passed = document.getElementById("passedSection");
+  if (passed) passed.remove();
+}
+
+function resetScreening() {
+  state.screen = newScreenState();
+  clearResultArea();
+  el.exportBatchButton.style.display = "none";
+  el.batchStats.style.display = "none";
+  el.batchInterrupted.style.display = "none";
+  el.batchLatencyText.textContent = "-- ms";
+  el.batchEmptyState.textContent = text.batchEmpty;
+  el.batchEmptyState.style.display = "";
+  hideProgress();
+}
+
+var renderedFlaggedCount = 0;
+var FIRST_PAGE = 60;
+
+function renderFunnelResults() {
+  var s = state.screen;
+  s.sortedFlagged = s.flagged.slice().sort(compareSeverity);
+
+  clearResultArea();
+
+  // --- 统计面板 ---
+  var highConf = 0, fakeCount = 0, tamperCount = 0, reviewCount = 0;
+  s.sortedFlagged.forEach(function (entry) {
+    var rank = severityRank(entry.data);
+    if (rank === 0) highConf++;
+    if (entry.data.label === "fake") fakeCount++;
+    if (rank === 2) tamperCount++;
+    if (rank === 3) reviewCount++;
+  });
+
+  el.batchTotalCount.textContent = String(s.total);
+  el.batchPassedCount.textContent = String(s.passed.length);
+  el.batchFlaggedCount.textContent = String(s.flagged.length);
+  el.batchHighConfCount.textContent = String(highConf);
+  el.batchErrorCount.textContent = String(s.errors);
+  el.batchBreakdown.textContent =
+    "AIGC伪造 " + fakeCount + " · 局部篡改 " + tamperCount + " · 需复核真图 " + reviewCount;
+
+  if (s.interrupted) {
+    el.batchInterrupted.textContent = "已中断：完成 " + s.done + "/" + s.total;
+    el.batchInterrupted.style.display = "";
+  } else {
+    el.batchInterrupted.style.display = "none";
+  }
+
+  el.batchStats.style.display = "block";
+  el.batchLatencyText.textContent = Math.round(s.elapsedMs) + " ms";
+
+  // --- 待处置卡片 ---
+  if (s.sortedFlagged.length === 0) {
+    el.batchEmptyState.textContent = text.batchAllPassed;
+    el.batchEmptyState.style.display = "";
+  } else {
+    el.batchEmptyState.style.display = "none";
+    renderedFlaggedCount = 0;
+    appendFlaggedCards(FIRST_PAGE);
+  }
+
+  renderPassedSection();
+
+  el.exportBatchButton.style.display = s.sortedFlagged.length > 0 ? "block" : "none";
+}
+
+function appendFlaggedCards(count) {
+  var s = state.screen;
+  var existing = el.resultGrid.querySelector(".show-more-button");
+  if (existing) existing.remove();
+
+  var end = Math.min(renderedFlaggedCount + count, s.sortedFlagged.length);
+  for (var i = renderedFlaggedCount; i < end; i++) {
+    el.resultGrid.appendChild(createResultCard(s.sortedFlagged[i], i));
+  }
+  renderedFlaggedCount = end;
+
+  var remaining = s.sortedFlagged.length - renderedFlaggedCount;
+  if (remaining > 0) {
+    var btn = document.createElement("button");
+    btn.className = "show-more-button";
+    btn.type = "button";
+    btn.textContent = "显示更多（余 " + remaining + "）";
+    btn.addEventListener("click", function () { appendFlaggedCards(FIRST_PAGE); });
+    el.resultGrid.appendChild(btn);
+  }
+}
+
+function renderPassedSection() {
+  var s = state.screen;
+  if (s.passed.length === 0) return;
+
+  var section = document.createElement("section");
+  section.className = "passed-section";
+  section.id = "passedSection";
+
+  var toggle = document.createElement("button");
+  toggle.className = "passed-toggle";
+  toggle.type = "button";
+  toggle.textContent = "筛选通过 " + s.passed.length + " 张 ▼";
+
+  var list = document.createElement("div");
+  list.className = "passed-list";
+  list.style.display = "none";
+
+  var built = false;
+  toggle.addEventListener("click", function () {
+    var open = list.style.display !== "none";
+    if (open) {
+      list.style.display = "none";
+      toggle.textContent = "筛选通过 " + s.passed.length + " 张 ▼";
+      return;
+    }
+    if (!built) {
+      // 首次展开才构建 DOM
+      var frag = document.createDocumentFragment();
+      s.passed.forEach(function (p) {
+        var row = document.createElement("div");
+        row.className = "passed-row";
+        row.textContent = p.name + " · 伪造概率 " + asPercent(p.fake_prob);
+        frag.appendChild(row);
+      });
+      list.appendChild(frag);
+      built = true;
+    }
+    list.style.display = "";
+    toggle.textContent = "筛选通过 " + s.passed.length + " 张 ▲";
+  });
+
+  section.appendChild(toggle);
+  section.appendChild(list);
+  el.resultGrid.parentNode.insertBefore(section, el.resultGrid.nextSibling);
+}
+
+// entry = {idx, name, data}；displayIndex 为 state.screen.sortedFlagged 中的下标
+function createResultCard(entry, displayIndex) {
+  var result = entry.data;
   var card = document.createElement("article");
   var label = result.label || "error";
   card.className = "result-card " + label;
   var isSO = isHighConfidenceFake(result);
   if (isSO) card.classList.add("super-oversight");
-  card.dataset.index = String(index);
-  card.style.setProperty("--i", String(index));
+  card.dataset.index = String(displayIndex);
+  card.style.setProperty("--i", String(displayIndex % FIRST_PAGE));
 
-  var file = state.files[index];
-  var fileName = file ? file.name : ("图片 " + (index + 1));
-  var thumbSrc = file ? URL.createObjectURL(file) : "";
+  var file = state.files[entry.idx];
+  var fileName = entry.name || (file ? file.name : ("图片 " + (entry.idx + 1)));
+  var thumbSrc = file ? trackURL(file, resultUrlRegistry) : "";
 
   // Head
   var head = document.createElement("div");
@@ -547,7 +1019,7 @@ function createResultCard(result, index) {
 
   var thumb = document.createElement("img");
   thumb.className = "card-thumb";
-  thumb.src = thumbSrc;
+  if (thumbSrc) thumb.src = thumbSrc;
   thumb.alt = "";
 
   var meta = document.createElement("div");
@@ -561,14 +1033,18 @@ function createResultCard(result, index) {
   verdict.className = "card-verdict";
   verdict.textContent = text.label[label] || label;
 
+  var rank = severityRank(result);
+  var rankBadge = document.createElement("span");
+  rankBadge.className = "card-rank-badge" + (rank <= 1 ? " rank-hot" : "");
+  rankBadge.textContent = text.rankLabel[rank];
+
+  var badges = document.createElement("div");
+  badges.className = "card-badges";
+  badges.appendChild(verdict);
+  badges.appendChild(rankBadge);
+
   meta.appendChild(nameEl);
-  meta.appendChild(verdict);
-  if (isSO) {
-    var soBadge = document.createElement("span");
-    soBadge.className = "so-badge";
-    soBadge.textContent = "高置信伪造";
-    meta.appendChild(soBadge);
-  }
+  meta.appendChild(badges);
   head.appendChild(thumb);
   head.appendChild(meta);
 
@@ -588,9 +1064,7 @@ function createResultCard(result, index) {
   toggle.className = "card-toggle";
   toggle.type = "button";
   toggle.textContent = text.expandLabel;
-  toggle.addEventListener("click", (function (idx) {
-    return function () { expandCard(idx); };
-  })(index));
+  toggle.addEventListener("click", function () { expandCard(displayIndex); });
 
   // Detail
   var detail = document.createElement("div");
@@ -633,11 +1107,11 @@ function createResultCard(result, index) {
         tabBtn.className = "mini-tab";
         tabBtn.type = "button";
         tabBtn.dataset.view = view;
-        tabBtn.dataset.cardIndex = String(index);
+        tabBtn.dataset.cardIndex = String(displayIndex);
         tabBtn.textContent = evidenceLabels[view];
         tabBtn.addEventListener("click", function (evt) {
           evt.stopPropagation();
-          switchMiniEvidence(index, view);
+          switchMiniEvidence(displayIndex, view);
         });
         miniTabs.appendChild(tabBtn);
       }
@@ -651,7 +1125,7 @@ function createResultCard(result, index) {
 
     var miniView = document.createElement("div");
     miniView.className = "mini-evidence-view";
-    miniView.dataset.cardIndex = String(index);
+    miniView.dataset.cardIndex = String(displayIndex);
 
     // Set initial image
     var miniImg = document.createElement("img");
@@ -679,6 +1153,12 @@ function createResultCard(result, index) {
     cardReview.className = "card-review";
     cardReview.textContent = text.soCardReview;
     detail.appendChild(cardReview);
+
+    // 处置流程提示：系统只判"伪"，是否属严重危害由人判定
+    var processTip = document.createElement("p");
+    processTip.className = "card-process-tip";
+    processTip.textContent = text.soProcessTip;
+    detail.appendChild(processTip);
   }
   if (miniEvidence) detail.appendChild(miniEvidence);
   detail.appendChild(pre);
@@ -719,8 +1199,8 @@ function switchMiniEvidence(cardIndex, view) {
   var img = miniView.querySelector("img");
   if (!img) return;
 
-  // Find result from batchResults
-  var result = state.batchResults && state.batchResults.results && state.batchResults.results[cardIndex];
+  var entry = state.screen.sortedFlagged[cardIndex];
+  var result = entry && entry.data;
   if (!result) return;
 
   var keyMap = {
@@ -805,12 +1285,26 @@ function bindEvents() {
         options: { include_llm: true },
       };
     } else {
-      const data = state.batchResults;
-      if (!data || !data.results) return null;
+      const s = state.screen;
+      const flagged = s.sortedFlagged || [];
+      if (flagged.length === 0) {
+        alert("本批次全部筛选通过，无待处置条目可导出");
+        return null;
+      }
+      if (flagged.length > 100 &&
+          !confirm("待处置条目较多(" + flagged.length + ")，报告生成与 PDF 渲染可能较慢，是否继续？")) {
+        return null;
+      }
       return {
         type: "batch",
-        results: data.results,
+        results: flagged.map(function (e) { return e.data; }),
         options: { include_llm: true },
+        screening: {
+          total: s.total,
+          passed: s.passed.length,
+          flagged: s.flagged.length,
+          elapsed_ms: Math.round(s.elapsedMs),
+        },
       };
     }
   }
@@ -861,7 +1355,7 @@ function bindEvents() {
   async function previewReport(type) {
     const req = buildReportRequest(type);
     if (!req) {
-      alert("没有可导出的检测结果");
+      if (type === "single") alert("没有可导出的检测结果");
       return;
     }
     const btn = type === "single" ? el.exportSingleButton : el.exportBatchButton;
@@ -960,6 +1454,16 @@ function bindEvents() {
     event.target.value = "";
   });
 
+  // --- Folder picker ---
+  el.folderButton.addEventListener("click", function () {
+    if (state.screen.running) return;
+    el.folderInput.click();
+  });
+  el.folderInput.addEventListener("change", function (event) {
+    addFiles(event.target.files);
+    event.target.value = "";
+  });
+
   // --- Multi dropzone drag-and-drop ---
   ["dragenter", "dragover"].forEach(function (type) {
     el.multiDropzone.addEventListener(type, function (event) {
@@ -975,12 +1479,24 @@ function bindEvents() {
     });
   });
 
-  el.multiDropzone.addEventListener("drop", function (event) {
-    addFiles(event.dataTransfer.files);
+  el.multiDropzone.addEventListener("drop", async function (event) {
+    event.preventDefault();
+    if (state.screen.running) return;
+    // collectFromDataTransfer 在首个 await 之前同步取完 entry
+    var files = await collectFromDataTransfer(event.dataTransfer);
+    addFiles(files);
   });
 
   // --- Batch analyze button ---
   el.batchAnalyzeButton.addEventListener("click", submitBatch);
+
+  // --- Abort button ---
+  el.abortButton.addEventListener("click", function () {
+    if (!state.screen.running) return;
+    state.screen.abortRequested = true;
+    el.abortButton.disabled = true;
+    el.abortButton.textContent = "正在停止…";
+  });
 
   // --- Clear files button ---
   el.clearFilesButton.addEventListener("click", clearFiles);
@@ -1000,13 +1516,33 @@ function bindEvents() {
 
   el.previewDownload.addEventListener("click", downloadReport);
 
+  // --- Capability card modal (静态内容，无 JS 数据) ---
+  function openCap() { el.capModal.style.display = "flex"; }
+  function closeCap() { el.capModal.style.display = "none"; }
+  el.capButton.addEventListener("click", openCap);
+  el.capClose.addEventListener("click", closeCap);
+  el.capOverlay.addEventListener("click", closeCap);
+
   // ESC to close modal
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && el.previewModal.style.display === "flex") {
+    if (e.key !== "Escape") return;
+    if (el.previewModal.style.display === "flex") {
       closePreview();
+    } else if (el.capModal.style.display === "flex") {
+      closeCap();
     }
   });
 }
 
 bindEvents();
 loadHealth();
+renderFileList();
+
+// 调试钩子（浏览器自动化验证用）
+window.__tg = {
+  state: state,
+  addFiles: addFiles,
+  submitBatch: submitBatch,
+  requestAbort: function () { state.screen.abortRequested = true; },
+  switchMode: switchMode,
+};

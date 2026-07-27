@@ -154,12 +154,19 @@ def create_app(
 
     @app.post("/api/v1/analyze/batch", response_model=BatchResponse)
     async def analyze_batch(request: BatchRequest):
-        if len(request.images_base64) > 20:
-            raise HTTPException(status_code=400, detail="batch supports at most 20 images")
+        if len(request.images_base64) > 50:
+            raise HTTPException(
+                status_code=400,
+                detail="batch supports at most 50 images per request; submit in chunks",
+            )
 
         pipeline = get_pipeline()
         if request.options:
             _apply_options(pipeline, request.options)
+
+        # 证据图回传策略：pipeline 计算照常，仅在响应前裁剪 base64 字段，
+        # 用于批量筛查场景下压缩响应体积（通过项的证据图通常无人查看）。
+        evidence_policy = request.options.evidence_policy if request.options else "all"
 
         t0 = time.perf_counter()
         results = []
@@ -169,7 +176,12 @@ def create_app(
             try:
                 img = base64_to_image(b64)
                 result = pipeline.run(img)
-                results.append(_build_response(result))
+                resp = _build_response(result)
+                if evidence_policy == "none" or (
+                    evidence_policy == "flagged" and _is_pass(resp)
+                ):
+                    _strip_evidence(resp)
+                results.append(resp)
             except Exception as exc:
                 errors += 1
                 results.append(
@@ -273,13 +285,25 @@ def create_app(
         elif request.type == 'batch':
             llm_opinion = None
             results_raw = [r for r in request.results]
+            # 取证筛查上下文（可选）：有则报告按"待处置子集"口径出标题与研判
+            sc = request.screening
+            batch_title = None
+            screening_dict = None
+            if sc is not None:
+                screening_dict = sc.model_dump()
+                batch_title = (
+                    f"{html_title} — 取证筛查报告 · 待处置子集"
+                    f"（共检 {sc.total} 张 · 筛选通过 {sc.passed} · 待处置 {sc.flagged}）"
+                )
             if agent:
-                llm_opinion = agent.analyze_batch(results_raw)
+                llm_opinion = agent.analyze_batch(results_raw, screening=screening_dict)
                 llm_generated = llm_opinion.get('llm_generated', False)
                 llm_elapsed_ms = llm_opinion.get('elapsed_ms', 0)
             html = gen.generate_batch(
                 results=results_raw,
+                title=batch_title,
                 llm_opinion=llm_opinion,
+                screening=screening_dict,
             )
         else:
             raise HTTPException(status_code=400, detail=f"unknown report type: {request.type}")
@@ -350,6 +374,24 @@ def create_app(
     return app
 
 
+def _is_pass(resp: AnalysisResponse) -> bool:
+    """取证筛查漏斗的"筛选通过"判据。
+
+    与前端 web/static/app.js routeResult 的判据必须逐字一致
+    （success 且 real 且 low）；任何一侧改动都要同步另一侧。
+    """
+    return resp.status == "success" and resp.label == "real" and resp.risk_level == "low"
+
+
+def _strip_evidence(resp: AnalysisResponse) -> None:
+    """清空响应中的证据图 base64 字段（数值字段与解释文本保留）"""
+    resp.overlay_b64 = ""
+    resp.mask_b64 = ""
+    resp.tamper_mask_b64 = None
+    resp.tamper_overlay_b64 = None
+    resp.bbox_image_b64 = None
+
+
 def _build_response(result: dict) -> AnalysisResponse:
     return AnalysisResponse(
         status="success",
@@ -379,6 +421,10 @@ def _build_response(result: dict) -> AnalysisResponse:
 
 
 def _apply_options(pipeline: ExplanationPipeline, options: AnalysisOptions) -> None:
+    # 已知限制：本函数直接改全局单例 pipeline 的属性，多客户端并发请求会互相污染
+    # （后一个请求的 options 会影响前一个尚在推理中的请求）。前端串行分块提交不触发，
+    # 暂不引入 per-request pipeline 或锁。注意：evidence_policy 是纯响应裁剪策略，
+    # 不属于 pipeline 配置，故不在此处理（见 analyze_batch 内的裁剪逻辑）。
     pipeline.enable_localization = options.enable_localization
     pipeline.heatmap_generator.overlay_alpha = options.overlay_alpha
     if hasattr(pipeline, "tamper_detector"):

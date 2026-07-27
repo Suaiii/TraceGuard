@@ -66,6 +66,12 @@ class ReportAgent:
                 {"role": "user", "content": prompt},
             ])
             elapsed = (time.perf_counter() - t0) * 1000
+            # 推理型模型（deepseek-v4 / doubao-seed-2.0 等）会先消耗 reasoning
+            # token，若 max_tokens 不足以在推理后留出正文，接口会返回 content 为
+            # 空字符串而不报错。此时若继续标记 llm_generated=True，报告会渲染出
+            # 三个空研判段却声称由 LLM 生成——比直接降级更糟。
+            if not (reply or "").strip():
+                raise ValueError("LLM returned empty content")
             parsed = self._parse_single_reply(reply)
             parsed['llm_generated'] = True
             parsed['elapsed_ms'] = round(elapsed, 2)
@@ -77,12 +83,15 @@ class ReportAgent:
             fallback['elapsed_ms'] = 0
             return fallback
 
-    def analyze_batch(self, results: list) -> dict:
+    def analyze_batch(self, results: list, screening: dict = None) -> dict:
         """
         对批量检测结果生成 LLM 研判。
 
         Args:
             results: pipeline.run() 输出 dict 列表
+            screening: 可选的取证筛查上下文 dict（total/passed/flagged/elapsed_ms）。
+                非空时说明 results 只是筛查漏斗的待处置子集，会作为
+                screening_context 注入统计 JSON，提示 LLM 用"待处置条目"口径表述。
 
         Returns:
             dict: {
@@ -96,13 +105,16 @@ class ReportAgent:
             return self._fallback_batch()
 
         try:
-            prompt = self._build_batch_prompt(results)
+            prompt = self._build_batch_prompt(results, screening=screening)
             t0 = time.perf_counter()
             reply = self.client.chat([
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt},
             ])
             elapsed = (time.perf_counter() - t0) * 1000
+            # 同 analyze_single：空 content 视为调用失败，降级而非产出空研判段
+            if not (reply or "").strip():
+                raise ValueError("LLM returned empty content")
             parsed = self._parse_batch_reply(reply)
             parsed['llm_generated'] = True
             parsed['elapsed_ms'] = round(elapsed, 2)
@@ -138,20 +150,20 @@ class ReportAgent:
             },
         }
 
-        # 超监管标记
-        is_super_oversight = (
+        # 高置信伪造标记（label==fake 且 fake_prob≥0.9 且 risk_level==high）
+        is_high_confidence_fake = (
             summary["label"] == "fake"
             and summary["fake_prob"] >= 0.9
             and summary["risk_level"] == "high"
         )
-        summary["super_oversight"] = is_super_oversight
+        summary["high_confidence_fake"] = is_high_confidence_fake
 
         return SINGLE_REPORT_PROMPT.format(
             result_json=json.dumps(summary, ensure_ascii=False, indent=2)
         )
 
-    def _build_batch_prompt(self, results: list) -> str:
-        """提取批次统计 + 高风险条目摘要"""
+    def _build_batch_prompt(self, results: list, screening: dict = None) -> str:
+        """提取批次统计 + 高风险条目摘要（screening 非空时附带筛查漏斗上下文）"""
         total = len(results)
         fake_count = sum(1 for r in results if r.get("label") == "fake")
         real_count = total - fake_count
@@ -159,7 +171,7 @@ class ReportAgent:
         high_risk = sum(1 for r in results if r.get("risk_level") == "high")
         medium_risk = sum(1 for r in results if r.get("risk_level") == "medium")
         low_risk = sum(1 for r in results if r.get("risk_level") == "low")
-        super_oversight_count = sum(
+        high_confidence_fake_count = sum(
             1 for r in results
             if r.get("label") == "fake"
             and r.get("fake_prob", 0) >= 0.9
@@ -174,7 +186,7 @@ class ReportAgent:
             "high_risk_count": high_risk,
             "medium_risk_count": medium_risk,
             "low_risk_count": low_risk,
-            "super_oversight_count": super_oversight_count,
+            "high_confidence_fake_count": high_confidence_fake_count,
             "avg_fake_prob": round(
                 sum(r.get("fake_prob", 0) for r in results) / max(total, 1), 4
             ),
@@ -182,6 +194,14 @@ class ReportAgent:
                 sum(r.get("risk_score", 0) for r in results) / max(total, 1), 4
             ),
         }
+
+        # 取证筛查上下文：results 只是漏斗的待处置子集时，显式告知 LLM 统计口径
+        if screening:
+            stats["screening_context"] = {
+                "screened_total": screening.get("total"),
+                "screened_passed_real_low": screening.get("passed"),
+                "note": "本列表仅为筛查漏斗的待处置子集，已剔除判定为真实且低风险的通过项；统计不代表原始批次整体分布",
+            }
 
         # 高风险条目摘要 (最多 10 条)
         high_risk_items = []
@@ -196,7 +216,7 @@ class ReportAgent:
                     "risk_level": r.get("risk_level"),
                     "bbox_count": len(r.get("bbox_list", [])),
                     "explanation_brief": r.get("explanation_brief", ""),
-                    "super_oversight": (
+                    "high_confidence_fake": (
                         r.get("label") == "fake"
                         and r.get("fake_prob", 0) >= 0.9
                     ),

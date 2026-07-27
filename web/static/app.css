@@ -759,3 +759,243 @@ img { border-radius: 0; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Screening funnel + capability card ---------- */
+
+/* --- A. 文件收集 --- */
+.folder-row { display: flex; margin-top: 12px; }
+.folder-button {
+  background: none;
+  border: 2px solid var(--ink);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+.folder-button:hover:not(:disabled) { background: var(--accent-100); }
+.folder-button:active:not(:disabled) { background: var(--accent-200); }
+
+/* 提交期间锁住上传入口 */
+.disabled { pointer-events: none; opacity: 0.45; }
+
+.limit-notice {
+  margin-top: 12px;
+  border-left: 2px solid var(--accent);
+  background: var(--accent-100);
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-800);
+  animation: tg-rise 0.25s ease-out both;
+}
+
+.file-card-more {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--neutral-600);
+}
+
+/* --- B. 分块提交进度 --- */
+.screen-progress {
+  border: 2px solid var(--ink);
+  padding: 12px 16px 14px;
+  margin-bottom: 20px;
+  animation: tg-rise 0.25s ease-out both;
+}
+.progress-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--neutral-700);
+}
+#progressText { font-size: 15px; font-weight: 800; letter-spacing: 0; color: var(--ink); }
+#progressMeta { margin-right: auto; }
+.abort-button {
+  background: none;
+  border: 2px solid var(--ink);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.abort-button:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #f3f2f2; }
+.progress-track { display: block; height: 8px; background: var(--neutral-200); }
+.progress-track > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+/* --- C. 漏斗统计 --- */
+.screen-summary { margin-bottom: 24px; animation: tg-rise 0.3s ease-out both; }
+.screen-summary .batch-stats { margin-bottom: 0; }
+.batch-stat-item.hot b { color: var(--accent-700); }
+.batch-breakdown {
+  margin: 10px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--neutral-600);
+}
+.batch-interrupted {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--accent-700);
+}
+
+/* --- 严重度徽标 + 处置提示 --- */
+.card-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.card-rank-badge {
+  align-self: flex-start;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  border: 2px solid var(--ink);
+  color: var(--ink);
+  background: none;
+}
+.card-rank-badge.rank-hot {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #f3f2f2;
+}
+.card-process-tip {
+  border-left: 2px solid var(--accent);
+  background: var(--accent-100);
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--accent-900);
+}
+.card-detail .card-process-tip { margin: 8px 0 10px; }
+
+/* --- 增量渲染 --- */
+.show-more-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  background: none;
+  border: 2px solid var(--ink);
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+.show-more-button:hover { background: var(--accent-100); }
+.show-more-button:active { background: var(--accent-200); }
+
+/* --- 筛选通过折叠区 --- */
+.passed-section { border-top: 2px solid var(--divider); margin-top: 28px; padding-top: 14px; }
+.passed-toggle {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--neutral-700);
+  text-align: left;
+}
+.passed-toggle:hover { color: var(--accent-600); }
+.passed-list {
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 10px;
+  border-top: 1px solid var(--divider);
+  animation: tg-rise 0.2s ease-out both;
+}
+.passed-row {
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--divider);
+  font-size: 12px;
+  color: var(--neutral-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- D. 能力档案卡 --- */
+.cap-button {
+  background: none;
+  border: 2px solid var(--ink);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  margin-left: auto;
+  margin-right: 20px;
+}
+.cap-button:hover { background: var(--accent-100); }
+.cap-button:active { background: var(--accent-200); }
+
+.cap-container { width: 640px; }
+.cap-body { padding: 24px 28px 28px; overflow: auto; }
+
+.cap-scope-badge {
+  margin: 0 0 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent-700);
+}
+
+.cap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 2px solid var(--ink);
+}
+.cap-cell { padding: 14px 16px 16px; border-left: 2px solid var(--divider); min-width: 0; }
+.cap-cell:first-child { border-left: none; padding-left: 0; }
+.cap-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--neutral-600);
+}
+.cap-value { display: block; margin-top: 6px; font-size: 28px; font-weight: 800; line-height: 1.1; }
+.cap-sub { display: block; margin-top: 5px; font-size: 11px; color: var(--neutral-600); }
+
+.cap-subhead {
+  margin: 24px 0 10px;
+  font-size: 14px;
+  font-weight: 800;
+  border-top: 2px solid var(--ink);
+  padding-top: 12px;
+}
+.cap-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.cap-table td { padding: 8px 0; border-bottom: 1px solid var(--divider); }
+.cap-table td:first-child { color: var(--neutral-700); letter-spacing: 0.04em; }
+.cap-table td:last-child { text-align: right; font-weight: 800; }
+.cap-table sup { font-size: 10px; color: var(--accent-700); }
+
+.cap-note {
+  margin: 12px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--neutral-600);
+}
+
+@media (max-width: 780px) {
+  .cap-grid { grid-template-columns: 1fr; }
+  .cap-cell { border-left: none; border-top: 2px solid var(--divider); padding-left: 0; }
+  .cap-cell:first-child { border-top: none; }
+  .cap-button { margin-right: 0; }
+}

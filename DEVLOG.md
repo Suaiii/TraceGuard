@@ -40,6 +40,51 @@
 
 ## 当前状态
 
+### 2026-07-27 — main：report-export 补测试（B3）+ LLM 空回复守卫（B4）
+
+**B4 空回复守卫**：推理型模型（deepseek-v4 / doubao-seed-2.0 等）在 `max_tokens` 不足以在 reasoning token 之后留出正文时，接口会返回 `content=""` 而**不报错**（实测：`max_tokens=64` 提问"只回复两个字"→ 313 completion token 中 288 为推理，正文为空）。原代码此时仍标 `llm_generated=True`，报告会渲染出三个空研判段却声称由 LLM 生成。现改为空回复抛 `ValueError`，走既有 `except` 统一降级；`analyze_single`（L73）与 `analyze_batch`（L116）各一处。
+
+**B3 补测试**：新增 `tests/test_report_export.py` 14 项，覆盖 feature/report-export 此前零测试的路径。用 `StubClient` 假客户端，不触网：
+- 降级路径：无 client / 空回复 / 纯空白四种参数化（`""`/`"   "`/`"\n\n"`/`None`）/ API 抛异常 → 全部降级且研判段非空
+- 正常路径：三段解析、`llm_generated=True`、耗时记录
+- prompt 忠实性：送入 LLM 的 prompt 必须携带真实检测数值（`fake`/`0.55`/`medium`），防止研判凭空生成
+- HTML 渲染：带/不带 `llm_opinion` 均产出完整报告不抛异常；批量同理
+- **已做变异验证**：把守卫改成 `if False:` 后 5 项立刻转红，还原后全绿——测试确实在守，不是凑数
+
+**覆盖盲区（已在测试文件 docstring 注明）**：`/report/preview` 与 `/report/pdf` 的装配逻辑（`_get_llm_agent`、`_html_to_pdf`）是 `create_app()` 内闭包，而 `create_app()` 无条件加载 545MB 权重，单测无法低成本触达；已覆盖其调用的全部业务对象，端点本身仍靠手工联调。
+
+**测试总数 202 → 216**，报告表 3.9 与 4.7 已同步。
+
+### 2026-07-27 — main：批量检测改造成取证筛查漏斗 + 后端措辞红线收口 + 能力档案卡（已实测通过）
+
+**产品决策**（朱羿帅拍板，叙事对齐讨论见协作记录）：批量检测重定位为"取证筛查漏斗"——真实且低风险的图**筛选通过只计数**，其余进待处置列表按严重度排序、只对待处置子集出报告；"超监管意识"采用**诚实代理**方案（高置信伪造置顶加急复核 + 提示语"如内容涉严重危害，请按平台超监管流程上报"），**不做** LLM 内容判读（写进展望/roadmap；原因：报告叙事是"机器意识到假、人意识到危害"，加内容判读会稀释自研零样本头牌且第三方依赖碰红线边缘）。
+
+**后端**（explanation/ 五文件）：
+- **措辞红线收口**：prompts.py（LLM 规则 5 改口径 + 新增规则 7 硬约束"不得声称检测超监管内容"）、agent.py（`super_oversight` 字段族全部改 `high_confidence_fake`，喂 LLM 的 JSON 字段名同步）、report.py（横幅/统计卡/行标/卡片标记文案全改"高置信伪造"，内联重复文案合并为 `_high_confidence_alert()` 单一来源）。判定规则 `fake && prob≥0.9 && high` 未变。`grep 超监管 explanation/` 现仅剩提示语与红线注释。
+- **筛查支持**：`AnalysisOptions.evidence_policy`（all/flagged/none，默认 all 向后兼容；flagged=筛选通过项不回传任何 b64 证据图，响应体大幅瘦身）；批量单请求上限 20→50（1000 总量由前端分块保证）；`ReportRequest.screening` 上下文 → 报告页眉渲染"取证筛查报告 · 待处置子集 / 共检 N · 筛选通过 M"，LLM prompt 注入 screening_context 防止把子集比例误读为整体。
+- 已知限制（注释注明未修）：`_apply_options` 改全局单例 pipeline，多客户端并发会互相污染（本前端串行分块不触发）。
+- **勘误**：本条目原记「agent.py 存在历史遗留 `if False:` 空内容守卫死代码，待复核」——**该记录不成立，请勿据此删除守卫**。当时 agent.py 正被变异测试临时改成 `if False:`（用于验证新增守卫测试确实会失灵报警），几秒后已还原。现行代码为 `if not (reply or "").strip(): raise ValueError(...)`，位于 `analyze_single`（L73）与 `analyze_batch`（L116），由 `tests/test_report_export.py` 的 6 项断言守护。
+
+**前端**（web/ 三文件）：
+- 文件收集：文件夹选择（webkitdirectory 按钮 + 拖拽文件夹递归遍历）、上限 20→**1000**、扩展名过滤（文件夹 File 常见 type 为空）、Set 去重、objectURL 双 registry 回收（顺手修了单图 setFile 泄漏）、文件列表只渲染前 24 缩略图 + 汇总卡。
+- 分块状态机：每块 10 张串行提交（`evidence_policy:"flagged"`）、进度条 n/总数 + 已拦截数 + ETA、**中断停在块边界且已出结果保留**、每块失败自动重试一次后记 error 继续。
+- 漏斗 UI：5 格统计（总数/筛选通过/待处置/高置信伪造/失败）+ 分类小字行；待处置卡片按严重度排序（高置信伪造>伪造>局部篡改>需复核真图>失败）带等级徽标，高置信卡带超监管流程提示语；首屏 60 卡增量渲染；通过折叠区懒构建；导出只传待处置子集 + screening 上下文（>100 条 confirm 护栏）。
+- 能力档案卡：topbar 入口 + 静态模态框，硬编码已定稿数字（ExImage 零样本 98.00%、Real Recall 99.80%、45.4M、扰动保持率四项†），标注"公开数据子集零样本评测；系统不具备内容语义分类能力"。零新增主张，为演示"超监管实力三件套"提供数字面板（低刺激样例素材待贺杰 #15 产出后纳入演示集）。
+
+**实测**（42 张混合集起服全流程 + API 断言）：漏斗 42→通过18/待处置24/高置信6/失败0 且排序正确；证据裁剪断言通过（通过项 b64 空、待处置项齐全）；51 张限流报错正确；中断精确停在 20/42 且结果保留；报告页眉/研判/TIP 措辞全对且"超监管"仅在提示语中；能力档案卡渲染正确。**文件夹选择对话框无法自动化，待人工冒烟一次**。app.js 留有 `window.__tg` 调试钩子（无害，供联调）。
+
+### 2026-07-27 — main：前端 Modernist 换肤 + 克制动效（来自设计稿 zip，已实测通过）
+
+**背景**：根目录 `TraceGuard 功能页面美化.zip` 是设计工具同步出的 Modernist 风格重设计（Archivo 字体、单红 #ec3013 强调、零圆角、2px 分割线），刻意保留全部 id/类名以兼容 `app.js`。
+
+**已完成**（改动仅 `web/` 三文件 + 新增 `web/static/fonts/`）：
+- `web/index.html`：采用设计稿版式（模式标签加 01/02 编号、"多图检测"→"批量检测"、证据面板补标题、去 emoji），资源路径保持 `/static/` 绝对路径。
+- `web/static/app.css`：整体替换为 Modernist 样式表；Archivo 可变字体（400–800，latin+latin-ext，共 67KB woff2）**已本地化**到 `web/static/fonts/`，演示现场断网不再依赖 Google Fonts；末尾追加 `Motion+` 动效层（页面入场墨线划入/面板错峰淡入、结论数字滚动计数、维度条从 0 生长、批量卡片错峰入场、证据图切换淡入、检测中按钮斜纹扫描、弹窗淡入），全部带 `prefers-reduced-motion` 降级。
+- `web/static/app.js`：5 处小钩子（`replayAnimation`/`animateCount` 工具、dim-bar rAF 起始 0 宽、卡片 `--i` 错峰变量、`.loading`/`.swap`/`.updated` 类切换），不改任何接口与 id。
+- **实测**：CPU 起服后用浏览器自动化跑通单图（超监管样例：横幅/维度条/热力图/报告预览弹窗均正常，880px 浅色弹窗内报告无裁切）与批量（2 图：统计条/卡片/展开详情/mini 证据 tab 正常）。旧深色 1200px+scale(0.95) 弹窗方案已被浅色 Modernist 弹窗替代。
+
+**措辞红线联动（队友同步改的，此处记录）**：页面超监管横幅文案已改为「高置信伪造 · 建议加急复核」——系统只判断"是否 AIGC 生成"，无内容类别分类器，前端不得声称检测到"超监管内容"。`app.js` 的 `soVerdictLabel`/`soCardReview`/批量角标已全部对齐为「高置信伪造」。⚠️ **待办**：后端 `explanation/llm/agent.py`、`llm/prompts.py`、`visualization/report.py` 中仍有「超监管」措辞（报告预览横幅实测仍显示"超监管高危内容"），需按同一红线复核改写——建议合并 `feature/report-export-v2` 时一并处理。
+
 ### 2026-07-27 — 分支 `feature/report-export-v2`：批量报告版式重构（4图并排 + LLM逐图复核 + 配色对齐单图）
 
 **背景**：`feature/report-export` 的批量报告版式与单图报告风格不统一（汇总图为单张 2×2、高风险条目仅缩略图+迷你进度条、摘要栏过长、无逐图 LLM 建议）。
