@@ -1,6 +1,6 @@
 # TraceGuard Devlog
 
-更新时间：2026-07-19
+更新时间：2026-07-27
 技术封版目标：2026-07-20
 
 ## 使用规则
@@ -39,6 +39,28 @@
 封版 2026-07-20，提交 2026-08-02。红线：报告/答辩禁现「实验室/导师/同组工作」等身份措辞；报告匿名（无学校/院系/指导教师，封面邮箱中性）；ExImage 与 ExDA 权重/代码不进 Git、不进提交包、不接入系统；超监管只谈"评测自研检测器"，不声称生成/训练/优化；涉敏图只低刺激远景，绝不打开/显示/导出超监管图像。
 
 ## 当前状态
+
+### 2026-07-27 — 分支 `enhance-platform`：平台功能完善（SPA 单图/多图检测切换、证据展示、交互修复）
+
+**背景**：Web 平台仅支持单图检测，缺少批量入口。多图检测后端 API（`POST /api/v1/analyze/batch`，上限 20 张）已就绪但前端未使用。同时存在文案（审计→检测）和功能（复选框无效）的 bug。
+
+**已合并回 main（`116da0f`，共 7 commits）**：
+
+1. **复选框修复 + 文案统一**（`25503e4`）：`_apply_options` 未写入 `enable_localization`，导致"可疑区域定位"复选框无效；`app.js` 三处遗漏的"审计"改为"检测"
+2. **单图/多图检测切换**（`2e33630`）：SPA 方案——`index.html` 内 CSS show/hide 切换两个 workspace；`<nav class="mode-bar">` 放两个 tab；多图左列批量上传（dropzone `multiple` + 缩略图网格 `#fileGrid` + 去重/20 张上限）、右列批量结果；`switchMode()` 切换逻辑
+3. **结果卡片迷你证据查看器**（`1cb2c23`）：每张卡片展开后含四 tab 迷你证据图（overlay/mask/bbox/tamper），`switchMiniEvidence()` 切换
+4. **三列结果网格**（`6e17428`）：`repeat(3, 1fr)` 固定三列 + 响应式覆写
+5. **独立展开/收起**（`4eb9550`）：`expandCard()` 改为独立 toggle（`display !== "none"` 切换），不再手风琴互斥
+6. **风险等级文字居中**（`ee58107`）：`.card-stat b` 设置 `display: block`
+7. **定位关闭提示文案**（`021b6e6`）：未勾选"可疑区域定位"时，bbox/tamper 证据区显示「勾选"可疑区域定位"后显示」；替换中文弯引号（U+201C/U+201D）为角形引号修复 JS SyntaxError
+
+**当前分支待合入（1 commit）**：
+
+8. **清空按钮**（`7175cf7`）：多图上传区新增红色「清空所有图片」按钮，有文件时显示/无文件时隐藏；点击清空 `state.files`、`batchResults` 并刷新界面
+
+**变更文件**：`web/index.html`、`web/static/app.css`、`web/static/app.js`、`explanation/api/routes.py`
+
+**分支状态**：除清空按钮（`7175cf7`）外，其余 7 个 commit 已于 2026-07-26 通过 `--no-ff` 合并至 `main`（`116da0f`）并推送远程。
 
 ### 2026-07-21 - 第一章 v2：定名"社交媒体传播场景" + 相关工作改基金写法
 
