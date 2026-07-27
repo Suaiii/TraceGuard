@@ -153,3 +153,4 @@ tmp_*
 *.lot
 *.out
 docs/restructure/*.pdf
+docs/restructure/figures/
