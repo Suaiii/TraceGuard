@@ -314,12 +314,16 @@ def create_app(
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"PDF generation failed: {exc}") from exc
 
+        from datetime import datetime
         from fastapi.responses import Response
+        ts = datetime.now().strftime('%Y%m%d-%H%M%S')
+        report_type = getattr(request, 'type', 'report') or 'report'
+        filename = f"TraceGuard-{report_type}-{ts}.pdf"
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={
-                "Content-Disposition": 'attachment; filename="traceguard-report.pdf"',
+                "Content-Disposition": f'attachment; filename="{filename}"',
             },
         )
 
