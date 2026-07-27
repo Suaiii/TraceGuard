@@ -1374,13 +1374,15 @@ pre {
 .preview-body iframe {
   display: block;
   width: 80%;
+  flex-shrink: 0;
   border: none;
   background: #fff;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.28),
     0 2px 8px rgba(0, 0, 0, 0.12);
   border-radius: 4px;
-  margin: 28px auto;
+  margin-top: 28px;
+  margin-bottom: 28px;
   overflow: hidden;
   transform: scale(0.9);
   transform-origin: top center;
