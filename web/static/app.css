@@ -1374,7 +1374,7 @@ pre {
 .preview-body iframe {
   display: block;
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
   border: none;
   background: #fff;
   box-shadow:
