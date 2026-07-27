@@ -417,7 +417,7 @@ class ReportGenerator:
     @staticmethod
     def _css() -> str:
         return '''
-            @page { size: A4; margin: 18mm 16mm 22mm 16mm; }
+            @page { size: A4; margin: 14mm 14mm 16mm 14mm; }
             :root {
                 --bg: #FAFBFC;
                 --card-bg: #FFFFFF;
@@ -450,10 +450,10 @@ class ReportGenerator:
                 background: #f2f3f5;
                 color: var(--text);
                 font-size: 13px;
-                line-height: 1.6;
+                line-height: 1.5;
                 max-width: 860px;
                 margin: 0 auto;
-                padding: 20px 16px;
+                padding: 12px 14px;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -463,8 +463,8 @@ class ReportGenerator:
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-end;
-                padding-bottom: 12px;
-                margin-bottom: 20px;
+                padding-bottom: 8px;
+                margin-bottom: 12px;
                 border-bottom: 2px solid var(--accent);
             }
             .page-header-brand {
@@ -485,14 +485,14 @@ class ReportGenerator:
             .metrics-banner {
                 display: grid;
                 grid-template-columns: 1fr 1fr 1fr;
-                gap: 12px;
-                margin-bottom: 16px;
+                gap: 10px;
+                margin-bottom: 10px;
             }
             .metric-card {
                 background: var(--card-bg);
                 border: 1px solid var(--border);
                 border-radius: var(--radius);
-                padding: 16px 20px;
+                padding: 12px 16px;
                 box-shadow: var(--shadow-sm);
                 text-align: center;
             }
@@ -513,7 +513,7 @@ class ReportGenerator:
                 margin-bottom: 6px;
             }
             .metric-value {
-                font-size: 28px;
+                font-size: 24px;
                 font-weight: 800;
                 letter-spacing: -0.02em;
             }
@@ -532,12 +532,12 @@ class ReportGenerator:
             .so-alert {
                 display: flex;
                 align-items: center;
-                gap: 12px;
+                gap: 10px;
                 background: var(--so-red-bg);
                 border: 1.5px solid #FCA5A5;
                 border-radius: var(--radius);
-                padding: 14px 20px;
-                margin-bottom: 16px;
+                padding: 10px 16px;
+                margin-bottom: 10px;
             }
             .so-alert-icon {
                 font-size: 24px;
@@ -561,16 +561,16 @@ class ReportGenerator:
                 border: 1px solid var(--border);
                 border-radius: var(--radius);
                 box-shadow: var(--shadow);
-                padding: 18px 20px;
-                margin-bottom: 14px;
-                page-break-inside: avoid;
+                padding: 12px 16px;
+                margin-bottom: 10px;
+                page-break-inside: auto;
             }
             .card h2 {
                 font-size: 13px;
                 font-weight: 700;
                 color: var(--text);
-                margin-bottom: 12px;
-                padding-bottom: 8px;
+                margin-bottom: 8px;
+                padding-bottom: 6px;
                 border-bottom: 1px solid var(--border);
                 display: flex;
                 align-items: center;
@@ -601,17 +601,20 @@ class ReportGenerator:
             .img-grid {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 12px;
-                margin-bottom: 14px;
-                page-break-inside: avoid;
+                gap: 10px;
+                margin-bottom: 10px;
             }
             .img-grid .card {
                 margin-bottom: 0;
+                page-break-inside: avoid;
+            }
+            .img-grid .card img {
+                page-break-inside: avoid;
             }
             .img-grid .card h2 {
                 font-size: 12px;
-                margin-bottom: 8px;
-                padding-bottom: 6px;
+                margin-bottom: 6px;
+                padding-bottom: 4px;
             }
 
             /* ========== Callout / LLM ========== */
@@ -619,19 +622,19 @@ class ReportGenerator:
                 background: #F8FAFC;
                 border-left: 4px solid var(--accent);
                 border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-                padding: 16px 20px;
-                margin-bottom: 14px;
-                page-break-inside: avoid;
+                padding: 12px 16px;
+                margin-bottom: 10px;
+                page-break-inside: auto;
             }
             .callout h2 {
                 font-size: 13px;
                 font-weight: 700;
                 color: var(--accent);
-                margin-bottom: 8px;
+                margin-bottom: 6px;
             }
             .callout-body {
-                font-size: 13px;
-                line-height: 1.75;
+                font-size: 12px;
+                line-height: 1.45;
                 white-space: pre-wrap;
                 color: #374151;
             }
@@ -691,15 +694,15 @@ class ReportGenerator:
             .two-col {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 12px;
-                margin-bottom: 14px;
+                gap: 10px;
+                margin-bottom: 10px;
             }
-            .two-col .card { margin-bottom: 0; }
+            .two-col .card { margin-bottom: 0; page-break-inside: auto; }
 
             /* ========== Page Footer ========== */
             .page-footer {
-                margin-top: 20px;
-                padding-top: 10px;
+                margin-top: 12px;
+                padding-top: 8px;
                 border-top: 1px solid var(--border);
                 display: flex;
                 justify-content: space-between;
@@ -711,8 +714,8 @@ class ReportGenerator:
             .explanation-text {
                 white-space: pre-wrap;
                 font-family: inherit;
-                font-size: 13px;
-                line-height: 1.8;
+                font-size: 12px;
+                line-height: 1.5;
                 color: #4B5563;
             }
 
@@ -795,6 +798,11 @@ class ReportGenerator:
             @media print {
                 body { background: #FFF; max-width: none; margin: 0; padding: 0; }
                 .card { box-shadow: none; }
+                img { page-break-inside: avoid; }
+                .img-grid .card { page-break-inside: avoid; }
+                .metrics-banner { page-break-inside: avoid; }
+                h2 { page-break-after: avoid; }
+                .page-header { page-break-after: avoid; }
             }
         '''
 
