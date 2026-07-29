@@ -96,6 +96,9 @@ class AnalysisResponse(BaseModel):
     explanation_brief: str                        # 一句话摘要
     bbox_list: list[BBoxItem] = []                # 可疑区域列表
     dimension_scores: DimensionScores             # 风险维度详情
+    # Content classifier output
+    content_category: str = "unavailable"          # 内容类别标签（CLIP 零样本分类）
+    is_super_oversight_domain: bool = False        # 是否超监管领域（战争/暴恐/枪械/暴力）
     # Base64 图像
     overlay_b64: str                              # 热力图叠加图
     mask_b64: str                                 # 热力掩膜
