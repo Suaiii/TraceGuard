@@ -149,7 +149,7 @@ const text = {
   soProcessTip: "如内容涉严重危害，请按平台超监管流程上报。",
   rankLabel: {
     0: "高置信伪造",
-    1: "AIGC伪造",
+    1: "AIGC 伪造",
     2: "局部篡改",
     3: "需复核",
     4: "失败",
@@ -686,15 +686,17 @@ function makeErrorResult(name, msg) {
   };
 }
 
-// 分流判据必须与后端 explanation/api/routes.py 的 _is_pass 逐字一致：
-//   status == "success" && label == "real" && risk_level == "low"
-// 后端据此在 evidence_policy=="flagged" 下裁剪通过项的证据图；两处漂移会导致
-// 前端把无证据图的条目当作待处置渲染（下方 console.warn 哨兵即为此设）。
+// 分流判据必须与后端 explanation/api/routes.py 的 _is_pass 逐字一致；
+// 任何一侧改动都要同步另一侧。
+// 局部篡改（local_tamper）即使 risk_level==low 也不放行。
 function routeResult(r, idx, file) {
   var s = state.screen;
   r.file = file ? (file.name || ("图片 " + (idx + 1))) : ("图片 " + (idx + 1));
 
-  var isPass = r.status === "success" && r.label === "real" && r.risk_level === "low";
+  var isPass = r.status === "success"
+    && r.label === "real"
+    && r.risk_level === "low"
+    && r.tamper_type !== "local_tamper";
 
   if (isPass) {
     s.passed.push({ idx: idx, name: r.file, fake_prob: Number(r.fake_prob || 0) });
@@ -903,7 +905,7 @@ function renderFunnelResults() {
   el.batchHighConfCount.textContent = String(highConf);
   el.batchErrorCount.textContent = String(s.errors);
   el.batchBreakdown.textContent =
-    "AIGC伪造 " + fakeCount + " · 局部篡改 " + tamperCount + " · 需复核真图 " + reviewCount;
+    "AIGC 伪造 " + fakeCount + " · 局部篡改 " + tamperCount + " · 需复核真图 " + reviewCount;
 
   if (s.interrupted) {
     el.batchInterrupted.textContent = "已中断：完成 " + s.done + "/" + s.total;
@@ -1034,14 +1036,18 @@ function createResultCard(entry, displayIndex) {
   verdict.textContent = text.label[label] || label;
 
   var rank = severityRank(result);
-  var rankBadge = document.createElement("span");
-  rankBadge.className = "card-rank-badge" + (rank <= 1 ? " rank-hot" : "");
-  rankBadge.textContent = text.rankLabel[rank];
-
+  var rankLabelText = text.rankLabel[rank];
   var badges = document.createElement("div");
   badges.className = "card-badges";
   badges.appendChild(verdict);
-  badges.appendChild(rankBadge);
+
+  // 仅当 rank 标签与 verdict 标签不同时才显示，避免 "AIGC伪造" + "AIGC伪造" 重复
+  if (rankLabelText !== verdict.textContent) {
+    var rankBadge = document.createElement("span");
+    rankBadge.className = "card-rank-badge" + (rank <= 1 ? " rank-hot" : "");
+    rankBadge.textContent = rankLabelText;
+    badges.appendChild(rankBadge);
+  }
 
   meta.appendChild(nameEl);
   meta.appendChild(badges);
