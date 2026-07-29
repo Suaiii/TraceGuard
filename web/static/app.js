@@ -94,6 +94,8 @@ const el = {
   soFakeProbVal: document.getElementById("soFakeProbVal"),
   soRiskScoreVal: document.getElementById("soRiskScoreVal"),
   soTotalScore: document.getElementById("soTotalScore"),
+  soBannerTitle: document.getElementById("soBannerTitle"),
+  soBannerText: document.getElementById("soBannerText"),
   clearFilesButton: document.getElementById("clearFilesButton"),
   exportSingleButton: document.getElementById("exportSingleButton"),
   exportBatchButton: document.getElementById("exportBatchButton"),
@@ -145,14 +147,15 @@ const text = {
   soVerdictLabel: "高置信伪造",
   soReviewText: "该图像在伪造概率和综合风险两个维度均达到最高警戒级别。建议：(1) 对照原始来源核实图像真实性；(2) 检查元数据中的编辑痕迹；(3) 交叉验证传播链路中其他副本的检测结果。如确认为 AIGC 伪造，应立即标记并限制传播。",
   soCardReview: "高置信伪造：伪造概率≥90%且综合风险为高，建议加急人工复核。",
-  // 唯一允许出现"超监管"字样的字符串：给人看的流程提示语（系统不判断内容语义）
+  // 如内容确属超监管领域（经分类器确认），请按平台超监管流程上报。
   soProcessTip: "如内容涉严重危害，请按平台超监管流程上报。",
   rankLabel: {
-    0: "高置信伪造",
-    1: "AIGC伪造",
+    0: "超监管高危",
+    1: "高置信伪造",
     2: "局部篡改",
-    3: "需复核",
-    4: "失败",
+    3: "AIGC伪造",
+    4: "需复核",
+    5: "失败",
   },
   dimLabels: {
     artifact_intensity: "伪造痕迹强度",
@@ -233,13 +236,18 @@ function formatDuration(ms) {
 
 // 判据：高置信伪造 + 高综合风险 → 加急人工复核。
 //
-// 注意（措辞红线，勿改回）：本系统只判断"是否 AIGC 生成"，管线输出中没有任何
-// 内容类别字段，因此**不能**据此声称检测到"超监管内容"（战争/恐怖主义/枪械等
-// 语义类别）——那需要内容分类器，本作品没有，报告 1.4 合规声明也明确只做检测器
-// 评测。CSS 类名与 id 仍沿用 super-oversight/so- 前缀是为了不动样式表，仅为历史
-// 命名，不代表系统具备超监管内容识别能力。
+// 本系统已集成轻量级内容类别分类器（MobileCLIP2-S0 零样本），管线输出中新增
+// is_super_oversight_domain 字段。当分类器确认图像内容属于超监管领域（战争/暴恐/
+// 枪械/暴力）时，isSuperOversightDomain() 返回 true，此时可使用更强的措辞；
+// 否则仅使用「高置信伪造」口径。CSS 类名与 id 仍沿用 super-oversight/so- 前缀
+// 是为了不动样式表。
 function isHighConfidenceFake(data) {
   return data.label === "fake" && Number(data.fake_prob || 0) >= 0.9 && data.risk_level === "high";
+}
+
+// 超监管领域高置信伪造（需内容分类器确认内容类别）
+function isSuperOversightDomain(data) {
+  return isHighConfidenceFake(data) && data.is_super_oversight_domain === true;
 }
 
 function dimBarColor(value) {
@@ -406,8 +414,25 @@ function renderResult(data) {
   el.latencyText.textContent = `${Math.round(data.elapsed_ms || 0)} ms`;
   el.detailText.textContent = data.explanation || text.noDetail;
 
-  if (isHighConfidenceFake(data)) {
+  if (isSuperOversightDomain(data)) {
+    // 超监管领域：分类器确认内容属于战争/暴恐/枪械/暴力等高危类别
     el.superOversightBanner.style.display = "";
+    el.soBannerTitle.textContent = "超监管领域高危 · 建议立即复核";
+    el.soBannerText.textContent = "分类器确认图像内容属于超监管领域（战争/暴恐/枪械/暴力等），且检测为高置信AIGC伪造，建议立即标记并上报平台超监管流程处置。";
+    el.reviewSuggestion.style.display = "";
+    el.reviewText.textContent = text.soReviewText;
+    el.dimensionViz.style.display = "";
+    renderDimensionBars(data.dimension_scores || {}, el.dimBars, false);
+    el.verdictBlock.classList.add("super-oversight-active");
+    el.labelText.textContent = "超监管领域高危";
+    el.soFakeProbVal.textContent = asPercent(fakeProb);
+    el.soRiskScoreVal.textContent = asPercent(riskScore);
+    el.soTotalScore.textContent = asPercent(riskScore);
+  } else if (isHighConfidenceFake(data)) {
+    // 高置信伪造（非超监管领域）：维持当前措辞
+    el.superOversightBanner.style.display = "";
+    el.soBannerTitle.textContent = "高置信伪造 · 建议加急复核";
+    el.soBannerText.textContent = "该图像伪造概率极高且综合风险为高风险等级，建议优先安排人工复核。如内容涉严重危害，请按平台超监管流程上报。";
     el.reviewSuggestion.style.display = "";
     el.reviewText.textContent = text.soReviewText;
     el.dimensionViz.style.display = "";
@@ -682,6 +707,8 @@ function makeErrorResult(name, msg) {
     mask_b64: "",
     bbox_image_b64: null,
     tamper_overlay_b64: null,
+    content_category: "unavailable",
+    is_super_oversight_domain: false,
     file: name,
   };
 }
@@ -841,11 +868,12 @@ function isLocalTamper(r) {
 }
 
 function severityRank(r) {
-  if (r.status === "error" || r.label === "error") return 4;
-  if (isHighConfidenceFake(r)) return 0;
+  if (r.status === "error" || r.label === "error") return 5;
+  if (isSuperOversightDomain(r)) return 0;  // 最高优先级：超监管领域
+  if (isHighConfidenceFake(r)) return 1;    // 高置信伪造（非超监管）
   if (isLocalTamper(r)) return 2;
-  if (r.label === "fake") return 1;
-  return 3; // real 但 medium/high —— 需复核真图
+  if (r.label === "fake") return 3;
+  return 4; // real 但 medium/high —— 需复核真图
 }
 
 function compareSeverity(a, b) {
@@ -888,21 +916,23 @@ function renderFunnelResults() {
   clearResultArea();
 
   // --- 统计面板 ---
-  var highConf = 0, fakeCount = 0, tamperCount = 0, reviewCount = 0;
+  var soCount = 0, highConf = 0, fakeCount = 0, tamperCount = 0, reviewCount = 0;
   s.sortedFlagged.forEach(function (entry) {
     var rank = severityRank(entry.data);
-    if (rank === 0) highConf++;
+    if (rank === 0) soCount++;
+    if (rank === 1) highConf++;
     if (entry.data.label === "fake") fakeCount++;
     if (rank === 2) tamperCount++;
-    if (rank === 3) reviewCount++;
+    if (rank === 4) reviewCount++;
   });
 
   el.batchTotalCount.textContent = String(s.total);
   el.batchPassedCount.textContent = String(s.passed.length);
   el.batchFlaggedCount.textContent = String(s.flagged.length);
-  el.batchHighConfCount.textContent = String(highConf);
+  el.batchHighConfCount.textContent = String(soCount + highConf);
   el.batchErrorCount.textContent = String(s.errors);
   el.batchBreakdown.textContent =
+    (soCount > 0 ? "超监管高危 " + soCount + " · " : "") +
     "AIGC伪造 " + fakeCount + " · 局部篡改 " + tamperCount + " · 需复核真图 " + reviewCount;
 
   if (s.interrupted) {
@@ -1004,8 +1034,10 @@ function createResultCard(entry, displayIndex) {
   var card = document.createElement("article");
   var label = result.label || "error";
   card.className = "result-card " + label;
-  var isSO = isHighConfidenceFake(result);
+  var isSO = isSuperOversightDomain(result);
+  var isHighConf = isHighConfidenceFake(result);
   if (isSO) card.classList.add("super-oversight");
+  else if (isHighConf) card.classList.add("high-confidence-fake");
   card.dataset.index = String(displayIndex);
   card.style.setProperty("--i", String(displayIndex % FIRST_PAGE));
 
@@ -1034,14 +1066,19 @@ function createResultCard(entry, displayIndex) {
   verdict.textContent = text.label[label] || label;
 
   var rank = severityRank(result);
-  var rankBadge = document.createElement("span");
-  rankBadge.className = "card-rank-badge" + (rank <= 1 ? " rank-hot" : "");
-  rankBadge.textContent = text.rankLabel[rank];
-
+  var rankLabelText = text.rankLabel[rank];
   var badges = document.createElement("div");
   badges.className = "card-badges";
   badges.appendChild(verdict);
-  badges.appendChild(rankBadge);
+
+  // 仅当 rank 标签与 verdict 标签不同时才显示 rank badge，
+  // 否则会出现 "AIGC伪造" + "AIGC伪造" 的重复
+  if (rankLabelText !== verdict.textContent) {
+    var rankBadge = document.createElement("span");
+    rankBadge.className = "card-rank-badge" + (rank <= 1 ? " rank-hot" : "");
+    rankBadge.textContent = rankLabelText;
+    badges.appendChild(rankBadge);
+  }
 
   meta.appendChild(nameEl);
   meta.appendChild(badges);

@@ -74,6 +74,16 @@ class ExplanationPipeline:
             detail_level=config.get('detail_level', 'standard'),
         )
 
+        # Content classifier (optional; enabled via config)
+        self.content_classifier = None
+        if config.get('content_classifier_enabled', False):
+            from .content_classifier import ContentClassifier
+            self.content_classifier = ContentClassifier(
+                model_name=config.get('content_classifier_model', 'MobileCLIP2-S0'),
+                pretrained=config.get('content_classifier_pretrained', 'dfndr2b'),
+                device=config.get('device', 'cuda'),
+            )
+
     def run(self, image_or_path) -> dict:
         """
         执行完整分析流水线。
@@ -146,6 +156,17 @@ class ExplanationPipeline:
             if i < len(risk_result['local_scores']):
                 bbox['risk_score'] = risk_result['local_scores'][i]
 
+        # --- Content Classification (optional) ---
+        if self.content_classifier is not None:
+            content_result = self.content_classifier.classify(img)
+            content_category = content_result['category']
+            is_super_oversight_domain = content_result['is_super_oversight_domain']
+            super_oversight_score = content_result['super_oversight_score']
+        else:
+            content_category = 'unavailable'
+            is_super_oversight_domain = False
+            super_oversight_score = 0.0
+
         # --- Text Explanation ---
         explanation = self.text_explainer.explain(
             label=label,
@@ -184,6 +205,10 @@ class ExplanationPipeline:
             'risk_score': risk_result['global_score'],
             'risk_level': risk_result['risk_level'],
             'dimension_scores': risk_result['dimension_scores'],
+            # Content classification
+            'content_category': content_category,
+            'is_super_oversight_domain': is_super_oversight_domain,
+            'super_oversight_score': super_oversight_score,
             # Localization
             'bbox_list': bbox_list,
             # Explanation

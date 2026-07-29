@@ -93,6 +93,14 @@ class OutputConfig:
 
 
 @dataclass
+class ContentClassifierConfig:
+    enabled: bool = False
+    model: str = "MobileCLIP2-S0"
+    pretrained: str = "dfndr2b"
+    device: str = "cuda"
+
+
+@dataclass
 class LlmConfig:
     provider: str = ""
     model: str = ""
@@ -113,6 +121,7 @@ class TraceGuardConfig:
     text: TextConfig = field(default_factory=TextConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
     llm: LlmConfig = field(default_factory=LlmConfig)
+    content_classifier: ContentClassifierConfig = field(default_factory=ContentClassifierConfig)
     text: TextConfig = field(default_factory=TextConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
 
@@ -200,6 +209,10 @@ def load_config(yaml_path: str = None) -> TraceGuardConfig:
         },
         'text': {'language': 'zh', 'detail_level': 'standard'},
         'output': {'save_images': True, 'format': 'PNG', 'html_title': 'TraceGuard 检测报告'},
+        'content_classifier': {
+            'enabled': False, 'model': 'MobileCLIP2-S0',
+            'pretrained': 'dfndr2b', 'device': 'cuda',
+        },
     }
 
     # 2. 读取 YAML 并合并
@@ -268,6 +281,11 @@ def to_pipeline_config(cfg: TraceGuardConfig) -> dict:
         # Text
         'language': cfg.text.language,
         'detail_level': cfg.text.detail_level,
+
+        # Content classifier
+        'content_classifier_enabled': cfg.content_classifier.enabled,
+        'content_classifier_model': cfg.content_classifier.model,
+        'content_classifier_pretrained': cfg.content_classifier.pretrained,
     }
 
 

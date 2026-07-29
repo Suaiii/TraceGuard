@@ -81,11 +81,11 @@
           <div class="super-oversight-banner" id="superOversightBanner" style="display:none">
             <span class="so-icon">⚠</span>
             <div class="so-content">
-              <!-- 措辞红线：本系统只判断"是否 AIGC 生成"，没有内容类别分类器，
-                   因此不得声称检测到"超监管内容"（战争/恐怖主义/枪械等语义类别）。
-                   此处仅陈述系统真正给得出的结论：高置信伪造 + 高综合风险。 -->
-              <strong>高置信伪造 · 建议加急复核</strong>
-              <p>该图像伪造概率极高且综合风险为高风险等级，建议优先安排人工复核。</p>
+              <!-- 本系统已集成 MobileCLIP2-S0 零样本内容类别分类器，
+                   is_super_oversight_domain==true 时确认内容属超监管领域，
+                   可使用对应措辞；否则使用「高置信伪造」口径。 -->
+              <strong id="soBannerTitle">高置信伪造 · 建议加急复核</strong>
+              <p id="soBannerText">该图像伪造概率极高且综合风险为高风险等级，建议优先安排人工复核。</p>
               <div class="so-stats">
                 <span class="so-stat">伪造概率：<b id="soFakeProbVal">--</b></span>
                 <span class="so-stat">综合风险：<b id="soRiskScoreVal">--</b></span>
@@ -336,7 +336,7 @@
             </table>
 
             <p class="cap-note">† 保持率为扰动后召回相对无扰动基线的比值，resize50 下略高于基线。</p>
-            <p class="cap-note">以上数字来自公开数据子集零样本评测，非全量基准；系统不具备内容语义分类能力。</p>
+            <p class="cap-note">以上数字来自公开数据子集零样本评测，非全量基准。系统集成 MobileCLIP2-S0 零样本内容类别分类器，可辅助识别超监管领域（战争/暴恐/枪械）图像内容。</p>
           </div>
         </div>
       </div>
