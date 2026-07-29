@@ -432,7 +432,7 @@ function renderResult(data) {
     // 高置信伪造（非超监管领域）：维持当前措辞
     el.superOversightBanner.style.display = "";
     el.soBannerTitle.textContent = "高置信伪造 · 建议加急复核";
-    el.soBannerText.textContent = "该图像伪造概率极高且综合风险为高风险等级，建议优先安排人工复核。如内容涉严重危害，请按平台超监管流程上报。";
+    el.soBannerText.textContent = "高置信伪造：伪造概率≥90%且综合风险为高，建议加急人工复核。如内容涉严重危害，请按平台超监管流程上报。";
     el.reviewSuggestion.style.display = "";
     el.reviewText.textContent = text.soReviewText;
     el.dimensionViz.style.display = "";
@@ -1182,20 +1182,24 @@ function createResultCard(entry, displayIndex) {
   pre.textContent = result.explanation || text.noDetail;
 
   detail.appendChild(brief);
+
+  // 高置信伪造及以上：显示伪造判据说明（超监管 + 普通高置信均展示）
+  if (isHighConf) {
+    var cardReview = document.createElement("p");
+    cardReview.className = "card-review";
+    cardReview.textContent = text.soCardReview;
+    detail.appendChild(cardReview);
+  }
+
   if (isSO) {
     var cardDimBars = document.createElement("div");
     cardDimBars.className = "card-dim-bars";
     renderDimensionBars(result.dimension_scores || {}, cardDimBars, true);
     detail.appendChild(cardDimBars);
 
-    var cardReview = document.createElement("p");
-    cardReview.className = "card-review";
-    cardReview.textContent = text.soCardReview;
-    detail.appendChild(cardReview);
-
-    // 处置流程提示：系统只判"伪"，是否属严重危害由人判定
+    // 处置流程提示：与 cardReview 统一风格
     var processTip = document.createElement("p");
-    processTip.className = "card-process-tip";
+    processTip.className = "card-review";
     processTip.textContent = text.soProcessTip;
     detail.appendChild(processTip);
   }
