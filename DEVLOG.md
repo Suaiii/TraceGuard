@@ -40,6 +40,58 @@
 
 ## 当前状态
 
+### 2026-07-29 — feature/super-oversight-classifier：集成 MobileCLIP2-S0 零样本内容类别分类器
+
+**分支**: `feature/super-oversight-classifier`（基于 main，4 commits 超前）
+
+**12 个文件变更，+329/-42 行**。核心目标：解决原 `isHighConfidenceFake()` 纯数值判据（`fake_prob≥0.9 && risk_level==high`）无法区分"一张高置信伪造青蛙图"与"超监管领域 AIGC 伪造图"的问题。
+
+#### 新增
+
+- `explanation/content_classifier/` — MobileCLIP2-S0（~54M 参数，~286MB 缓存）零样本分类器
+  - 9 个类别：4 个超监管领域（warfare/military conflict, terrorism/extremist violence, weapons/firearms/explosives, graphic violence/human suffering）+ 5 个普通类别（nature, portraits, objects, art, text）
+  - 类别文本 `__init__` 预编码为固定向量，推理时仅做一次图像编码 + 矩阵乘法，~15ms GPU
+  - 加载失败自动降级：`is_super_oversight_domain` 恒为 false，退回纯数值判据
+
+#### 修改
+
+- **pipeline.py** — `run()` 中插入分类器调用，输出 `content_category`、`is_super_oversight_domain`、`super_oversight_score` 三个新字段
+- **config.py** — 新增 `ContentClassifierConfig` dataclass，默认 `enabled: True`；`to_pipeline_config()` 透传
+- **configs/default.yaml** — 新增 `content_classifier` 配置段
+- **server.py** — `--config` 默认值改为 `configs/default.yaml`，不再需要手动传参
+- **schemas.py** — `AnalysisResponse` 新增 `content_category: str`、`is_super_oversight_domain: bool`（有默认值，向后兼容）
+- **routes.py** — `_build_response()` 透传；error 构造块补默认值；`_is_pass` 新增 `tamper_type != "local_tamper"` 防局部篡改放行
+- **prompts.py** — system prompt 措辞更新：从"不具备内容语义分类能力"→"集成轻量级内容类别分类器，当 is_super_oversight_domain==true 时可确认"
+- **app.js** — 核心逻辑变更：
+  - 新增 `isSuperOversightDomain()`：= `isHighConfidenceFake() && is_super_oversight_domain === true`
+  - 横幅分两级：超监管领域 → "超监管领域高危 · 建议立即复核"；普通高置信伪造 → "高置信伪造 · 建议加急复核"
+  - `severityRank` 排序：超监管高危(0) > 高置信伪造(1) > AIGC伪造(2) > 局部篡改(3) > 需复核(4) > 失败(5)
+  - 卡片 badge 去重：rank 与 verdict 重复时隐藏（修复 "AIGC 伪造" vs "AIGC伪造" 空格差异）
+  - `routeResult` / `_is_pass` 同步加 `tamper_type != "local_tamper"`，局部篡改不再错误放行
+- **index.html** — 横幅标题/正文动态化（`#soBannerTitle` / `#soBannerText`）；措辞注释 + 能力档案描述更新
+- **requirements.txt** — 新增 `open-clip-torch>=2.0`
+
+#### 当前 badge 组合
+
+| verdict | rank badge | 触发条件 |
+|---------|-----------|---------|
+| `AIGC 伪造` | `超监管高危` | fake + 高置信 + 分类器确认超监管领域 |
+| `AIGC 伪造` | `高置信伪造` | fake + 高置信但非超监管领域 |
+| `AIGC 伪造` | — | 普通 fake（rank 与 verdict 重复，隐藏） |
+| `真实图像` | `局部篡改` | real + tamper_type=local_tamper |
+| `真实图像` | `需复核` | real + risk=medium/high 无篡改 |
+| `分析失败` | `失败` | status=error |
+
+#### 使用方式
+
+```bash
+pip install open-clip-torch                          # 一次性
+$env:HF_ENDPOINT = "https://hf-mirror.com"           # 国内加速（可选）
+python server.py --port 8867                          # 自动加载 default.yaml
+```
+
+首次启动从 HuggingFace 下载模型缓存到 `~/.cache/huggingface/hub/`，之后秒开。
+
 ### 2026-07-27 — main：report-export 补测试（B3）+ LLM 空回复守卫（B4）
 
 **B4 空回复守卫**：推理型模型（deepseek-v4 / doubao-seed-2.0 等）在 `max_tokens` 不足以在 reasoning token 之后留出正文时，接口会返回 `content=""` 而**不报错**（实测：`max_tokens=64` 提问"只回复两个字"→ 313 completion token 中 288 为推理，正文为空）。原代码此时仍标 `llm_generated=True`，报告会渲染出三个空研判段却声称由 LLM 生成。现改为空回复抛 `ValueError`，走既有 `except` 统一降级；`analyze_single`（L73）与 `analyze_batch`（L116）各一处。
