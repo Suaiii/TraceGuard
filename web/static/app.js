@@ -152,8 +152,8 @@ const text = {
   rankLabel: {
     0: "超监管高危",
     1: "高置信伪造",
-    2: "局部篡改",
-    3: "AIGC 伪造",
+    2: "AIGC 伪造",
+    3: "局部篡改",
     4: "需复核",
     5: "失败",
   },
@@ -873,8 +873,8 @@ function severityRank(r) {
   if (r.status === "error" || r.label === "error") return 5;
   if (isSuperOversightDomain(r)) return 0;  // 最高优先级：超监管领域
   if (isHighConfidenceFake(r)) return 1;    // 高置信伪造（非超监管）
-  if (isLocalTamper(r)) return 2;
-  if (r.label === "fake") return 3;
+  if (r.label === "fake") return 2;         // AIGC 伪造
+  if (isLocalTamper(r)) return 3;           // 局部篡改
   return 4; // real 但 medium/high —— 需复核真图
 }
 
@@ -924,7 +924,7 @@ function renderFunnelResults() {
     if (rank === 0) soCount++;
     if (rank === 1) highConf++;
     if (entry.data.label === "fake") fakeCount++;
-    if (rank === 2) tamperCount++;
+    if (rank === 3) tamperCount++;
     if (rank === 4) reviewCount++;
   });
 
