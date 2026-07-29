@@ -379,10 +379,18 @@ def create_app(
 def _is_pass(resp: AnalysisResponse) -> bool:
     """取证筛查漏斗的"筛选通过"判据。
 
-    与前端 web/static/app.js routeResult 的判据必须逐字一致
-    （success 且 real 且 low）；任何一侧改动都要同步另一侧。
+    与前端 web/static/app.js routeResult 的判据必须逐字一致；
+    任何一侧改动都要同步另一侧。
+
+    局部篡改（local_tamper）即使 risk_level==low 也不放行——
+    存在篡改痕迹本身就值得人工复核。
     """
-    return resp.status == "success" and resp.label == "real" and resp.risk_level == "low"
+    return (
+        resp.status == "success"
+        and resp.label == "real"
+        and resp.risk_level == "low"
+        and resp.tamper_type != "local_tamper"
+    )
 
 
 def _strip_evidence(resp: AnalysisResponse) -> None:
