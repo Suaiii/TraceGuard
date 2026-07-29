@@ -54,8 +54,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='TraceGuard API 服务')
     parser.add_argument('--checkpoint', '-c', default=None,
                         help='模型权重路径（默认自动查找 checkpoints/best.pth 或 best.pth）')
-    parser.add_argument('--config', default=None,
-                        help='YAML 配置文件路径 (默认: 使用内置默认值)')
+    parser.add_argument('--config', default='configs/default.yaml',
+                        help='YAML 配置文件路径 (默认: configs/default.yaml)')
     parser.add_argument('--device', '-d', default='cuda', choices=['cuda', 'cpu'],
                         help='推理设备')
     parser.add_argument('--host', default='0.0.0.0', help='绑定地址')
@@ -73,11 +73,8 @@ if __name__ == '__main__':
 
     # 加载配置文件
     from explanation.config import load_and_convert
-    if args.config:
-        print(f"[Server] 加载配置: {args.config}")
-        pipeline_config = load_and_convert(args.config)
-    else:
-        pipeline_config = load_and_convert()
+    print(f"[Server] 加载配置: {args.config}")
+    pipeline_config = load_and_convert(args.config)
 
     # CLI 参数覆盖
     if args.skip_localization:

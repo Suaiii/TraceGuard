@@ -77,12 +77,20 @@ class ExplanationPipeline:
         # Content classifier (optional; enabled via config)
         self.content_classifier = None
         if config.get('content_classifier_enabled', False):
-            from .content_classifier import ContentClassifier
-            self.content_classifier = ContentClassifier(
-                model_name=config.get('content_classifier_model', 'MobileCLIP2-S0'),
-                pretrained=config.get('content_classifier_pretrained', 'dfndr2b'),
-                device=config.get('device', 'cuda'),
-            )
+            try:
+                from .content_classifier import ContentClassifier
+                self.content_classifier = ContentClassifier(
+                    model_name=config.get('content_classifier_model', 'MobileCLIP2-S0'),
+                    pretrained=config.get('content_classifier_pretrained', 'dfndr2b'),
+                    device=config.get('device', 'cuda'),
+                )
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Content classifier unavailable (%s); falling back to score-only "
+                    "high-confidence-fake detection. Install open-clip-torch to enable.",
+                    exc,
+                )
 
     def run(self, image_or_path) -> dict:
         """

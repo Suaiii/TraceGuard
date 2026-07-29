@@ -210,7 +210,7 @@ def load_config(yaml_path: str = None) -> TraceGuardConfig:
         'text': {'language': 'zh', 'detail_level': 'standard'},
         'output': {'save_images': True, 'format': 'PNG', 'html_title': 'TraceGuard 检测报告'},
         'content_classifier': {
-            'enabled': False, 'model': 'MobileCLIP2-S0',
+            'enabled': True, 'model': 'MobileCLIP2-S0',
             'pretrained': 'dfndr2b', 'device': 'cuda',
         },
     }
