@@ -316,10 +316,10 @@ class ReportGenerator:
             so_prefix = ''
             if is_hc and is_so:
                 row_cls = ' class="row-super-oversight"'
-                so_prefix = '<span class="so-icon-supervised">&#x25A0;</span> '
+                so_prefix = ''
             elif is_hc:
                 row_cls = ' class="row-high-risk"'
-                so_prefix = '<span class="so-icon-warning">&#x25B2;</span> '
+                so_prefix = ''
             elif risk_level == 'high':
                 row_cls = ' class="row-high-risk"'
 
@@ -582,13 +582,6 @@ class ReportGenerator:
                 padding: 10px 16px;
                 margin-bottom: 10px;
             }
-            .so-alert-icon {
-                font-size: 24px;
-                flex-shrink: 0;
-                line-height: 1;
-            }
-            .so-icon-supervised { color: #DC2626; font-size: 22px; }
-            .so-icon-warning { color: #F59E0B; font-size: 22px; }
             .so-alert-text strong {
                 display: block;
                 font-size: 14px;
@@ -1138,7 +1131,6 @@ class ReportGenerator:
             # 超监管领域高危
             cat_display = _SO_CATEGORY_LABELS.get(content_category, content_category)
             return f'''<div class="so-alert"{style_attr}>
-            <span class="so-alert-icon so-icon-supervised">&#x25A0;</span>
             <div class="so-alert-text">
                 <strong>超监管领域高危 · 建议立即复核</strong>
                 <p>该图像经检测为高置信 AIGC 伪造，且内容分类器确认属于超监管领域（{cat_display}）。建议立即标记并优先启动人工复核流程。如内容涉严重危害，请按平台超监管流程上报。</p>
@@ -1147,7 +1139,6 @@ class ReportGenerator:
         else:
             # 高置信伪造（非超监管领域）
             return f'''<div class="so-alert"{style_attr}>
-            <span class="so-alert-icon so-icon-warning">&#x25B2;</span>
             <div class="so-alert-text">
                 <strong>高置信伪造 · 建议加急复核</strong>
                 <p>该图像伪造概率极高且综合风险为高风险等级，建议立即标记并优先人工复核。如内容涉严重危害，请按平台超监管流程上报。</p>
@@ -1230,9 +1221,9 @@ class ReportGenerator:
             is_high_confidence_fake = (label == 'fake' and fake_prob >= 0.9)
 
             if is_high_confidence_fake and is_super_oversight:
-                so_mark = ' <span class="so-icon-supervised">&#x25A0;</span> 超监管高危'
+                so_mark = ' — 超监管高危'
             elif is_high_confidence_fake:
-                so_mark = ' <span class="so-icon-warning">&#x25B2;</span> 高置信伪造'
+                so_mark = ' — 高置信伪造'
             else:
                 so_mark = ''
 
