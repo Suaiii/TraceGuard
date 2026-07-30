@@ -104,6 +104,16 @@ e7d5cbb docs: 完善作品报告——摘要/总结/LLM边界三处加入超监�
 
 > 前三项（31fdbda、e37f3c7、ee83606）为 07-29 已完成的多模板融合引擎重构，详见上方条目。
 
+#### 4. 分层并行判定重构（超监管 / 高置信解耦）
+
+此前超监管判定嵌套在高置信内部（必须同时满足四条件），导致超监管领域的中低风险 AIGC 图像完全不会触发超监管提示，且超监管与高置信是两个互斥分支无法同时展示。
+
+本次重构将两条判定链**解耦为并行**：
+- **超监管领域识别**：`label=='fake' ∧ is_super_oversight_domain==True` → 红色"超监管领域高危"横幅（不再依赖 fake_prob / risk_level 阈值）
+- **高置信伪造判定**：`label=='fake' ∧ fake_prob≥0.9 ∧ risk_level=='high'` → 橙色"高置信伪造"横幅（不变）
+
+两者可同时触发。`_high_confidence_alert()` 拆分为两个独立静态方法，单图/批量报告均支持双横幅/双 badge 并行展示；超监管计数不再嵌套于高置信计数内；LaTeX 2.6 节同步更新为"两条独立并行判定链"。
+
 ### 2026-07-29 — feature/super-oversight-classifier-v2：图文多模板加权融合 Prompt 增强引擎
 
 **分支**: `feature/super-oversight-classifier-v2`（基于 main，2 commits 超前）  
