@@ -523,8 +523,6 @@ R_{\text{global}} = \sum_{k=1}^{5} w_k \cdot d_k, \quad \text{s.t.} \quad \sum_{
  \item \textbf{高风险 $[0.70, 1.00]$}：红标，全局高置信度 AIGC 或大面积篡改，进入人工复核。
 \end{itemize}
 
-在实际部署中，固定的先验边界保证了审核标准的客观统一性；数据驱动的阈值校准与外推边界分析详见第 \ref{sec:human-review-value} 节。
-
 \subsection{内容语义分类与超监管领域识别}
 \label{sec:content-classifier}
 
@@ -532,7 +530,7 @@ R_{\text{global}} = \sum_{k=1}^{5} w_k \cdot d_k, \quad \text{s.t.} \quad \sum_{
 
 \subsubsection{模型选型：MobileCLIP2-S0 零样本分类}
 
-分类器采用 Apple 开源的 MobileCLIP2-S0（约 54M 参数，FP16 约 108 MB），基于 DataCompDR 多模态知识蒸馏训练，通过 open\_clip 库加载。相比传统 OpenCLIP ViT-B-32（约 151M 参数），MobileCLIP2-S0 在参数量减少约 64\% 的同时保持了有竞争力的零样本分类精度，单图推理约 15 ms（GPU），与主检测器（约 45.4M 参数）共存时不会显著增加显存压力。
+分类器采用 Apple 开源的 MobileCLIP2-S0~\cite{vasudevan2024mobileclip}（约 54M 参数，FP16 约 108 MB），基于 DataCompDR~\cite{gadre2023datacomp} 多模态知识蒸馏训练，通过 open\_clip 库~\cite{ilharco2021openclip} 加载。相比传统 OpenCLIP ViT-B-32~\cite{radford2021learning}（约 151M 参数），MobileCLIP2-S0 在参数量减少约 64\% 的同时保持了有竞争力的零样本分类精度，单图推理约 15 ms（GPU），与主检测器（约 45.4M 参数）共存时不会显著增加显存压力。
 
 \subsubsection{分类逻辑：十类内容标签}
 
@@ -1064,6 +1062,18 @@ Y.~Liu \textit{et al.}, ``LOTA: Lessons from Open-world Test-time Adaptation for
 
 \bibitem{wang2024STFT}
 Z.~Wang \textit{et al.}, ``Exploring Frequency-Injected Adapters for Generalizable Deepfake Detection,'' \textit{ECCV}, 2024, pp.~278--295.
+
+\bibitem{vasudevan2024mobileclip}
+P.~K.~A.~Vasudevan \textit{et al.}, ``MobileCLIP: Fast Image-Text Models Through Multi-Modal Reinforced Training,'' \textit{CVPR}, 2024, pp.~16243--16253.
+
+\bibitem{gadre2023datacomp}
+S.~Y.~Gadre \textit{et al.}, ``DataComp: In Search of the Next Generation of Multimodal Datasets,'' \textit{NeurIPS}, vol.~36, 2023, pp.~34221--34250.
+
+\bibitem{ilharco2021openclip}
+G.~Ilharco \textit{et al.}, ``OpenCLIP,'' \textit{Zenodo}, Jul. 2021, doi: 10.5281/zenodo.5143773.
+
+\bibitem{radford2021learning}
+A.~Radford \textit{et al.}, ``Learning Transferable Visual Models From Natural Language Supervision,'' \textit{ICML}, 2021, pp.~8748--8763.
 
 \end{thebibliography}
 
