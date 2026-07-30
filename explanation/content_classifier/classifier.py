@@ -114,6 +114,27 @@ PROMPT_CONFIG: dict[str, dict] = {
             ),
         ],
     },
+    "disasters": {
+        "is_supervised": True,
+        "prompts": [
+            (
+                "a photograph of large-scale fires, burning buildings, wildfires, or massive flames",
+                1.2,
+            ),
+            (
+                "floods, tsunamis, severe inundation, submerged cities, or disaster rescue scenes",
+                1.0,
+            ),
+            (
+                "earthquake destruction, collapsed buildings, rubble, ruins, and post-disaster devastation",
+                1.0,
+            ),
+            (
+                "natural or man-made catastrophe, emergency response, evacuation, and widespread damage",
+                0.8,
+            ),
+        ],
+    },
 
     # ---- Normal / safe categories -----------------------------------------
     "nature_animals": {
