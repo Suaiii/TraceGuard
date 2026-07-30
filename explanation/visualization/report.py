@@ -1187,10 +1187,31 @@ class ReportGenerator:
     def _high_risk_details_expanded(self, results: list, review_suggestions: dict = None) -> str:
         """批量报告：高风险条目详情展开（4图并排 + 五维分析 + LLM建议 + bbox + 解释）"""
         review_suggestions = review_suggestions or {}
-        high_risk_items = [
-            (i, r) for i, r in enumerate(results, 1)
-            if r.get('risk_level') == 'high'
-        ]
+        # 纳入高风险 + 超监管领域（独立于 risk_level）
+        high_risk_items = []
+        seen_indices = set()
+        for i, r in enumerate(results, 1):
+            label = r.get('label', '')
+            is_hc = label == 'fake' and r.get('fake_prob', 0) >= 0.9 and r.get('risk_level') == 'high'
+            is_so = label == 'fake' and r.get('is_super_oversight_domain', False) is True
+            if r.get('risk_level') == 'high' or is_so:
+                # 排序键：0=超监管+高置信, 1=纯超监管, 2=纯高置信
+                if is_so and is_hc:
+                    sort_key = 0
+                elif is_so:
+                    sort_key = 1
+                else:
+                    sort_key = 2
+                high_risk_items.append((sort_key, i, r))
+        high_risk_items.sort(key=lambda x: (x[0], -x[2].get('risk_score', 0)))
+        # 去重后保留 (i, r) 元组
+        seen = set()
+        deduped = []
+        for _, i, r in high_risk_items:
+            if i not in seen:
+                seen.add(i)
+                deduped.append((i, r))
+        high_risk_items = deduped
         if not high_risk_items:
             return ''
 
@@ -1308,9 +1329,13 @@ class ReportGenerator:
 
     def _all_images_details_section(self, results: list) -> str:
         """批量报告：除高风险外的所有图片详情（4图并排 + bbox + 解释）"""
+        # 排除已在 _high_risk_details_expanded 中展示的条目
         non_high_items = [
             (i, r) for i, r in enumerate(results, 1)
-            if r.get('risk_level') != 'high'
+            if not (
+                r.get('risk_level') == 'high'
+                or (r.get('label') == 'fake' and r.get('is_super_oversight_domain', False) is True)
+            )
             and r.get('status', 'success') == 'success'
             and r.get('label') not in ('error',)
         ]
