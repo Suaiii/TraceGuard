@@ -322,6 +322,9 @@ MK-MMD 采用 5 个不同带宽的高斯核进行线性组合：
 \texttt{overlay\_b64} / \texttt{mask\_b64} & string & 热力图叠加图与热力掩膜（Base64） \\
 \texttt{explanation} / \texttt{explanation\_brief} & string & 结构化中文解释与一句话摘要 \\
 \texttt{dimension\_scores} & object & 五维风险分量明细（见\ref{sec:global-risk-scoring}） \\
+\texttt{content\_category} & string & 内容类别标签（CLIP 零样本分类），如 \path{warfare/nature_animals} \\
+\texttt{is\_super\_oversight\_domain} & bool & 是否超监管领域（战争/暴恐/枪械/暴力/灾难） \\
+\texttt{super\_oversight\_score} & float & 超监管领域最高 softmax 概率 \\
 \bottomrule
 \end{longtable}
 
@@ -567,7 +570,7 @@ R_{\text{global}} = \sum_{k=1}^{5} w_k \cdot d_k, \quad \text{s.t.} \quad \sum_{
 
 分流结果直接用于降低传输开销。请求参数 \texttt{evidence\_policy} 提供三档策略：\texttt{all}（默认，全部回传，保持向后兼容）、\texttt{flagged}（仅待处置条目回传热力图与掩膜等 Base64 证据图）、\texttt{none}（全不回传）。批量筛查采用 \texttt{flagged}，使筛选通过项的响应体只保留数值结论，显著压缩大批量场景下的传输量。
 
-待处置列表按严重度排序，依次为：高置信伪造、伪造、局部篡改、判真但风险不低（需复核真图）、分析失败；同级内按综合风险分降序。审核人员因此总是先看到最需要处置的条目。
+待处置列表按严重度排序，依次为：超监管+高置信（双触发）、纯超监管领域、纯高置信伪造、AIGC 伪造、局部篡改、判真但风险不低（需复核真图）、分析失败；同级内按综合风险分降序。审核人员因此总是先看到最需要处置的条目。
 
 批量接口单请求上限为 50 张，更大批量由前端按每块 10 张串行分块提交，并在块边界维持可中断、已出结果保留的语义；单块失败自动重试一次后记为错误并继续，不中断整轮筛查。
 

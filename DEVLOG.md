@@ -128,7 +128,7 @@ e7d5cbb docs: 完善作品报告——摘要/总结/LLM边界三处加入超监�
 
 **批量报告高风险详情纳入超监管条目**：`_high_risk_details_expanded()` 不再仅限 `risk_level=='high'`，超监管条目（含 medium/low 风险）同样纳入并按三级排序：超监管+高置信 → 纯超监管 → 纯高置信。LLM 批量 prompt 的高风险优先级排序同步采用相同三级排序。`_all_images_details_section()` 同步排除已在详情 section 中的条目。
 
-**LaTeX 完善**：摘要"分级响应"→"两条独立并行链"；LLM 研判边界描述更新为分类器输出作为结构化数据送入 LLM。
+**LaTeX 完善**：摘要"分级响应"→"两条独立并行链"；LLM 研判边界描述更新为分类器输出作为结构化数据送入 LLM；2.7.1 节排序描述更新为三级（超监管+高置信 → 纯超监管 → 纯高置信 → ...）；2.2.6 节 API 响应字段表补全 `content_category`/`is_super_oversight_domain`/`super_oversight_score`。
 
 ### 2026-07-29 — feature/super-oversight-classifier-v2：图文多模板加权融合 Prompt 增强引擎
 
