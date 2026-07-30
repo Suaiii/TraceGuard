@@ -104,6 +104,32 @@ e7d5cbb docs: 完善作品报告——摘要/总结/LLM边界三处加入超监�
 
 > 前三项（31fdbda、e37f3c7、ee83606）为 07-29 已完成的多模板融合引擎重构，详见上方条目。
 
+#### 4. 分层并行判定重构（超监管 / 高置信解耦）
+
+此前超监管判定嵌套在高置信内部（必须同时满足四条件），导致超监管领域的中低风险 AIGC 图像完全不会触发超监管提示，且超监管与高置信是两个互斥分支无法同时展示。
+
+本次重构将两条判定链**解耦为并行**：
+- **超监管领域识别**：`label=='fake' ∧ is_super_oversight_domain==True` → 红色"超监管领域高危"横幅（不再依赖 fake_prob / risk_level 阈值）
+- **高置信伪造判定**：`label=='fake' ∧ fake_prob≥0.9 ∧ risk_level=='high'` → 橙色"高置信伪造"横幅（不变）
+
+两者可同时触发。`_high_confidence_alert()` 拆分为两个独立静态方法，单图/批量报告均支持双横幅/双 badge 并行展示；超监管计数不再嵌套于高置信计数内；LaTeX 2.6 节同步更新为"两条独立并行判定链"。
+
+#### 5. Bug 修复与精细化完善
+
+围绕分层并行重构后暴露的四个问题进行了修复与完善：
+
+**PDF 报告生成崩溃**：`generate_single()` 中引用了不存在的变量 `is_super_oversight_domain`（dict key），应为已提取的局部变量 `is_super_oversight`，修正后 PDF 恢复正常。
+
+**超监管得分 0%**：`super_oversight_score` 未加入 `AnalysisResponse` schema 及 `_build_response()`，导致 API 返回值恒为 0——补上了 schema、routes 正常路径、error 构造块三处。
+
+**人工复核建议文案差异化**：原先只有一份硬编码 `soReviewText`（"两个维度均达到最高警戒级别"），对 medium 风险的超监管图像完全不适用。改为三套差异化文案：`reviewBoth`（双触发，含内容类别风险 + 高置信证据）、`reviewSO`（仅超监管，侧重内容核实）、`reviewHC`（仅高置信，侧重加急复核）。
+
+**LLM prompt 补充超监管上下文**：`_build_single_prompt()` 注入 `content_category`/`is_super_oversight_domain`/`super_oversight_score`，`SYSTEM_PROMPT`/`SINGLE_REPORT_PROMPT`/`BATCH_REPORT_PROMPT` 均更新为要求 LLM 按三条平行判定链分别论述；`_build_batch_prompt()` stats 加入 `super_oversight_count`，高风险条目摘要纳入超监管条目。
+
+**批量报告高风险详情纳入超监管条目**：`_high_risk_details_expanded()` 不再仅限 `risk_level=='high'`，超监管条目（含 medium/low 风险）同样纳入并按三级排序：超监管+高置信 → 纯超监管 → 纯高置信。LLM 批量 prompt 的高风险优先级排序同步采用相同三级排序。`_all_images_details_section()` 同步排除已在详情 section 中的条目。
+
+**LaTeX 完善**：摘要"分级响应"→"两条独立并行链"；LLM 研判边界描述更新为分类器输出作为结构化数据送入 LLM；2.7.1 节排序描述更新为三级（超监管+高置信 → 纯超监管 → 纯高置信 → ...）；2.2.6 节 API 响应字段表补全 `content_category`/`is_super_oversight_domain`/`super_oversight_score`。
+
 ### 2026-07-29 — feature/super-oversight-classifier-v2：图文多模板加权融合 Prompt 增强引擎
 
 **分支**: `feature/super-oversight-classifier-v2`（基于 main，2 commits 超前）  

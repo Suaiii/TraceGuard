@@ -251,6 +251,20 @@ img { border-radius: 0; }
   padding: 22px 26px;
   margin-top: 20px;
 }
+/* 超监管领域 — 深红底色 */
+.super-oversight-banner.so-supervised {
+  background: #991B1B;
+  border: 1px solid #FCA5A5;
+}
+/* 高置信伪造 — 橙红底色 */
+.super-oversight-banner.so-high-conf {
+  background: #C2410C;
+  border: 1px solid #FED7AA;
+}
+/* 两 banner 同时出现时第二个缩减间距 */
+.super-oversight-banner + .super-oversight-banner {
+  margin-top: 8px;
+}
 .so-icon { font-size: 20px; line-height: 1.2; }
 .so-content strong { display: block; font-size: 18px; font-weight: 800; margin-bottom: 6px; }
 .so-content p { margin: 0; font-size: 13px; line-height: 1.6; }

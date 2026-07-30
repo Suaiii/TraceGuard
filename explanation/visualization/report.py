@@ -84,6 +84,9 @@ class ReportGenerator:
         is_high_confidence_fake = (
             label == 'fake' and fake_prob >= 0.9 and risk_level == 'high'
         )
+        is_super_oversight = (
+            label == 'fake' and is_super_oversight is True
+        )
 
         # ---- LLM 研判 ----
         llm = llm_opinion or {}
@@ -129,8 +132,9 @@ class ReportGenerator:
     </div>
 </div>
 
-<!-- ========== High-Confidence Fake Alert ========== -->
-{self._high_confidence_alert(is_super_oversight=is_super_oversight, content_category=content_category) if is_high_confidence_fake else ''}
+<!-- ========== High-Confidence Fake / Super-Oversight Alerts ========== -->
+{self._high_confidence_alert() if is_high_confidence_fake else ''}
+{self._super_oversight_alert(content_category=content_category) if is_super_oversight else ''}
 
 <!-- ========== Key Metrics ========== -->
 <div class="metrics-banner">
@@ -260,8 +264,6 @@ class ReportGenerator:
         super_oversight_count = sum(
             1 for r in results
             if r.get('label') == 'fake'
-            and r.get('fake_prob', 0) >= 0.9
-            and r.get('risk_level') == 'high'
             and r.get('is_super_oversight_domain', False) is True
         )
         # title/screening 由调用方注入（筛查子集报告）时，页眉计数口径改为"待处置"
@@ -310,16 +312,13 @@ class ReportGenerator:
 
             label_cls = 'fake-color' if label == 'fake' else 'real-color'
             risk_cls = f'risk-{risk_level}-text'
-            is_so = r.get('is_super_oversight_domain', False)
+            is_so = r.get('is_super_oversight_domain', False) and label == 'fake'
             is_hc = label == 'fake' and fake_prob >= 0.9 and risk_level == 'high'
             row_cls = ''
-            so_prefix = ''
-            if is_hc and is_so:
+            if is_so:
                 row_cls = ' class="row-super-oversight"'
-                so_prefix = ''
             elif is_hc:
                 row_cls = ' class="row-high-risk"'
-                so_prefix = ''
             elif risk_level == 'high':
                 row_cls = ' class="row-high-risk"'
 
@@ -328,7 +327,7 @@ class ReportGenerator:
 
             result_rows += f'''
             <tr{row_cls}>
-                <td class="cell-index">{so_prefix}{i}</td>
+                <td class="cell-index">{i}</td>
                 <td class="cell-file" title="{self._escape_html(file_name)}">{self._escape_html(file_name)}</td>
                 <td class="cell-status {label_cls}">{LABELS.get(label, label)}</td>
                 <td class="cell-num">{fake_prob:.3f}</td>
@@ -363,20 +362,20 @@ class ReportGenerator:
 
 <!-- ========== Key Metrics ========== -->
 <div class="metrics-banner">
-    <div class="metric-card">
-        <div class="metric-label">总图片</div>
-        <div class="metric-value">{total}</div>
-        <div class="metric-sub">成功 {success} / 失败 {total - success}</div>
-    </div>
     <div class="metric-card verdict-fake">
-        <div class="metric-label">风险分布</div>
+        <div class="metric-label">AIGC 伪造</div>
         <div class="metric-value fake">{fake_count}</div>
-        <div class="metric-sub">AIGC伪造 (含局部篡改 {tamper_count})</div>
+        <div class="metric-sub">共 {total} 张 (含局部篡改 {tamper_count}) &nbsp;|&nbsp; 真图 {total - fake_count} &nbsp;|&nbsp; 高风险 {high_risk} / 中 {medium_risk} / 低 {low_risk}</div>
     </div>
-    <div class="metric-card">
-        <div class="metric-label">风险等级</div>
-        <div class="metric-value" style="color:var(--risk-high);">{high_risk} <span style="font-size:16px;color:var(--text-secondary);">/ {medium_risk} / {low_risk}</span></div>
-        <div class="metric-sub">高 / 中 / 低{f' &nbsp;|&nbsp; 超监管高危 {super_oversight_count}' if super_oversight_count > 0 else ''}{f' &nbsp;|&nbsp; 高置信伪造 {high_confidence_fake_count}' if high_confidence_fake_count > 0 else ''}</div>
+    <div class="metric-card" style="border-color:#FCA5A5;background:var(--so-red-bg);">
+        <div class="metric-label">超监管高危</div>
+        <div class="metric-value" style="color:var(--so-red);">{super_oversight_count}</div>
+        <div class="metric-sub">内容分类器确认超监管领域</div>
+    </div>
+    <div class="metric-card" style="border-color:#FECACA;background:var(--risk-high-bg);">
+        <div class="metric-label">高置信伪造</div>
+        <div class="metric-value" style="color:var(--risk-high);">{high_confidence_fake_count}</div>
+        <div class="metric-sub">伪造概率 ≥ 90% + 高风险等级</div>
     </div>
 </div>
 
@@ -1113,37 +1112,36 @@ class ReportGenerator:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _high_confidence_alert(inline_style: str = '',
-                               is_super_oversight: bool = False,
-                               content_category: str = '') -> str:
-        """高置信伪造 / 超监管领域高危横幅。
+    def _high_confidence_alert(inline_style: str = '') -> str:
+        """高置信伪造横幅（橙色/警告风格）。
 
-        分级逻辑：
-          - is_super_oversight==True：分类器确认内容属超监管领域（战争/暴恐/武器/
-            血腥/灾难），红色横幅提示"超监管领域高危 · 建议立即复核"。
-          - is_super_oversight==False：数值条件满足但分类器未确认超监管领域，
-            橙色横幅提示"高置信伪造 · 建议加急复核"。
-        CSS 类名 so-alert / so-alert-icon / so-alert-text 为历史命名，保留不改。
+        触发条件：label=='fake' ∧ fake_prob≥0.9 ∧ risk_level=='high'
+        与超监管领域判定独立——两者可同时出现。
         """
         style_attr = f' style="{inline_style}"' if inline_style else ''
+        return f'''<div class="so-alert"{style_attr}>
+        <div class="so-alert-text">
+            <strong>高置信伪造 · 建议加急复核</strong>
+            <p>该图像伪造概率极高且综合风险为高风险等级，建议立即标记并优先人工复核。如内容涉严重危害，请按平台超监管流程上报。</p>
+        </div>
+    </div>'''
 
-        if is_super_oversight:
-            # 超监管领域高危
-            cat_display = _SO_CATEGORY_LABELS.get(content_category, content_category)
-            return f'''<div class="so-alert"{style_attr}>
-            <div class="so-alert-text">
-                <strong>超监管领域高危 · 建议立即复核</strong>
-                <p>该图像经检测为高置信 AIGC 伪造，且内容分类器确认属于超监管领域（{cat_display}）。建议立即标记并优先启动人工复核流程。如内容涉严重危害，请按平台超监管流程上报。</p>
-            </div>
-        </div>'''
-        else:
-            # 高置信伪造（非超监管领域）
-            return f'''<div class="so-alert"{style_attr}>
-            <div class="so-alert-text">
-                <strong>高置信伪造 · 建议加急复核</strong>
-                <p>该图像伪造概率极高且综合风险为高风险等级，建议立即标记并优先人工复核。如内容涉严重危害，请按平台超监管流程上报。</p>
-            </div>
-        </div>'''
+    @staticmethod
+    def _super_oversight_alert(inline_style: str = '',
+                               content_category: str = '') -> str:
+        """超监管领域高危横幅（红色）。
+
+        触发条件：label=='fake' ∧ is_super_oversight_domain==True
+        与高置信伪造判定独立——两者可同时出现。
+        """
+        style_attr = f' style="{inline_style}"' if inline_style else ''
+        cat_display = _SO_CATEGORY_LABELS.get(content_category, content_category)
+        return f'''<div class="so-alert"{style_attr}>
+        <div class="so-alert-text">
+            <strong>超监管领域高危 · 建议立即复核</strong>
+            <p>内容分类器确认该 AIGC 伪造图像属于超监管领域（{cat_display}）。建议立即标记并优先启动人工复核流程。如内容涉严重危害，请按平台超监管流程上报。</p>
+        </div>
+    </div>'''
 
     @staticmethod
     def _llm_callout(text: str) -> str:
@@ -1189,10 +1187,31 @@ class ReportGenerator:
     def _high_risk_details_expanded(self, results: list, review_suggestions: dict = None) -> str:
         """批量报告：高风险条目详情展开（4图并排 + 五维分析 + LLM建议 + bbox + 解释）"""
         review_suggestions = review_suggestions or {}
-        high_risk_items = [
-            (i, r) for i, r in enumerate(results, 1)
-            if r.get('risk_level') == 'high'
-        ]
+        # 纳入高风险 + 超监管领域（独立于 risk_level）
+        high_risk_items = []
+        seen_indices = set()
+        for i, r in enumerate(results, 1):
+            label = r.get('label', '')
+            is_hc = label == 'fake' and r.get('fake_prob', 0) >= 0.9 and r.get('risk_level') == 'high'
+            is_so = label == 'fake' and r.get('is_super_oversight_domain', False) is True
+            if r.get('risk_level') == 'high' or is_so:
+                # 排序键：0=超监管+高置信, 1=纯超监管, 2=纯高置信
+                if is_so and is_hc:
+                    sort_key = 0
+                elif is_so:
+                    sort_key = 1
+                else:
+                    sort_key = 2
+                high_risk_items.append((sort_key, i, r))
+        high_risk_items.sort(key=lambda x: (x[0], -x[2].get('risk_score', 0)))
+        # 去重后保留 (i, r) 元组
+        seen = set()
+        deduped = []
+        for _, i, r in high_risk_items:
+            if i not in seen:
+                seen.add(i)
+                deduped.append((i, r))
+        high_risk_items = deduped
         if not high_risk_items:
             return ''
 
@@ -1217,15 +1236,15 @@ class ReportGenerator:
             explanation = r.get('explanation', '')
             explanation_brief = r.get('explanation_brief', '')
 
-            is_super_oversight = r.get('is_super_oversight_domain', False)
+            is_super_oversight = r.get('is_super_oversight_domain', False) and label == 'fake'
             is_high_confidence_fake = (label == 'fake' and fake_prob >= 0.9)
 
-            if is_high_confidence_fake and is_super_oversight:
-                so_mark = ' — 超监管高危'
-            elif is_high_confidence_fake:
-                so_mark = ' — 高置信伪造'
-            else:
-                so_mark = ''
+            marks = []
+            if is_super_oversight:
+                marks.append('超监管高危')
+            if is_high_confidence_fake:
+                marks.append('高置信伪造')
+            so_mark = ' — ' + ' + '.join(marks) if marks else ''
 
             # 4 evidence images side by side
             img_row = f'''<div class="img-row-4">
@@ -1284,12 +1303,13 @@ class ReportGenerator:
                     <pre class="explanation-text">{self._escape_html(explanation)}</pre>
                 </div>'''
 
-            # 与单图报告共用同一方法，避免两处文案漂移
+            # 两段独立警示横幅，与单图报告方法对齐，避免文案漂移
             so_alert = ''
             if is_high_confidence_fake:
-                so_alert = self._high_confidence_alert(
+                so_alert += self._high_confidence_alert('margin-bottom:10px;')
+            if is_super_oversight:
+                so_alert += self._super_oversight_alert(
                     'margin-bottom:10px;',
-                    is_super_oversight=is_super_oversight,
                     content_category=r.get('content_category', ''),
                 )
 
@@ -1309,9 +1329,13 @@ class ReportGenerator:
 
     def _all_images_details_section(self, results: list) -> str:
         """批量报告：除高风险外的所有图片详情（4图并排 + bbox + 解释）"""
+        # 排除已在 _high_risk_details_expanded 中展示的条目
         non_high_items = [
             (i, r) for i, r in enumerate(results, 1)
-            if r.get('risk_level') != 'high'
+            if not (
+                r.get('risk_level') == 'high'
+                or (r.get('label') == 'fake' and r.get('is_super_oversight_domain', False) is True)
+            )
             and r.get('status', 'success') == 'success'
             and r.get('label') not in ('error',)
         ]
@@ -1327,6 +1351,10 @@ class ReportGenerator:
             bbox_list = r.get('bbox_list', [])
             bbox_count = len(bbox_list)
             explanation = r.get('explanation', '')
+
+            # 超监管标记（非 high 但属超监管领域者）
+            is_so = r.get('is_super_oversight_domain', False) and label == 'fake'
+            so_badge = ' — 超监管高危' if is_so else ''
 
             # 4 evidence images side by side
             img_row = f'''<div class="img-row-4">
@@ -1348,7 +1376,7 @@ class ReportGenerator:
                 </div>'''
 
             cards += f'''<div class="image-detail-card">
-        <h3>#{idx} — {LABELS.get(label, label)} | 伪造概率 {fake_prob:.3f} | 综合风险 {risk_score:.2f} | {RISK_LABELS.get(risk_level, risk_level)}</h3>
+        <h3>#{idx}{so_badge} — {LABELS.get(label, label)} | 伪造概率 {fake_prob:.3f} | 综合风险 {risk_score:.2f} | {RISK_LABELS.get(risk_level, risk_level)}</h3>
         {img_row}
         {bbox_table}
         {expl_html}

@@ -78,17 +78,27 @@
             <strong id="probText">--%</strong>
           </div>
 
-          <div class="super-oversight-banner" id="superOversightBanner" style="display:none">
+          <!-- 超监管领域高危 banner（独立于高置信判定） -->
+          <div class="super-oversight-banner so-supervised" id="superOversightBanner" style="display:none">
             <span class="so-icon">⚠</span>
             <div class="so-content">
-              <!-- 本系统已集成 MobileCLIP2-S0 零样本内容类别分类器，
-                   is_super_oversight_domain==true 时确认内容属超监管领域，
-                   可使用对应措辞；否则使用「高置信伪造」口径。 -->
-              <strong id="soBannerTitle">高置信伪造 · 建议加急复核</strong>
-              <p id="soBannerText">该图像伪造概率极高且综合风险为高风险等级，建议优先安排人工复核。</p>
+              <strong id="soBannerTitle">超监管领域高危 · 建议立即复核</strong>
+              <p id="soBannerText">内容分类器确认该 AIGC 图像属于超监管领域，建议立即标记并优先启动人工复核流程。</p>
               <div class="so-stats">
-                <span class="so-stat">伪造概率：<b id="soFakeProbVal">--</b></span>
-                <span class="so-stat">综合风险：<b id="soRiskScoreVal">--</b></span>
+                <span class="so-stat">内容类别：<b id="soCategoryVal">--</b></span>
+                <span class="so-stat">超监管得分：<b id="soScoreVal">--</b></span>
+              </div>
+            </div>
+          </div>
+          <!-- 高置信伪造 banner（独立于超监管判定） -->
+          <div class="super-oversight-banner so-high-conf" id="highConfidenceBanner" style="display:none">
+            <span class="so-icon">⚠</span>
+            <div class="so-content">
+              <strong id="hcBannerTitle">高置信伪造 · 建议加急复核</strong>
+              <p id="hcBannerText">该图像伪造概率极高且综合风险为高风险等级，建议优先安排人工复核。</p>
+              <div class="so-stats">
+                <span class="so-stat">伪造概率：<b id="hcFakeProbVal">--</b></span>
+                <span class="so-stat">综合风险：<b id="hcRiskScoreVal">--</b></span>
               </div>
             </div>
           </div>
@@ -251,6 +261,10 @@
               <div class="batch-stat-item hot">
                 <span>待处置</span>
                 <b id="batchFlaggedCount">0</b>
+              </div>
+              <div class="batch-stat-item hot">
+                <span>超监管高危</span>
+                <b id="batchSoCount">0</b>
               </div>
               <div class="batch-stat-item hot">
                 <span>高置信伪造</span>

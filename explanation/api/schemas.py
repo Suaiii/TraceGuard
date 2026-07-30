@@ -99,6 +99,7 @@ class AnalysisResponse(BaseModel):
     # Content classifier output
     content_category: str = "unavailable"          # 内容类别标签（CLIP 零样本分类）
     is_super_oversight_domain: bool = False        # 是否超监管领域（战争/暴恐/枪械/暴力）
+    super_oversight_score: float = 0.0             # 超监管领域最高 softmax 概率
     # Base64 图像
     overlay_b64: str                              # 热力图叠加图
     mask_b64: str                                 # 热力掩膜

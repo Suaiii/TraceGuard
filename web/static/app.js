@@ -87,15 +87,21 @@ const el = {
   progressFill: document.getElementById("progressFill"),
   abortButton: document.getElementById("abortButton"),
   superOversightBanner: document.getElementById("superOversightBanner"),
+  highConfidenceBanner: document.getElementById("highConfidenceBanner"),
   reviewSuggestion: document.getElementById("reviewSuggestion"),
   reviewText: document.getElementById("reviewText"),
   dimensionViz: document.getElementById("dimensionViz"),
   dimBars: document.getElementById("dimBars"),
-  soFakeProbVal: document.getElementById("soFakeProbVal"),
-  soRiskScoreVal: document.getElementById("soRiskScoreVal"),
-  soTotalScore: document.getElementById("soTotalScore"),
+  batchSoCount: document.getElementById("batchSoCount"),
   soBannerTitle: document.getElementById("soBannerTitle"),
   soBannerText: document.getElementById("soBannerText"),
+  soCategoryVal: document.getElementById("soCategoryVal"),
+  soScoreVal: document.getElementById("soScoreVal"),
+  hcBannerTitle: document.getElementById("hcBannerTitle"),
+  hcBannerText: document.getElementById("hcBannerText"),
+  hcFakeProbVal: document.getElementById("hcFakeProbVal"),
+  hcRiskScoreVal: document.getElementById("hcRiskScoreVal"),
+  soTotalScore: document.getElementById("soTotalScore"),
   clearFilesButton: document.getElementById("clearFilesButton"),
   exportSingleButton: document.getElementById("exportSingleButton"),
   exportBatchButton: document.getElementById("exportBatchButton"),
@@ -145,7 +151,10 @@ const text = {
   expandLabel: "展开 ▼",
   collapseLabel: "收起 ▲",
   soVerdictLabel: "高置信伪造",
-  soReviewText: "该图像在伪造概率和综合风险两个维度均达到最高警戒级别。建议：(1) 对照原始来源核实图像真实性；(2) 检查元数据中的编辑痕迹；(3) 交叉验证传播链路中其他副本的检测结果。如确认为 AIGC 伪造，应立即标记并限制传播。",
+  // 人工复核建议 - 按判定组合差异化
+  reviewBoth: "该图像伪造概率≥90%、综合风险为高风险，且内容分类器确认属于超监管领域。建议：(1) 立即标记并优先启动人工复核；(2) 对照原始来源核实图像真实性；(3) 检查元数据与传播链路。如确认为超监管领域 AIGC 伪造，应立即限制传播并按平台超监管流程上报。",
+  reviewSO: "内容分类器确认该 AIGC 图像属于超监管领域。建议：(1) 对照原始来源核实图像内容真伪；(2) 检查元数据中的编辑痕迹；(3) 交叉验证传播链路。如确认内容属实且属 AIGC 伪造，应限制传播并按平台超监管流程上报。",
+  reviewHC: "该图像伪造概率≥90%且综合风险为高风险。建议：(1) 对照原始来源核实图像真实性；(2) 检查元数据中的编辑痕迹；(3) 交叉验证传播链路中其他副本的检测结果。如确认为 AIGC 伪造，应立即标记并限制传播。",
   soCardReview: "高置信伪造：伪造概率≥90%且综合风险为高，建议加急人工复核。",
   // 如内容确属超监管领域（经分类器确认），请按平台超监管流程上报。
   soProcessTip: "如内容涉严重危害，请按平台超监管流程上报。",
@@ -234,26 +243,32 @@ function formatDuration(ms) {
   return m + ":" + String(s).padStart(2, "0");
 }
 
-// 判据：高置信伪造 + 高综合风险 → 加急人工复核。
-//
-// 本系统已集成轻量级内容类别分类器（MobileCLIP2-S0 零样本），管线输出中新增
-// is_super_oversight_domain 字段。当分类器确认图像内容属于超监管领域（战争/暴恐/
-// 枪械/暴力）时，isSuperOversightDomain() 返回 true，此时可使用更强的措辞；
-// 否则仅使用「高置信伪造」口径。CSS 类名与 id 仍沿用 super-oversight/so- 前缀
-// 是为了不动样式表。
+// 两条独立并行判定链：
+//   - 高置信伪造：label=='fake' ∧ fake_prob≥0.9 ∧ risk_level=='high'
+//   - 超监管领域：label=='fake' ∧ is_super_oversight_domain==true
+// 两者互不嵌套，可同时触发。CSS 类名与 id 前缀沿用 super-oversight/so-。
 function isHighConfidenceFake(data) {
   return data.label === "fake" && Number(data.fake_prob || 0) >= 0.9 && data.risk_level === "high";
 }
 
-// 超监管领域高置信伪造（需内容分类器确认内容类别）
+// 超监管领域识别（独立于高置信判定，仅依赖 AIGC 伪造 + 内容分类器确认）
 function isSuperOversightDomain(data) {
-  return isHighConfidenceFake(data) && data.is_super_oversight_domain === true;
+  return data.label === "fake" && data.is_super_oversight_domain === true;
 }
 
 function dimBarColor(value) {
   if (value >= 0.8) return "var(--red)";
   if (value >= 0.5) return "var(--amber)";
   return "var(--green)";
+}
+
+// 超监管类别名映射
+var _SO_CAT_LABELS = {
+  warfare: "战争冲突", terrorism: "恐怖主义", weapons: "武器枪械",
+  gore_violence: "血腥暴力", disasters: "火灾/洪水/地震等灾难"
+};
+function _soCatLabel(cat) {
+  return _SO_CAT_LABELS[cat] || cat;
 }
 
 function renderDimensionBars(scores, container, compact) {
@@ -414,36 +429,47 @@ function renderResult(data) {
   el.latencyText.textContent = `${Math.round(data.elapsed_ms || 0)} ms`;
   el.detailText.textContent = data.explanation || text.noDetail;
 
-  if (isSuperOversightDomain(data)) {
-    // 超监管领域：分类器确认内容属于战争/暴恐/枪械/暴力等高危类别
+  var isSO = isSuperOversightDomain(data);
+  var isHC = isHighConfidenceFake(data);
+
+  // 超监管领域高危 banner（独立判定）
+  if (isSO) {
     el.superOversightBanner.style.display = "";
     el.soBannerTitle.textContent = "超监管领域高危 · 建议立即复核";
-    el.soBannerText.textContent = "分类器确认图像内容属于超监管领域（战争/暴恐/枪械/暴力等），且检测为高置信AIGC伪造，建议立即标记并上报平台超监管流程处置。";
-    el.reviewSuggestion.style.display = "";
-    el.reviewText.textContent = text.soReviewText;
-    el.dimensionViz.style.display = "";
-    renderDimensionBars(data.dimension_scores || {}, el.dimBars, false);
-    el.verdictBlock.classList.add("super-oversight-active");
-    el.labelText.textContent = "超监管领域高危";
-    el.soFakeProbVal.textContent = asPercent(fakeProb);
-    el.soRiskScoreVal.textContent = asPercent(riskScore);
-    el.soTotalScore.textContent = asPercent(riskScore);
-  } else if (isHighConfidenceFake(data)) {
-    // 高置信伪造（非超监管领域）：维持当前措辞
-    el.superOversightBanner.style.display = "";
-    el.soBannerTitle.textContent = "高置信伪造 · 建议加急复核";
-    el.soBannerText.textContent = "高置信伪造：伪造概率≥90%且综合风险为高，建议加急人工复核。如内容涉严重危害，请按平台超监管流程上报。";
-    el.reviewSuggestion.style.display = "";
-    el.reviewText.textContent = text.soReviewText;
-    el.dimensionViz.style.display = "";
-    renderDimensionBars(data.dimension_scores || {}, el.dimBars, false);
-    el.verdictBlock.classList.add("super-oversight-active");
-    el.labelText.textContent = text.soVerdictLabel;
-    el.soFakeProbVal.textContent = asPercent(fakeProb);
-    el.soRiskScoreVal.textContent = asPercent(riskScore);
-    el.soTotalScore.textContent = asPercent(riskScore);
+    el.soBannerText.textContent = "内容分类器确认该 AIGC 图像属于超监管领域（战争/暴恐/枪械/暴力/灾难等），建议立即标记并上报平台超监管流程处置。";
+    el.soCategoryVal.textContent = _soCatLabel(data.content_category) || data.content_category || "--";
+    el.soScoreVal.textContent = asPercent(data.super_oversight_score || 0);
   } else {
     el.superOversightBanner.style.display = "none";
+  }
+
+  // 高置信伪造 banner（独立判定）
+  if (isHC) {
+    el.highConfidenceBanner.style.display = "";
+    el.hcBannerTitle.textContent = "高置信伪造 · 建议加急复核";
+    el.hcBannerText.textContent = "高置信伪造：伪造概率≥90%且综合风险为高，建议加急人工复核。如内容涉严重危害，请按平台超监管流程上报。";
+    el.hcFakeProbVal.textContent = asPercent(fakeProb);
+    el.hcRiskScoreVal.textContent = asPercent(riskScore);
+  } else {
+    el.highConfidenceBanner.style.display = "none";
+  }
+
+  if (isSO || isHC) {
+    el.reviewSuggestion.style.display = "";
+    // 按判定组合选择差异化复核建议
+    if (isSO && isHC) {
+      el.reviewText.textContent = text.reviewBoth;
+    } else if (isSO) {
+      el.reviewText.textContent = text.reviewSO;
+    } else {
+      el.reviewText.textContent = text.reviewHC;
+    }
+    el.dimensionViz.style.display = "";
+    renderDimensionBars(data.dimension_scores || {}, el.dimBars, false);
+    el.verdictBlock.classList.add("super-oversight-active");
+    el.labelText.textContent = isSO ? "超监管领域高危" : text.soVerdictLabel;
+    el.soTotalScore.textContent = asPercent(riskScore);
+  } else {
     el.reviewSuggestion.style.display = "none";
     el.dimensionViz.style.display = "none";
     el.verdictBlock.classList.remove("super-oversight-active");
@@ -917,24 +943,26 @@ function renderFunnelResults() {
 
   clearResultArea();
 
-  // --- 统计面板 ---
+  // --- 统计面板（超监管与高置信独立计数，可重叠）---
   var soCount = 0, highConf = 0, fakeCount = 0, tamperCount = 0, reviewCount = 0;
   s.sortedFlagged.forEach(function (entry) {
-    var rank = severityRank(entry.data);
-    if (rank === 0) soCount++;
-    if (rank === 1) highConf++;
+    if (isSuperOversightDomain(entry.data)) soCount++;
+    if (isHighConfidenceFake(entry.data)) highConf++;
     if (entry.data.label === "fake") fakeCount++;
-    if (rank === 3) tamperCount++;
+    if (isLocalTamper(entry.data)) tamperCount++;
+    var rank = severityRank(entry.data);
     if (rank === 4) reviewCount++;
   });
 
   el.batchTotalCount.textContent = String(s.total);
   el.batchPassedCount.textContent = String(s.passed.length);
   el.batchFlaggedCount.textContent = String(s.flagged.length);
-  el.batchHighConfCount.textContent = String(soCount + highConf);
+  el.batchSoCount.textContent = String(soCount);
+  el.batchHighConfCount.textContent = String(highConf);
   el.batchErrorCount.textContent = String(s.errors);
   el.batchBreakdown.textContent =
     (soCount > 0 ? "超监管高危 " + soCount + " · " : "") +
+    (highConf > 0 ? "高置信伪造 " + highConf + " · " : "") +
     "AIGC 伪造 " + fakeCount + " · 局部篡改 " + tamperCount + " · 需复核真图 " + reviewCount;
 
   if (s.interrupted) {
@@ -1067,19 +1095,33 @@ function createResultCard(entry, displayIndex) {
   verdict.className = "card-verdict";
   verdict.textContent = text.label[label] || label;
 
-  var rank = severityRank(result);
-  var rankLabelText = text.rankLabel[rank];
   var badges = document.createElement("div");
   badges.className = "card-badges";
   badges.appendChild(verdict);
 
-  // 仅当 rank 标签与 verdict 标签不同时才显示 rank badge，
-  // 否则会出现 "AIGC 伪造" + "AIGC 伪造" 的重复
-  if (rankLabelText !== verdict.textContent) {
-    var rankBadge = document.createElement("span");
-    rankBadge.className = "card-rank-badge" + (rank <= 1 ? " rank-hot" : "");
-    rankBadge.textContent = rankLabelText;
-    badges.appendChild(rankBadge);
+  // 两条独立判定链可同时显示 badge
+  if (isSO) {
+    var soBadge = document.createElement("span");
+    soBadge.className = "card-rank-badge rank-hot";
+    soBadge.textContent = text.rankLabel[0];  // "超监管高危"
+    badges.appendChild(soBadge);
+  }
+  if (isHighConf) {
+    var hcBadge = document.createElement("span");
+    hcBadge.className = "card-rank-badge rank-hot";
+    hcBadge.textContent = text.rankLabel[1];  // "高置信伪造"
+    badges.appendChild(hcBadge);
+  }
+  // fallback: 非超监管、非高置信时，按 severityRank 显示一个标签
+  if (!isSO && !isHighConf) {
+    var rank = severityRank(result);
+    var rankLabelText = text.rankLabel[rank];
+    if (rankLabelText !== verdict.textContent) {
+      var rankBadge = document.createElement("span");
+      rankBadge.className = "card-rank-badge";
+      rankBadge.textContent = rankLabelText;
+      badges.appendChild(rankBadge);
+    }
   }
 
   meta.appendChild(nameEl);

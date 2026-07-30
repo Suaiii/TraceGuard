@@ -158,6 +158,11 @@ class ReportAgent:
         )
         summary["high_confidence_fake"] = is_high_confidence_fake
 
+        # 超监管领域标记（独立于高置信判定，label==fake 且分类器确认）
+        summary["content_category"] = result.get("content_category", "unavailable")
+        summary["is_super_oversight_domain"] = result.get("is_super_oversight_domain", False)
+        summary["super_oversight_score"] = round(result.get("super_oversight_score", 0), 4)
+
         return SINGLE_REPORT_PROMPT.format(
             result_json=json.dumps(summary, ensure_ascii=False, indent=2)
         )
@@ -177,6 +182,11 @@ class ReportAgent:
             and r.get("fake_prob", 0) >= 0.9
             and r.get("risk_level") == "high"
         )
+        super_oversight_count = sum(
+            1 for r in results
+            if r.get("label") == "fake"
+            and r.get("is_super_oversight_domain", False) is True
+        )
 
         stats = {
             "total": total,
@@ -187,6 +197,7 @@ class ReportAgent:
             "medium_risk_count": medium_risk,
             "low_risk_count": low_risk,
             "high_confidence_fake_count": high_confidence_fake_count,
+            "super_oversight_count": super_oversight_count,
             "avg_fake_prob": round(
                 sum(r.get("fake_prob", 0) for r in results) / max(total, 1), 4
             ),
@@ -203,10 +214,11 @@ class ReportAgent:
                 "note": "本列表仅为筛查漏斗的待处置子集，已剔除判定为真实且低风险的通过项；统计不代表原始批次整体分布",
             }
 
-        # 高风险条目摘要 (最多 10 条)
+        # 高风险条目摘要 (最多 10 条) — 纳入高风险 + 超监管领域
         high_risk_items = []
         for i, r in enumerate(results):
-            if r.get("risk_level") == "high":
+            is_so = r.get("label") == "fake" and r.get("is_super_oversight_domain", False) is True
+            if r.get("risk_level") == "high" or is_so:
                 high_risk_items.append({
                     "index": i + 1,
                     "label": r.get("label"),
@@ -220,8 +232,24 @@ class ReportAgent:
                         r.get("label") == "fake"
                         and r.get("fake_prob", 0) >= 0.9
                     ),
+                    "is_super_oversight_domain": r.get("is_super_oversight_domain", False),
+                    "content_category": r.get("content_category", "unavailable"),
                 })
-        high_risk_items.sort(key=lambda x: x["risk_score"], reverse=True)
+        # 三级排序：超监管+高置信(0) → 纯超监管(1) → 纯高置信(2) → 其他高风险(3)
+        # 同级内按 risk_score 降序
+        def _sort_key(item):
+            is_so_item = item["is_super_oversight_domain"] and item["label"] == "fake"
+            is_hc_item = item["high_confidence_fake"]
+            if is_so_item and is_hc_item:
+                tier = 0
+            elif is_so_item:
+                tier = 1
+            elif is_hc_item:
+                tier = 2
+            else:
+                tier = 3
+            return (tier, -item["risk_score"])
+        high_risk_items.sort(key=_sort_key)
         high_risk_items = high_risk_items[:10]
 
         return BATCH_REPORT_PROMPT.format(

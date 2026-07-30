@@ -206,6 +206,7 @@ def create_app(
                         mask_b64="",
                         content_category="unavailable",
                         is_super_oversight_domain=False,
+                        super_oversight_score=0.0,
                         elapsed_ms=0,
                         metadata=Metadata(
                             heatmap_method="",
@@ -416,6 +417,7 @@ def _build_response(result: dict) -> AnalysisResponse:
         dimension_scores=DimensionScores(**result.get("dimension_scores", {})),
         content_category=result.get("content_category", "unavailable"),
         is_super_oversight_domain=result.get("is_super_oversight_domain", False),
+        super_oversight_score=result.get("super_oversight_score", 0.0),
         overlay_b64=result["overlay_b64"],
         mask_b64=result["mask_b64"],
         tamper_mask_b64=result.get("tamper_mask_b64"),
