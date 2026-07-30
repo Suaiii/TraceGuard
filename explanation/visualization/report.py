@@ -76,9 +76,11 @@ class ReportGenerator:
         dim_scores = result.get('dimension_scores', {})
         metadata = result.get('metadata', {})
 
-        # ---- 高置信伪造标记 ----
-        # 措辞红线：本系统只判断"图像是否 AIGC 生成/篡改"，管线输出没有内容类别
-        # 字段，因此不得声称检测到"超监管内容"（战争/恐怖主义/枪械等语义类别）。
+        # ---- 内容分类 / 超监管领域 ----
+        content_category = result.get('content_category', 'unavailable')
+        is_super_oversight = result.get('is_super_oversight_domain', False)
+        super_oversight_score = result.get('super_oversight_score', 0.0)
+
         is_high_confidence_fake = (
             label == 'fake' and fake_prob >= 0.9 and risk_level == 'high'
         )
@@ -128,7 +130,7 @@ class ReportGenerator:
 </div>
 
 <!-- ========== High-Confidence Fake Alert ========== -->
-{self._high_confidence_alert() if is_high_confidence_fake else ''}
+{self._high_confidence_alert(is_super_oversight=is_super_oversight, content_category=content_category) if is_high_confidence_fake else ''}
 
 <!-- ========== Key Metrics ========== -->
 <div class="metrics-banner">
@@ -248,12 +250,19 @@ class ReportGenerator:
         high_risk = sum(1 for r in results if r.get('risk_level') == 'high')
         medium_risk = sum(1 for r in results if r.get('risk_level') == 'medium')
         low_risk = sum(1 for r in results if r.get('risk_level') == 'low')
-        # 措辞红线：仅"高置信伪造"，本系统不具备内容语义分类能力
+        # 措辞红线：仅"高置信伪造"；超监管领域由内容分类器辅助确认
         high_confidence_fake_count = sum(
             1 for r in results
             if r.get('label') == 'fake'
             and r.get('fake_prob', 0) >= 0.9
             and r.get('risk_level') == 'high'
+        )
+        super_oversight_count = sum(
+            1 for r in results
+            if r.get('label') == 'fake'
+            and r.get('fake_prob', 0) >= 0.9
+            and r.get('risk_level') == 'high'
+            and r.get('is_super_oversight_domain', False) is True
         )
         # title/screening 由调用方注入（筛查子集报告）时，页眉计数口径改为"待处置"
         is_screening_subset = title is not None or screening is not None
@@ -301,10 +310,15 @@ class ReportGenerator:
 
             label_cls = 'fake-color' if label == 'fake' else 'real-color'
             risk_cls = f'risk-{risk_level}-text'
+            is_so = r.get('is_super_oversight_domain', False)
+            is_hc = label == 'fake' and fake_prob >= 0.9 and risk_level == 'high'
             row_cls = ''
             so_prefix = ''
-            if label == 'fake' and fake_prob >= 0.9 and risk_level == 'high':
+            if is_hc and is_so:
                 row_cls = ' class="row-super-oversight"'
+                so_prefix = '&#128737; '
+            elif is_hc:
+                row_cls = ' class="row-high-risk"'
                 so_prefix = '&#9888; '
             elif risk_level == 'high':
                 row_cls = ' class="row-high-risk"'
@@ -362,7 +376,7 @@ class ReportGenerator:
     <div class="metric-card">
         <div class="metric-label">风险等级</div>
         <div class="metric-value" style="color:var(--risk-high);">{high_risk} <span style="font-size:16px;color:var(--text-secondary);">/ {medium_risk} / {low_risk}</span></div>
-        <div class="metric-sub">高 / 中 / 低{f' &nbsp;|&nbsp; 高置信伪造 {high_confidence_fake_count}' if high_confidence_fake_count > 0 else ''}</div>
+        <div class="metric-sub">高 / 中 / 低{f' &nbsp;|&nbsp; 超监管高危 {super_oversight_count}' if super_oversight_count > 0 else ''}{f' &nbsp;|&nbsp; 高置信伪造 {high_confidence_fake_count}' if high_confidence_fake_count > 0 else ''}</div>
     </div>
 </div>
 
@@ -1103,22 +1117,39 @@ class ReportGenerator:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _high_confidence_alert(inline_style: str = '') -> str:
-        """高置信伪造横幅（label==fake 且 fake_prob>=0.9 且 risk_level==high）。
+    def _high_confidence_alert(inline_style: str = '',
+                               is_super_oversight: bool = False,
+                               content_category: str = '') -> str:
+        """高置信伪造 / 超监管领域高危横幅。
 
-        措辞红线：本系统只判断"图像是否 AIGC 生成/篡改"，没有内容类别输出，
-        因此横幅不得声称检测到"超监管内容"等语义类别；唯一允许出现"超监管"
-        的用户可见字符串是末尾的流程提示语（上报流程指引）。
+        分级逻辑：
+          - is_super_oversight==True：分类器确认内容属超监管领域（战争/暴恐/武器/
+            血腥/灾难），红色横幅提示"超监管领域高危 · 建议立即复核"。
+          - is_super_oversight==False：数值条件满足但分类器未确认超监管领域，
+            橙色横幅提示"高置信伪造 · 建议加急复核"。
         CSS 类名 so-alert / so-alert-icon / so-alert-text 为历史命名，保留不改。
         """
         style_attr = f' style="{inline_style}"' if inline_style else ''
-        return f'''<div class="so-alert"{style_attr}>
-        <span class="so-alert-icon">&#9888;</span>
-        <div class="so-alert-text">
-            <strong>高置信伪造 · 建议加急复核</strong>
-            <p>该图像伪造概率极高且综合风险为高风险等级，建议立即标记并优先人工复核。如内容涉严重危害，请按平台超监管流程上报。</p>
-        </div>
-    </div>'''
+
+        if is_super_oversight:
+            # 超监管领域高危
+            cat_display = _SO_CATEGORY_LABELS.get(content_category, content_category)
+            return f'''<div class="so-alert"{style_attr}>
+            <span class="so-alert-icon">&#128737;</span>
+            <div class="so-alert-text">
+                <strong>超监管领域高危 · 建议立即复核</strong>
+                <p>该图像经检测为高置信 AIGC 伪造，且内容分类器确认属于超监管领域（{cat_display}）。建议立即标记并优先启动人工复核流程。如内容涉严重危害，请按平台超监管流程上报。</p>
+            </div>
+        </div>'''
+        else:
+            # 高置信伪造（非超监管领域）
+            return f'''<div class="so-alert"{style_attr}>
+            <span class="so-alert-icon">&#9888;</span>
+            <div class="so-alert-text">
+                <strong>高置信伪造 · 建议加急复核</strong>
+                <p>该图像伪造概率极高且综合风险为高风险等级，建议立即标记并优先人工复核。如内容涉严重危害，请按平台超监管流程上报。</p>
+            </div>
+        </div>'''
 
     @staticmethod
     def _llm_callout(text: str) -> str:
@@ -1192,8 +1223,15 @@ class ReportGenerator:
             explanation = r.get('explanation', '')
             explanation_brief = r.get('explanation_brief', '')
 
+            is_super_oversight = r.get('is_super_oversight_domain', False)
             is_high_confidence_fake = (label == 'fake' and fake_prob >= 0.9)
-            so_mark = ' &#9888; 高置信伪造' if is_high_confidence_fake else ''
+
+            if is_high_confidence_fake and is_super_oversight:
+                so_mark = ' &#128737; 超监管高危'
+            elif is_high_confidence_fake:
+                so_mark = ' &#9888; 高置信伪造'
+            else:
+                so_mark = ''
 
             # 4 evidence images side by side
             img_row = f'''<div class="img-row-4">
@@ -1255,7 +1293,11 @@ class ReportGenerator:
             # 与单图报告共用同一方法，避免两处文案漂移
             so_alert = ''
             if is_high_confidence_fake:
-                so_alert = self._high_confidence_alert('margin-bottom:10px;')
+                so_alert = self._high_confidence_alert(
+                    'margin-bottom:10px;',
+                    is_super_oversight=is_super_oversight,
+                    content_category=r.get('content_category', ''),
+                )
 
             cards += f'''<div class="high-risk-detail-card">
         <h3>#{idx}{so_mark} — {LABELS.get(label, label)} | 伪造概率 {fake_prob:.3f} | 综合风险 {risk_score:.2f} | {RISK_LABELS.get(risk_level, risk_level)} | 可疑区域 {bbox_count} 处</h3>
@@ -1360,4 +1402,12 @@ RISK_LABELS = {
     'medium': '中风险',
     'high': '高风险',
     'error': '错误',
+}
+
+_SO_CATEGORY_LABELS = {
+    'warfare': '战争冲突',
+    'terrorism': '恐怖主义',
+    'weapons': '武器枪械',
+    'gore_violence': '血腥暴力',
+    'disasters': '火灾/洪水/地震等灾难',
 }
