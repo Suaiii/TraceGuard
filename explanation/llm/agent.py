@@ -235,7 +235,21 @@ class ReportAgent:
                     "is_super_oversight_domain": r.get("is_super_oversight_domain", False),
                     "content_category": r.get("content_category", "unavailable"),
                 })
-        high_risk_items.sort(key=lambda x: x["risk_score"], reverse=True)
+        # 三级排序：超监管+高置信(0) → 纯超监管(1) → 纯高置信(2) → 其他高风险(3)
+        # 同级内按 risk_score 降序
+        def _sort_key(item):
+            is_so_item = item["is_super_oversight_domain"] and item["label"] == "fake"
+            is_hc_item = item["high_confidence_fake"]
+            if is_so_item and is_hc_item:
+                tier = 0
+            elif is_so_item:
+                tier = 1
+            elif is_hc_item:
+                tier = 2
+            else:
+                tier = 3
+            return (tier, -item["risk_score"])
+        high_risk_items.sort(key=_sort_key)
         high_risk_items = high_risk_items[:10]
 
         return BATCH_REPORT_PROMPT.format(
