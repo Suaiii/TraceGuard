@@ -85,7 +85,7 @@ class ReportGenerator:
             label == 'fake' and fake_prob >= 0.9 and risk_level == 'high'
         )
         is_super_oversight = (
-            label == 'fake' and is_super_oversight_domain is True
+            label == 'fake' and is_super_oversight is True
         )
 
         # ---- LLM 研判 ----

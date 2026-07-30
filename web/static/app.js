@@ -151,7 +151,10 @@ const text = {
   expandLabel: "展开 ▼",
   collapseLabel: "收起 ▲",
   soVerdictLabel: "高置信伪造",
-  soReviewText: "该图像在伪造概率和综合风险两个维度均达到最高警戒级别。建议：(1) 对照原始来源核实图像真实性；(2) 检查元数据中的编辑痕迹；(3) 交叉验证传播链路中其他副本的检测结果。如确认为 AIGC 伪造，应立即标记并限制传播。",
+  // 人工复核建议 - 按判定组合差异化
+  reviewBoth: "该图像伪造概率≥90%、综合风险为高风险，且内容分类器确认属于超监管领域。建议：(1) 立即标记并优先启动人工复核；(2) 对照原始来源核实图像真实性；(3) 检查元数据与传播链路。如确认为超监管领域 AIGC 伪造，应立即限制传播并按平台超监管流程上报。",
+  reviewSO: "内容分类器确认该 AIGC 图像属于超监管领域。建议：(1) 对照原始来源核实图像内容真伪；(2) 检查元数据中的编辑痕迹；(3) 交叉验证传播链路。如确认内容属实且属 AIGC 伪造，应限制传播并按平台超监管流程上报。",
+  reviewHC: "该图像伪造概率≥90%且综合风险为高风险。建议：(1) 对照原始来源核实图像真实性；(2) 检查元数据中的编辑痕迹；(3) 交叉验证传播链路中其他副本的检测结果。如确认为 AIGC 伪造，应立即标记并限制传播。",
   soCardReview: "高置信伪造：伪造概率≥90%且综合风险为高，建议加急人工复核。",
   // 如内容确属超监管领域（经分类器确认），请按平台超监管流程上报。
   soProcessTip: "如内容涉严重危害，请按平台超监管流程上报。",
@@ -453,7 +456,14 @@ function renderResult(data) {
 
   if (isSO || isHC) {
     el.reviewSuggestion.style.display = "";
-    el.reviewText.textContent = text.soReviewText;
+    // 按判定组合选择差异化复核建议
+    if (isSO && isHC) {
+      el.reviewText.textContent = text.reviewBoth;
+    } else if (isSO) {
+      el.reviewText.textContent = text.reviewSO;
+    } else {
+      el.reviewText.textContent = text.reviewHC;
+    }
     el.dimensionViz.style.display = "";
     renderDimensionBars(data.dimension_scores || {}, el.dimBars, false);
     el.verdictBlock.classList.add("super-oversight-active");
