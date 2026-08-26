@@ -113,7 +113,7 @@ SECTION_HEADINGS = OrderedDict([
     ("第五章", "第五章 总结"),
     ("参考文献", "参考文献"),
 ])
-PROJECT_TITLE = "TraceGuard：面向跨域 AIGC 图像的可解释伪造检测与篡改取证平台"
+PROJECT_TITLE = "TraceGuard:面向社交媒体网络传播的 可解释 AIGC 图像取证平台"
 
 
 def split_report_sections(path):

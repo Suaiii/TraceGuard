@@ -103,7 +103,7 @@
   {\heiti\zihao{3}
   \renewcommand{\arraystretch}{1.5} % 优雅控制行高，替代手动加 \\[0.9cm]
   \begin{tabular}{@{} l @{\quad} l @{}}
-    作品名称： & \underline{\makebox[\ulwidth][l]{TraceGuard：面向社交媒体网络传播的}} \\
+    作品名称： & \underline{\makebox[\ulwidth][l]{TraceGuard:面向社交媒体网络传播的}} \\
                & \underline{\makebox[\ulwidth][l]{可解释 AIGC 图像取证平台}} \\[0.3cm]
     作品类型： & \underline{\makebox[\ulwidth][l]{开放式自由命题}} \\
     电子邮箱： & \underline{\makebox[\ulwidth][l]{Suaiiiiii9292@Gmail.com}} \\
@@ -907,7 +907,7 @@ Dice / Pixel F1 & 0.0286 & 像素 Recall & 0.1360 \\
 \toprule
 \textbf{验收项} & \textbf{环境或输入} & \textbf{结果} & \textbf{解释边界} \\
 \midrule
-自动化回归 & GPU 运行环境 & 216/216 通过 & 验证代码行为，不替代模型泛化实验 \\
+自动化回归 & GPU 运行环境 & 213/216 通过（3 项环境/构建问题） & 验证代码行为，不替代模型泛化实验 \\
 健康检查 & \texttt{GET /api/v1/health} & 200，\texttt{model\_loaded=true}，CUDA 可用 & 单机启动状态 \\
 单图分析 & 真实权重与固定 BigGAN 样例 & 200；全局 \texttt{label} 与局部 \texttt{tamper\_type} 分栏返回 & 单样例合同验收 \\
 桌面浏览器 & 1440×1000 & 上传、分析、证据展示通过，控制台 0 错误 & 非压力测试 \\
@@ -982,7 +982,7 @@ MK-MMD 域自适应使检测器习得域不变特征表示（见\ref{sec:innovat
 
 \subsection{轻量化部署与平台化工程闭环}
 
-约 45.44M 参数的模型已在 RTX 4060 Laptop GPU 上完成 Web 闭环验证，12 请求并发烟测全部成功，中位延迟为 $0.520$ 秒（见\cref{tab:table39}）。Web、FastAPI、CLI 与批量分析四个入口共享同一 \texttt{ExplanationPipeline} 实例与统一输出合同（字段、类型、语义三统一），前端与脚本均不重新计算真伪结论。全量自动化测试共计 216 项全部通过，覆盖检测、热力图、定位、风险评估、推理管线、报告生成及提交包装等模块，确保系统迭代过程中输出合同不会被静默破坏。
+约 45.44M 参数的模型已在 RTX 4060 Laptop GPU 上完成 Web 闭环验证，12 请求并发烟测全部成功，中位延迟为 $0.520$ 秒（见\cref{tab:table39}）。Web、FastAPI、CLI 与批量分析四个入口共享同一 \texttt{ExplanationPipeline} 实例与统一输出合同（字段、类型、语义三统一），前端与脚本均不重新计算真伪结论。当前工作区全量自动化测试共计 216 项，实测 213 项通过、3 项失败（批量 CLI 帮助子进程超时 2 项、提交包装测试缺少构建目录 1 项），覆盖检测、热力图、定位、风险评估、推理管线、报告生成及提交包装等模块；该结果不应表述为 216/216 全部通过。
 
 % ===================== 第五章 =====================
 \section{总结}
