@@ -6,7 +6,7 @@ from pathlib import Path
 from docx import Document
 
 
-PROJECT_TITLE = "TraceGuard：面向跨域 AIGC 图像的可解释伪造检测与篡改取证平台"
+PROJECT_TITLE = "TraceGuard:面向社交媒体网络传播的 可解释 AIGC 图像取证平台"
 
 
 def build_statement(template_path: Path, output_path: Path) -> None:

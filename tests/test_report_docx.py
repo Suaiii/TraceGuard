@@ -38,7 +38,7 @@ def test_build_report_preserves_template_sections_and_inserts_evidence(tmp_path)
     document = Document(output)
     text = "\n".join(paragraph.text for paragraph in document.paragraphs)
     assert len(document.sections) == 10
-    assert "TraceGuard：面向跨域 AIGC 图像的可解释伪造检测与篡改取证平台" in text
+    assert "TraceGuard:面向社交媒体网络传播的 可解释 AIGC 图像取证平台" in text
     assert "本部分内容主要说明作品的创新性" not in text
     assert len(document.inline_shapes) >= 6
     assert all(

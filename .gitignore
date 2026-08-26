@@ -143,6 +143,9 @@ best.pth
 *.doc
 tmp_*
 
+# Local delivery package and signed/submission materials; keep report sources in reports/.
+作品/
+
 # --- LaTeX build artifacts (Overleaf 主稿在 docs/restructure/，本地编译会产生一堆中间件) ---
 *.aux
 *.fls
